@@ -1,0 +1,23 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "ai diagnosis frontend",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/philipliucodes/ai-diagnosis.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/philipliucodes/ai-diagnosis/issues"
+  },
+  "homepage": "https://github.com/philipliucodes/ai-diagnosis#readme",
+  "dependencies": {
+    "browserify": "^17.0.1",
+    "showdown": "^2.1.0"
+  }
+}

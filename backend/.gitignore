@@ -1,0 +1,83 @@
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependency directories
+node_modules/
+bower_components/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+env/
+venv/
+ENV/
+.venv/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+target/
+
+# C/C++
+*.o
+*.obj
+*.so
+*.exe
+*.out
+
+# macOS/Linux temporary files
+*.swp
+*.swo
+*~
+
+# Build directories
+build/
+dist/
+bin/
+debug/
+release/
+
+# VS Code settings
+.vscode/
+
+# JetBrains IDEs
+.idea/
+
+# Environment variables
+.env
+.env.*
+
+# Backup files
+*.bak
+*.tmp
+
+# Coverage and test outputs
+coverage/
+*.cover
+*.lcov
+.nyc_output/
+
+# Git itself
+.git/
+
+# Ignore anything personal
+*.iml
+*.sublime-workspace
+*.sublime-project
+
+# Project-specific: ignore data and output directories
+data/
+output/
+img_store/
