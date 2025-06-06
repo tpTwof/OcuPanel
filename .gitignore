@@ -274,4 +274,3 @@ coverage/
 
 # Project-specific: ignore data and output directories
 data/
-output/
