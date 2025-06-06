@@ -61,15 +61,72 @@ def segment_optic_disc_cup(image_path: str):
 
     return overlaid_image  # Returns the processed image with segmentation overlay
 
+    """
+    def segment_optic_disc_cup(image_path: str, save_path: str = None) -> np.ndarray:
+
+    # Load and convert image to RGB
+    image = cv2.imread(image_path)
+    if image is None:
+        raise FileNotFoundError(f"Image file not found: {image_path}")
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Load processor and model
+    processor = AutoImageProcessor.from_pretrained("pamixsun/segformer_for_optic_disc_cup_segmentation")
+    model = SegformerForSemanticSegmentation.from_pretrained("pamixsun/segformer_for_optic_disc_cup_segmentation")
+
+    # Prepare model input
+    inputs = processor(image, return_tensors="pt")
+
+    # Inference
+    with torch.no_grad():
+        logits = model(**inputs).logits.cpu()
+
+    # Resize logits to match original image
+    upsampled_logits = nn.functional.interpolate(
+        logits,
+        size=image.shape[:2],
+        mode="bilinear",
+        align_corners=False,
+    )
+
+    # Get prediction mask
+    pred_mask = upsampled_logits.argmax(dim=1)[0].numpy().astype(np.uint8)
+
+    # Create a copy of the original image for overlay
+    overlay = image.copy()
+
+    # Create masks
+    red_mask = (pred_mask == 1)  # Optic disc
+    green_mask = (pred_mask == 2)  # Optic cup
+
+    # Blend only segmented areas
+    if np.any(red_mask):
+        red_overlay = np.tile(np.array([[255, 0, 100]], dtype=np.uint8), (np.count_nonzero(red_mask), 1))
+        overlay[red_mask] = cv2.addWeighted(image[red_mask], 0.5, red_overlay, 0.5, 0)
+
+    if np.any(green_mask):
+        green_overlay = np.tile(np.array([[0, 255, 0]], dtype=np.uint8), (np.count_nonzero(green_mask), 1))
+        overlay[green_mask] = cv2.addWeighted(image[green_mask], 0.5, green_overlay, 0.5, 0)
+
+    # Save result if specified
+    if save_path:
+        plt.imsave(save_path, overlay)
+        print(f"Segmented image saved at: {save_path}")
+
+    return overlay
+    """
+
 def calculate_cup_to_disc_ratio(image_path: str) -> float:
     """
-    Loads a fundus image, applies segmentation, and computes the cup-to-disc pixel ratio.
+    Loads a fundus image, applies segmentation, and computes the cup-to-disc ratio (CDR)
+    as the ratio of the square roots of the optic cup and optic disc pixel areas,
+    approximating the diameter ratio.
 
     Args:
         image_path (str): Path to the fundus image.
 
     Returns:
-        float: Ratio of optic cup pixels to optic disc pixels.
+        float: Estimated CDR (cup diameter / disc diameter) as a ratio (0 to 1).
     """
     
     # Load and preprocess the image
@@ -102,15 +159,15 @@ def calculate_cup_to_disc_ratio(image_path: str) -> float:
     # Get the segmentation mask
     pred_mask = upsampled_logits.argmax(dim=1)[0].numpy()
 
-    # Count pixels
     cup_pixels = np.sum(pred_mask == 2)
     disc_pixels = np.sum(pred_mask == 1)
 
     if disc_pixels == 0:
         raise ValueError("No optic disc detected in image.")
 
-    ratio = cup_pixels / disc_pixels
-    return ratio * 100  # Return as percentage
+    total_disc_pixels = disc_pixels + cup_pixels
+    cdr = np.sqrt(cup_pixels) / np.sqrt(total_disc_pixels)
+    return cdr
 
 # === Example Usage ===
 if __name__ == "__main__":
@@ -133,5 +190,5 @@ if __name__ == "__main__":
     plt.imshow(segmented_image)
     plt.title("Optic Disc & Cup Segmentation Overlay")
     plt.axis("off")
-    plt.show()"
+    plt.show()
     """
