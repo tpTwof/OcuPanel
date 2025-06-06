@@ -75,4 +75,4 @@ This project is released under the **MIT License** (see `LICENSE`).
 ---
 
 ## Contact
-For questions or collaboration requests, please open an issue or email. 
+For questions or collaboration requests, please open an issue or email (m2lab.purdue@gmail.com). 
