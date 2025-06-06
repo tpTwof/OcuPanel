@@ -364,13 +364,15 @@ textarea {
 
 /* Scrollable Modal Body */
 .modal-body {
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 32px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
+  max-height: calc(100vh - 60px);
 }
 
 /* Two Centered Rows */
@@ -396,9 +398,10 @@ textarea {
 }
 
 .team-member img {
-  width: 100%;
+  width: auto;
   border-radius: 6px;
   object-fit: cover;
+  height: 150px;
 }
 
 .team-member figcaption {
@@ -411,9 +414,15 @@ textarea {
   background: #f5f5f5;
   padding: 12px;
   border-radius: 4px;
-  overflow-x: auto;
   font-size: 0.85rem;
+  overflow-x: auto;
   margin: 16px 0;
+  width: 100%;
+  max-width: 800px;
+  white-space: pre-wrap;     /* allow wrapping */
+  word-break: break-word;    /* break long lines */
+  overflow: visible;         /* allow the modal to scroll, not the pre */
+  text-align: left;
 }
 
 .modal-body code.language-bibtex {
@@ -423,4 +432,25 @@ textarea {
 .modal-body pre,
 .modal-body code {
   text-align: left;
+}
+
+.funding {
+  padding-left: 20%;
+  padding-right: 20%;
+  padding-bottom: 30px;
+}
+
+.funding-row {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
+}
+
+.funding-row img {
+  height: 90px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
