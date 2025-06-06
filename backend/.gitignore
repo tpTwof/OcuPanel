@@ -79,5 +79,5 @@ coverage/
 
 # Project-specific: ignore data and output directories
 data/
-output/
-img_store/
+output/*
+img_store/*

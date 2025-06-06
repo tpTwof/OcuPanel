@@ -5178,8 +5178,8 @@ const overlay = document.getElementById('loading-overlay');
 // const form = document.getElementById("test");
 
 const aboutLink = document.getElementById('aboutLink');
-const modal = document.getElementById('aboutModal');
-const closeBtn = modal.querySelector('.close');
+// const modal = document.getElementById('aboutModal');
+// const closeBtn = modal.querySelector('.close');
 
 // Uploaded file tracking
 let uploadedFiles = null;
@@ -5547,13 +5547,22 @@ function downloadReportAsPDF() {
 // TODO: Generation report does not add LLM queries and answers
 downloadPdfBtn.addEventListener("click", downloadReportAsPDF);
 
-aboutLink.onclick = e => {
-  e.preventDefault();
-  modal.style.display = 'flex';
-};
-closeBtn.onclick = () => modal.style.display = 'none';
-window.onclick = e => {
-  if (e.target === modal) modal.style.display = 'none';
-};
+// aboutLink.onclick = e => {
+//   e.preventDefault();
+//   modal.style.display = 'flex';
+// };
+// closeBtn.onclick = () => modal.style.display = 'none';
+// window.onclick = e => {
+//   if (e.target === modal) modal.style.display = 'none';
+// };
 
+aboutLink.addEventListener("click", (e) => {
+  e.preventDefault();
+  document.getElementById("aboutModal").style.display = "block";
+});
+
+document.getElementById('closeAbout').onclick = (e) => {
+  e.preventDefault();
+  document.getElementById('aboutModal').style.display = 'none';
+};
 },{"showdown":1}]},{},[2]);
