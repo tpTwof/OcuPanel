@@ -1,7 +1,7 @@
 # MedChat
 
 > Philip Liu, Sparsh Bansal, Jimmy Dinh, Aditya Pawar, Ramani Satishkumar, Shail Desai, Neeraj Gupta, Xin Wang, Shu Hu  
-> Purdue University · University at Albany, SUNY  
+
 
 A modular framework that uses modern vision back-ends with **role-specialised LLM agents** to draft glaucoma diagnostic reports from retinal fundus images. The core idea is for each agent to focus on a narrow clinical role, while a *Director* agent synthesises their opinions into a concise, clinically-grounded report.
 
