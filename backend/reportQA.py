@@ -18,8 +18,10 @@ class MedicalReportGenerator:
             "role": "system",
             "content": "You are a medical AI assistant answering questions after reviewing diagnostic reports."
         }
+        self.chat_history = []
+        self.messages = [self.system_prompt]
 
-    def chat_with_gpt(self, user_message, reset=True):
+    def chat_with_gpt(self, user_message, conversation=False, reset=True):
         """Talk to GPT with optional context reset"""
         try:
             if reset:
@@ -38,6 +40,10 @@ class MedicalReportGenerator:
 
             if not reset:
                 self.messages.append({"role": "assistant", "content": reply})
+                
+            if (conversation):
+                self.chat_history.append({"role": "user", "content": user_message})
+                self.chat_history.append({"role": "assistant", "content": reply})
 
             return reply
         except Exception as e:
@@ -92,7 +98,7 @@ class MedicalReportGenerator:
             f"any subreports. The report should be written in a professional, neutral tone suitable for a clinical team or patient record."
         )
 
-        return self.chat_with_gpt(director_prompt, reset=True)
+        return self.chat_with_gpt(director_prompt, reset=False)
 
     def generate_pdf_report(self, image_path, cup_to_disc_ratio, synthesis_text, output_path="output/diagnostic_report.pdf"):
         """Generate a professional PDF report"""
@@ -128,6 +134,30 @@ class MedicalReportGenerator:
                 pdf.ln(4)
             else:
                 pdf.multi_cell(0, 10, line)
+                
+        if (len(self.chat_history) > 0):        
+            pdf.ln(5)
+            pdf.set_font("Arial", 'B', 14)
+            pdf.cell(0, 10, "Chat History", ln=True)
+                    
+            for message in self.chat_history:
+                if (message["role"] == "user"):
+                    pdf.ln(4)
+                    pdf.set_font("Arial", 'B', 12)
+                    pdf.cell(0, 10, "You:", ln=True)
+                else:
+                    pdf.ln(4)
+                    pdf.set_font("Arial", 'B', 12)
+                    pdf.cell(0, 10, "AI:", ln=True)
+                    
+                pdf.set_font("Arial", '', 12)
+                synthesis_text = replace_unicode_chars(message["content"])
+                lines = synthesis_text.strip().split('\n')
+                for line in lines:
+                    if line.strip() == "":
+                        pdf.ln(4)
+                    else:
+                        pdf.multi_cell(0, 10, line)
 
         pdf.ln(10)
         pdf.set_font("Arial", 'I', 10)

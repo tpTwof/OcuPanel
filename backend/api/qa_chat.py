@@ -14,7 +14,7 @@ async def chat(request: Request, body: ChatRequest):
         request.app.state.report_generators[str(body.user_id)][1] = datetime.now() + timedelta(seconds=request.app.state.EXPIRY_SECONDS)
 
     # Use the parsed body directly
-    response = report_generator.chat_with_gpt(body.message, conversation=True)
+    response = report_generator.chat_with_gpt(body.message, conversation=True, reset=False)
     return ChatResponse(response=response)
 
 @chat_router.post("/chat/reset/")
