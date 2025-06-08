@@ -415,13 +415,13 @@ textarea {
   padding: 12px;
   border-radius: 4px;
   font-size: 0.85rem;
-  overflow-x: auto;
+  overflow-x: auto;         /* Enable horizontal scroll */
+  overflow-y: hidden;       /* Prevent vertical scroll */
   margin: 16px 0;
   width: 100%;
   max-width: 800px;
-  white-space: pre-wrap;     /* allow wrapping */
-  word-break: break-word;    /* break long lines */
-  overflow: visible;         /* allow the modal to scroll, not the pre */
+  min-height: 150px;
+  white-space: pre;         /* Keep formatting and avoid line wrapping */
   text-align: left;
 }
 
