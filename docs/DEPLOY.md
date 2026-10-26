@@ -527,7 +527,7 @@ dmesg -T | grep -i "out of memory"
 ```bash
 sudo mkdir -p /var/backups/ocupanel
 sudo sqlite3 /opt/ocupanel/backend/medchat.db \
-  ".backup '/var/backups/ocupanel/medchat-$(date +%F).db'"
+  ".backup '/var/backups/ocupanel/ocupanel-$(date +%F).db'"
 # 保留 14 天
 sudo find /var/backups/ocupanel -name "*.db" -mtime +14 -delete
 ```
@@ -535,7 +535,7 @@ sudo find /var/backups/ocupanel -name "*.db" -mtime +14 -delete
 写成 crontab（`sudo crontab -e`）：
 
 ```
-20 3 * * * sqlite3 /opt/ocupanel/backend/medchat.db ".backup '/var/backups/ocupanel/medchat-$(date +\%F).db'"
+20 3 * * * sqlite3 /opt/ocupanel/backend/medchat.db ".backup '/var/backups/ocupanel/ocupanel-$(date +\%F).db'"
 30 3 * * * find /var/backups/ocupanel -name "*.db" -mtime +14 -delete
 ```
 
