@@ -225,7 +225,7 @@ cp .env.example .env
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-把上面输出的密钥填进 `.env` 的 `MEDCHAT_SECRET_KEY=`，然后按下面这份生产配置改：
+把上面输出的密钥填进 `.env` 的 `OCUPANEL_SECRET_KEY=`，然后按下面这份生产配置改：
 
 ```ini
 # ---- 监听 ----
@@ -244,7 +244,7 @@ LLM_MAX_RETRIES=1
 LLM_DISABLE_THINKING=1
 
 # ---- 这个必须配，否则重启后所有用户已存的 Key 全部解不开 ----
-MEDCHAT_SECRET_KEY=粘贴刚才生成的密钥
+OCUPANEL_SECRET_KEY=粘贴刚才生成的密钥
 
 # ---- 报告 ----
 REPORT_LANGUAGE=zh
@@ -339,17 +339,17 @@ npm run build          # 产出 frontend/dist
 # 1) 先停掉本地后端进程（Windows 下 sqlite 文件被占用时拷出来是残的）
 
 # 2) 拷数据库（本地 Git Bash 执行）
-scp backend/medchat.db ocupanel@<服务器IP>:/opt/ocupanel/backend/
+scp backend/ocupanel.db ocupanel@<服务器IP>:/opt/ocupanel/backend/
 
-# 3) 若本地存在 medchat.db-wal / medchat.db-shm，一并拷过去，否则可能丢最近几条写入
+# 3) 若本地存在 ocupanel.db-wal / ocupanel.db-shm，一并拷过去，否则可能丢最近几条写入
 ```
 
-**还有一件容易漏的事**：本地 `backend/.env` 里的 `MEDCHAT_SECRET_KEY` 必须和服务器上的一致，
+**还有一件容易漏的事**：本地 `backend/.env` 里的 `OCUPANEL_SECRET_KEY` 必须和服务器上的一致，
 否则库里那些加密的 API Key 全部解不开，用户得重新填一遍。
 
 ```bash
 # 服务器上确认属主
-chown ocupanel:ocupanel /opt/ocupanel/backend/medchat.db
+chown ocupanel:ocupanel /opt/ocupanel/backend/ocupanel.db
 ```
 
 不想搬数据就跳过这步，首次启动会自动建表。
@@ -397,7 +397,7 @@ journalctl -u ocupanel -f          # 看启动日志
 启动日志正常长这样：
 
 ```
-SQLite ready at /opt/ocupanel/backend/medchat.db（清理过期登录态 0 条）
+SQLite ready at /opt/ocupanel/backend/ocupanel.db（清理过期登录态 0 条）
 Serving frontend build from /opt/ocupanel/frontend/dist
 RAG gate selfcheck ok: {...}
 ```
@@ -526,7 +526,7 @@ dmesg -T | grep -i "out of memory"
 
 ```bash
 sudo mkdir -p /var/backups/ocupanel
-sudo sqlite3 /opt/ocupanel/backend/medchat.db \
+sudo sqlite3 /opt/ocupanel/backend/ocupanel.db \
   ".backup '/var/backups/ocupanel/ocupanel-$(date +%F).db'"
 # 保留 14 天
 sudo find /var/backups/ocupanel -name "*.db" -mtime +14 -delete
@@ -535,7 +535,7 @@ sudo find /var/backups/ocupanel -name "*.db" -mtime +14 -delete
 写成 crontab（`sudo crontab -e`）：
 
 ```
-20 3 * * * sqlite3 /opt/ocupanel/backend/medchat.db ".backup '/var/backups/ocupanel/ocupanel-$(date +\%F).db'"
+20 3 * * * sqlite3 /opt/ocupanel/backend/ocupanel.db ".backup '/var/backups/ocupanel/ocupanel-$(date +\%F).db'"
 30 3 * * * find /var/backups/ocupanel -name "*.db" -mtime +14 -delete
 ```
 
@@ -565,6 +565,6 @@ sudo systemctl restart ocupanel
 | PDF 中文是空框 | 服务器缺中文字体 | `apt install fonts-noto-cjk`，必要时设 `REPORT_FONT_PATH` |
 | 首次生成报告卡很久 | 正在下载模型 | 按第 5 节预下载；或换 `HF_ENDPOINT` |
 | 进程反复重启、日志无报错 | 被 OOM Killer 杀掉 | 加内存 / 换 8G 机器；确认没有开多 worker |
-| 用户填过的 Key 全部失效 | `MEDCHAT_SECRET_KEY` 变了 | 恢复原来的密钥，或让用户重填 |
+| 用户填过的 Key 全部失效 | `OCUPANEL_SECRET_KEY` 变了 | 恢复原来的密钥，或让用户重填 |
 | 报告里提示"无据可依"并拒答 | 引用校验没通过（正常防护，不是 bug） | 换个临床描述或补充信息重试；别去关 `VERIFY_ENABLED` |
 | 登录后过一段时间要重新登录 | 会话 7 天过期 | 正常行为 |

@@ -12,7 +12,7 @@
 安全：
 - 密码用 PBKDF2-HMAC-SHA256 + 每用户随机盐，迭代次数写在哈希串里，
   以后调高迭代不会让老密码失效。
-- LLM API Key 用 Fernet 对称加密后入库。密钥来自 `.env` 的 `MEDCHAT_SECRET_KEY`，
+- LLM API Key 用 Fernet 对称加密后入库。密钥来自 `.env` 的 `OCUPANEL_SECRET_KEY`，
   首次启动自动生成并写回；数据库文件被单独拿走也读不出明文 Key。
 """
 
@@ -32,7 +32,7 @@ from typing import Any, Iterator
 
 import config
 
-DB_PATH = Path(__file__).resolve().parent / "medchat.db"
+DB_PATH = Path(__file__).resolve().parent / "ocupanel.db"
 
 # PBKDF2 迭代次数：600k 是 OWASP 2023 对 SHA256 的建议值。
 # 登录一次约 0.1–0.2 秒，对交互无感，但把离线爆破成本抬高了几个数量级。
@@ -152,7 +152,7 @@ def _secret_key() -> bytes:
     写回 .env 而不是内存里临时生成 —— 否则重启后旧密钥解不开已存的 API Key，
     用户会看到"配置还在但调用失败"，比直接报错更难查。
     """
-    raw = os.getenv("MEDCHAT_SECRET_KEY", "").strip()
+    raw = os.getenv("OCUPANEL_SECRET_KEY", "").strip()
     if raw:
         try:
             return raw.encode()
@@ -165,19 +165,19 @@ def _secret_key() -> bytes:
     env_path = Path(__file__).resolve().parent / ".env"
     try:
         existing = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
-        if "MEDCHAT_SECRET_KEY" not in existing:
+        if "OCUPANEL_SECRET_KEY" not in existing:
             with env_path.open("a", encoding="utf-8") as fh:
                 if existing and not existing.endswith("\n"):
                     fh.write("\n")
                 fh.write(
                     "\n# 自动生成：用于加密用户 API Key。丢失＝已存的 Key 全部失效。\n"
-                    f"MEDCHAT_SECRET_KEY={generated}\n"
+                    f"OCUPANEL_SECRET_KEY={generated}\n"
                 )
-            print("[STORE] 已生成 MEDCHAT_SECRET_KEY 并写入 backend/.env", flush=True)
+            print("[STORE] 已生成 OCUPANEL_SECRET_KEY 并写入 backend/.env", flush=True)
     except OSError as exc:
         print(f"[STORE] 无法写入 .env（{exc}），本次使用临时密钥", flush=True)
 
-    os.environ["MEDCHAT_SECRET_KEY"] = generated
+    os.environ["OCUPANEL_SECRET_KEY"] = generated
     return generated.encode()
 
 

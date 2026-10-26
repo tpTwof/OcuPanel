@@ -26,9 +26,9 @@ backend/img_store/
 data/
 
 # ---- 本地数据库（含账户与加密后的 API Key，绝不提交）----
-backend/medchat.db
-backend/medchat.db-wal
-backend/medchat.db-shm
+backend/ocupanel.db
+backend/ocupanel.db-wal
+backend/ocupanel.db-shm
 *.db
 *.db-wal
 *.db-shm

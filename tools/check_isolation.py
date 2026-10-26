@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "backend" / "medchat.db"
+DB_PATH = Path(__file__).resolve().parent.parent / "backend" / "ocupanel.db"
 
 passed = 0
 failed = 0
@@ -244,7 +244,7 @@ def main():
         cleanup([uid_a, uid_b])
     else:
         print(f"\n测试账号已留在库里（{name_a} / {name_b}）。")
-        print("要清掉请重跑并加 --cleanup，或停了服务直接删 backend/medchat.db。")
+        print("要清掉请重跑并加 --cleanup，或停了服务直接删 backend/ocupanel.db。")
 
     return 0 if failed == 0 else 1
 

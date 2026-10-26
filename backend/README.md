@@ -59,14 +59,14 @@ cd backend
 
 ## 数据层
 
-没有引入 ORM，也没有额外的数据库服务，就是 `backend/medchat.db` 一个 SQLite 文件
+没有引入 ORM，也没有额外的数据库服务，就是 `backend/ocupanel.db` 一个 SQLite 文件
 （首次启动自动建表）。
 
 | 表 | 内容 | 说明 |
 |---|---|---|
 | `users` | 用户名、密码哈希、显示名 | PBKDF2-HMAC-SHA256，600k 迭代，每用户随机盐 |
 | `sessions` | 登录令牌 | 7 天 TTL，启动时清理过期项 |
-| `llm_configs` | 每人的 Base URL / 模型 / **加密后的 API Key** | Fernet 对称加密，密钥是 `.env` 的 `MEDCHAT_SECRET_KEY` |
+| `llm_configs` | 每人的 Base URL / 模型 / **加密后的 API Key** | Fernet 对称加密，密钥是 `.env` 的 `OCUPANEL_SECRET_KEY` |
 | `conversations` | 会话标题、创建 / 更新时间 | 按 `user_id` 隔离 |
 | `messages` | 对话逐条记录 | 报告消息的 `meta` 里存分割图名、证据、校验结果 |
 | `reports` | 报告留痕 | 便于查「这份报告是什么时候、用哪个模型生成的」 |
@@ -81,7 +81,7 @@ cd backend
   不能因为"删除幂等"就一律 200，否则越权尝试会伪装成成功。
 - **`.gitignore` 已排除 `*.db`。** 这个文件含账户与密文 Key，不能进版本库。
 
-> ⚠️ `MEDCHAT_SECRET_KEY` 丢了，所有用户已存的 Key 就解不开，只能重新填写。
+> ⚠️ `OCUPANEL_SECRET_KEY` 丢了，所有用户已存的 Key 就解不开，只能重新填写。
 > 首次启动会自动生成并写回 `.env`，请自行备份。
 
 ### 临时文件
@@ -303,7 +303,7 @@ curl -X POST http://127.0.0.1:8000/api/generate-report/ \
 | `OPENAI_API_KEY` | 无 | 服务器默认 Key。留空则跳过 LLM 调用，视觉流水线仍可运行；用户自己的 Key 优先 |
 | `OPENAI_MODEL` | `gpt-4.1` | 模型 ID，可换成任何 OpenAI 兼容模型（DeepSeek 用 `deepseek-flash`，旧的 `deepseek-chat` 已下线） |
 | `OPENAI_BASE_URL` | 官方 OpenAI | 设为第三方 / 本地端点即可接入，如 `https://api.deepseek.com` |
-| `MEDCHAT_SECRET_KEY` | 自动生成 | Fernet 密钥，加密用户 Key。**丢失即无法解密，务必备份** |
+| `OCUPANEL_SECRET_KEY` | 自动生成 | Fernet 密钥，加密用户 Key。**丢失即无法解密，务必备份** |
 | `REPORT_LANGUAGE` | `zh` | 报告语言，`zh` / `en`；只影响 LLM 输出与 PDF 文案 |
 | `REPORT_FONT_PATH` | 自动探测 | 中文 PDF 字体；按 `simhei.ttf` → `Deng.ttf` → `msyh.ttc` → `simsun.ttc` → Noto CJK → wqy 顺序找 |
 | `LLM_TIMEOUT` | `120` | 单次 LLM 请求超时（秒） |
