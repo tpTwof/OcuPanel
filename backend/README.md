@@ -45,7 +45,7 @@ cd backend
 | `schemas/` | Pydantic 请求 / 响应模型 |
 | `classifier/swinv2_classifier.py` | 青光眼概率推理 |
 | `segmenter/segmenter.py` | 视杯 / 视盘分割、CDR 计算、掩膜叠加 |
-| `report_generator.py` | 角色分派、Director 合成、PDF 渲染、临时目录管理 |
+| `report_generator.py` | 角色分派、Director 合成、PDF 渲染、临时目录管理；**对话与报告的两套系统提示词分开**（`CHAT_SYSTEM_PROMPT` 只作用于追问答疑，`self.system_prompt` 供六专科与 Director 使用） |
 | `retrieval.py` | BM25 + 多语言向量 + RRF 融合、语言配额与门控、启动自检 |
 | `verifier.py` | 引用校验：核查 → 打回重写 → 复核 → 拒答判定 |
 | `storage.py` | SQLite 数据层与 Key 加密 |
