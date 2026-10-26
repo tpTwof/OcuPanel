@@ -1,0 +1,46 @@
+<svg font-family="-apple-system,BlinkMacSystemFont,&#39;Segoe UI&#39;,&#39;PingFang SC&#39;,&#39;Hiragino Sans GB&#39;,&#39;Microsoft YaHei&#39;,sans-serif" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 580" width="680" height="580" role="img" aria-label="混合检索：双路召回、RRF 融合与三道过滤">
+<title>混合检索：双路召回、RRF 融合与三道过滤</title>
+<desc>BM25 与多语言向量各自召回，用 RRF 按名次融合，再经每源上限、语言配额、查询门控过滤后输出证据包</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#8C959F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<rect fill="#FFFFFF" x="0" y="0" width="680" height="580" rx="8"/>
+
+<rect fill="#F6F8FA" stroke="#D0D7DE" stroke-width="1" x="170" y="40" width="340" height="56" rx="10"/>
+<text font-size="14" font-weight="500" fill="#1F2328" x="340" y="60" text-anchor="middle" dominant-baseline="central">查询构造</text>
+<text font-size="12" font-weight="400" fill="#57606A" x="340" y="78" text-anchor="middle" dominant-baseline="central">临床备注 + 杯盘比 + 角色关键词</text>
+
+<path d="M300 96 L300 124 L185 124 L185 152" fill="none" stroke="#8C959F" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M380 96 L380 124 L495 124 L495 152" fill="none" stroke="#8C959F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect fill="#F6F8FA" stroke="#D0D7DE" stroke-width="1" x="60" y="156" width="250" height="56" rx="10"/>
+<text font-size="14" font-weight="500" fill="#1F2328" x="185" y="176" text-anchor="middle" dominant-baseline="central">BM25</text>
+<text font-size="12" font-weight="400" fill="#57606A" x="185" y="194" text-anchor="middle" dominant-baseline="central">词面匹配，中文 2-gram</text>
+
+<rect fill="#DDF4FF" stroke="#54AEFF" stroke-width="1" x="370" y="156" width="250" height="56" rx="10"/>
+<text font-size="14" font-weight="500" fill="#1F2328" x="495" y="176" text-anchor="middle" dominant-baseline="central">多语言向量</text>
+<text font-size="12" font-weight="400" fill="#57606A" x="495" y="194" text-anchor="middle" dominant-baseline="central">e5-small，跨语言对齐</text>
+
+<path d="M185 212 L185 244 L340 244" fill="none" stroke="#8C959F" stroke-width="1.5"/>
+<path d="M495 212 L495 244 L340 244" fill="none" stroke="#8C959F" stroke-width="1.5"/>
+<path d="M340 244 L340 268" fill="none" stroke="#8C959F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect fill="#DDF4FF" stroke="#54AEFF" stroke-width="1" x="170" y="272" width="340" height="56" rx="10"/>
+<text font-size="14" font-weight="500" fill="#1F2328" x="340" y="292" text-anchor="middle" dominant-baseline="central">RRF 融合</text>
+<text font-size="12" font-weight="400" fill="#57606A" x="340" y="310" text-anchor="middle" dominant-baseline="central">Σ 1/(60+rank)，只比名次</text>
+
+<path d="M340 328 L340 384" fill="none" stroke="#8C959F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect fill="#F6F8FA" stroke="#D0D7DE" stroke-width="1" x="170" y="388" width="340" height="56" rx="10"/>
+<text font-size="14" font-weight="500" fill="#1F2328" x="340" y="408" text-anchor="middle" dominant-baseline="central">三道过滤</text>
+<text font-size="12" font-weight="400" fill="#57606A" x="340" y="426" text-anchor="middle" dominant-baseline="central">每源上限 · 语言配额 · 门控</text>
+
+<path d="M340 444 L340 500" fill="none" stroke="#8C959F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<rect fill="#DAFBE1" stroke="#4AC26B" stroke-width="1" x="170" y="504" width="340" height="56" rx="10"/>
+<text font-size="14" font-weight="500" fill="#1F2328" x="340" y="524" text-anchor="middle" dominant-baseline="central">证据包 top-k</text>
+<text font-size="12" font-weight="400" fill="#57606A" x="340" y="542" text-anchor="middle" dominant-baseline="central">带全局编号、出处、语种</text>
+</svg>

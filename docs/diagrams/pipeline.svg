@@ -1,0 +1,49 @@
+<svg font-family="-apple-system,BlinkMacSystemFont,&#39;Segoe UI&#39;,&#39;PingFang SC&#39;,&#39;Hiragino Sans GB&#39;,&#39;Microsoft YaHei&#39;,sans-serif" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 580" width="680" height="580" role="img" aria-label="MedChat 主链路：从眼底图到综合报告">
+<title>MedChat 主链路：从眼底图到综合报告</title>
+<desc>五个阶段：上传、影像分析、证据检索、六专科并发、Director 综合</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#8C959F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<rect fill="#FFFFFF" x="0" y="0" width="680" height="580" rx="8"/>
+
+<text font-size="12" font-weight="400" fill="#6E7781" x="150" y="68" text-anchor="end" dominant-baseline="central">输入</text>
+<rect fill="#F6F8FA" stroke="#D0D7DE" stroke-width="1" x="170" y="40" width="340" height="56" rx="10"/>
+<text font-size="14" font-weight="500" fill="#1F2328" x="340" y="60" text-anchor="middle" dominant-baseline="central">眼底图 + 临床备注</text>
+<text font-size="12" font-weight="400" fill="#57606A" x="340" y="78" text-anchor="middle" dominant-baseline="central">jpg/png 上传，前端校验</text>
+<text font-size="12" font-weight="400" fill="#6E7781" x="522" y="68" dominant-baseline="central">原图 + 备注</text>
+
+<path d="M340 96 L340 152" fill="none" stroke="#8C959F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<text font-size="12" font-weight="400" fill="#6E7781" x="150" y="184" text-anchor="end" dominant-baseline="central">感知</text>
+<rect fill="#F6F8FA" stroke="#D0D7DE" stroke-width="1" x="170" y="156" width="340" height="56" rx="10"/>
+<text font-size="14" font-weight="500" fill="#1F2328" x="340" y="176" text-anchor="middle" dominant-baseline="central">影像分析</text>
+<text font-size="12" font-weight="400" fill="#57606A" x="340" y="194" text-anchor="middle" dominant-baseline="central">SegFormer 分割 + SwinV2 分类</text>
+<text font-size="12" font-weight="400" fill="#6E7781" x="522" y="184" dominant-baseline="central">CDR 0.62 · 概率</text>
+
+<path d="M340 212 L340 268" fill="none" stroke="#8C959F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<text font-size="12" font-weight="400" fill="#6E7781" x="150" y="300" text-anchor="end" dominant-baseline="central">检索</text>
+<rect fill="#DDF4FF" stroke="#54AEFF" stroke-width="1" x="170" y="272" width="340" height="56" rx="10"/>
+<text font-size="14" font-weight="500" fill="#1F2328" x="340" y="292" text-anchor="middle" dominant-baseline="central">证据检索</text>
+<text font-size="12" font-weight="400" fill="#57606A" x="340" y="310" text-anchor="middle" dominant-baseline="central">中英混存语料，双路召回</text>
+<text font-size="12" font-weight="400" fill="#6E7781" x="522" y="300" dominant-baseline="central">26 块 → 8 条</text>
+
+<path d="M340 328 L340 384" fill="none" stroke="#8C959F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<text font-size="12" font-weight="400" fill="#6E7781" x="150" y="416" text-anchor="end" dominant-baseline="central">分诊</text>
+<rect fill="#F6F8FA" stroke="#D0D7DE" stroke-width="1" x="170" y="388" width="340" height="56" rx="10"/>
+<text font-size="14" font-weight="500" fill="#1F2328" x="340" y="408" text-anchor="middle" dominant-baseline="central">六个专科智能体并发</text>
+<text font-size="12" font-weight="400" fill="#57606A" x="340" y="426" text-anchor="middle" dominant-baseline="central">各带专业关键词查资料</text>
+<text font-size="12" font-weight="400" fill="#6E7781" x="522" y="416" dominant-baseline="central">6 份专科意见</text>
+
+<path d="M340 444 L340 500" fill="none" stroke="#8C959F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<text font-size="12" font-weight="400" fill="#6E7781" x="150" y="532" text-anchor="end" dominant-baseline="central">汇总</text>
+<rect fill="#F6F8FA" stroke="#D0D7DE" stroke-width="1" x="170" y="504" width="340" height="56" rx="10"/>
+<text font-size="14" font-weight="500" fill="#1F2328" x="340" y="524" text-anchor="middle" dominant-baseline="central">Director 综合</text>
+<text font-size="12" font-weight="400" fill="#57606A" x="340" y="542" text-anchor="middle" dominant-baseline="central">输出带 [n] 引用的报告</text>
+<text font-size="12" font-weight="400" fill="#6E7781" x="522" y="532" dominant-baseline="central">初版报告</text>
+</svg>

@@ -1,23 +1,21 @@
 {
-  "name": "frontend",
+  "name": "ocupanel-frontend",
+  "private": true,
   "version": "1.0.0",
-  "description": "ai diagnosis frontend",
-  "main": "script.js",
+  "type": "module",
+  "description": "OcuPanel React frontend - multi-agent ophthalmic report system with citation verification",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/philipliucodes/ai-diagnosis.git"
-  },
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/philipliucodes/ai-diagnosis/issues"
-  },
-  "homepage": "https://github.com/philipliucodes/ai-diagnosis#readme",
   "dependencies": {
-    "browserify": "^17.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "showdown": "^2.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.0"
   }
 }
