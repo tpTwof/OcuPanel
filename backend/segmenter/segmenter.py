@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
+from pathlib import Path
 from torch import nn
 from transformers import AutoImageProcessor, SegformerForSemanticSegmentation
 
@@ -171,7 +172,7 @@ def calculate_cup_to_disc_ratio(image_path: str) -> float:
 
 # === Example Usage ===
 if __name__ == "__main__":
-    image_path = "/Users/philipliu/Downloads/research/llm_research/spring_2025/FairCLIP/data/slo_fundus_00004.jpg"
+    image_path = str(Path(__file__).resolve().parents[2] / "samples" / "fundus_right_eye.png")
 
     ratio = calculate_cup_to_disc_ratio(image_path)
     print(f"Cup-to-Disc Ratio: {ratio:.4f}")

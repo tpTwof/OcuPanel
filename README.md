@@ -200,4 +200,4 @@ MIT License，详见 `LICENSE`。
 
 ## 联系方式
 
-有问题或合作意向请提 Issue，或联系 m2lab.purdue@gmail.com。
+有问题或合作意向请提 Issue，或联系 <tptwo06@gmail.com>。

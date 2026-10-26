@@ -8,7 +8,7 @@ const envBase = import.meta.env.VITE_API_BASE_URL
 export const API_BASE_URL =
   envBase === undefined || envBase === '' ? '' : envBase.replace(/\/$/, '')
 
-const TOKEN_KEY = 'medchat.token'
+const TOKEN_KEY = 'ocupanel.token'
 
 export class AuthError extends Error {}
 

@@ -1,4 +1,6 @@
-# glaucoma_model.py
+# SwinV2 青光眼分类器
+from pathlib import Path
+
 import cv2
 import torch
 from transformers import AutoImageProcessor, Swinv2ForImageClassification
@@ -36,6 +38,6 @@ def predict_glaucoma(image_path: str):
 
 # Example usage:
 if __name__ == "__main__":
-    image_path = "/Users/philipliu/Downloads/research/llm_research/spring_2025/FairCLIP/data/slo_fundus_00004.jpg"
+    image_path = str(Path(__file__).resolve().parents[2] / "samples" / "fundus_right_eye.png")
     prob = predict_glaucoma(image_path)
     print(f"Glaucoma Probability: {prob:.4f}")

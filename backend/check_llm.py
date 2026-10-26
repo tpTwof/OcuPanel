@@ -1,8 +1,8 @@
 r"""LLM 连通性自检。
 
-用法（必须用项目的 venv 解释器）：
-    cd F:\GIthub\MedChat\backend
-    ..\.venv\Scripts\python.exe check_llm.py
+用法（必须用项目的 venv 解释器，在 backend/ 目录下执行）：
+    cd backend
+    ../.venv/Scripts/python.exe check_llm.py     # Linux / macOS 用 ../.venv/bin/python
 
 只依赖 config + openai，不加载 torch/transformers，几秒内出结果。
 退出码：0 正常，1 失败。

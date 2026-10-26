@@ -75,7 +75,7 @@ async def setup_cache(app: FastAPI):
 
 
 app = FastAPI(
-    title="MedChat API",
+    title="OcuPanel API",
     description="Multi-agent glaucoma diagnostic report generation from fundus images",
     version="1.0.0",
     lifespan=setup_cache,

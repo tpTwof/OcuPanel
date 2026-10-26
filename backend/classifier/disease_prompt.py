@@ -1,4 +1,6 @@
-# glaucoma_prompt.py
+# 把青光眼概率映射成自然语言描述
+from pathlib import Path
+
 import torch
 from classifier.swinv2_classifier import predict_glaucoma
 
@@ -43,7 +45,7 @@ class GlaucomaProb2Text:
 
 if __name__ == "__main__":
     # Example usage
-    image_path = "/Users/philipliu/Downloads/research/llm_research/spring_2025/FairCLIP/data/slo_fundus_00004.jpg"
+    image_path = str(Path(__file__).resolve().parents[2] / "samples" / "fundus_right_eye.png")
     
     # Get probability from model
     prob = predict_glaucoma(image_path)

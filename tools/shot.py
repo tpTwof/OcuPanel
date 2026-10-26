@@ -216,7 +216,7 @@ def main():
             # 对之后每个新文档都在应用脚本之前执行，稳定得多。
             page.call(
                 "Page.addScriptToEvaluateOnNewDocument",
-                source="try{localStorage.setItem('medchat.token', %s)}catch(e){}"
+                source="try{localStorage.setItem('ocupanel.token', %s)}catch(e){}"
                 % json.dumps(opts["token"]),
             )
 
