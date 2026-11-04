@@ -6,10 +6,8 @@ import shutil
 import sys
 import tempfile
 import threading
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import imageio.v2 as imageio
 from PIL import Image
 from fpdf import FPDF
 from paths import OUTPUT_DIR
@@ -517,11 +515,12 @@ class MedicalReportGenerator:
         """Generate diagnostic reports from multiple medical experts
 
         job_dir: 本次请求独占的临时目录。不传则自动新建（由调用方负责清理）。
+
+        视觉分析已委托给 AnalysisPipeline（config.ANALYSIS_PIPELINE 控制）。
+        角色并发已委托给 ParallelOrchestrator（MULTI_AGENT_MODE=parallel 时等价于原有逻辑）。
         """
-        # 惰性导入：torch/transformers 体积大，只在真正需要影像推理时加载，
-        # 这样单纯生成 PDF 或做连通性检查不会拖慢启动。
-        from classifier import GlaucomaProb2Text, predict_glaucoma
-        from segmenter import calculate_cup_to_disc_ratio, segment_optic_disc_cup
+        from pipeline import get_pipeline
+        from agents import ParallelOrchestrator
 
         if roles is None:
             roles = ["Ophthalmologist"]
@@ -529,31 +528,28 @@ class MedicalReportGenerator:
         job_dir = Path(job_dir) if job_dir else new_job_dir("report")
         job_dir.mkdir(parents=True, exist_ok=True)
 
-        slo_fundus_image = imageio.imread(data_pth)
-        temp_jpg_path = str(job_dir / "fundus.png")
-        imageio.imwrite(temp_jpg_path, slo_fundus_image)
-        segmented_image = segment_optic_disc_cup(temp_jpg_path)
-        ratio = calculate_cup_to_disc_ratio(temp_jpg_path)
+        # ---- 视觉分析（通过 AnalysisPipeline 抽象层）----
+        analysis = get_pipeline().analyze(data_pth, job_dir)
 
-        segmented_output_path = str(job_dir / "segmented_image.png")
-        imageio.imwrite(segmented_output_path, segmented_image)
+        # 从 FundusAnalysis 提取向后兼容字段
+        ratio = analysis.cup_to_disc_ratio or 0.0
+        segmented_output_path = analysis.segmented_image_path or ""
 
-        disease_prob = predict_glaucoma(temp_jpg_path)
-        disease_class = GlaucomaProb2Text(disease_prob)
-        core_prompt = disease_class.promptB()
-        core_prompt += f" Network B estimates that the cup-to-disc ratio is approximately {ratio:.2f}."
+        # 构建核心提示词（与原有逻辑等价）
+        core_prompt = analysis.vlm_narrative or "No visual analysis available."
+        if analysis.cup_to_disc_ratio is not None:
+            core_prompt += f" Network B estimates that the cup-to-disc ratio is approximately {analysis.cup_to_disc_ratio:.2f}."
         clinical_note = note if note.strip() else "No clinical note provided."
         core_prompt += f"\n\nClinician's note: {clinical_note}"
 
-        # 证据检索：每个角色用自己的专业关键词去查，得到各自的证据子集。
-        # 这是 GraphRAG 的第一步（关键词检索），换成分量库/图谱时接口不变。
+        # ---- 证据检索（不变）----
         case_brief = f"{clinical_note[:200]} 青光眼 杯盘比 {ratio:.2f}"
         role_evidence: dict[str, list[dict]] = {}
         for role in roles:
             hint = ROLE_QUERY_HINTS.get(role, role)
             role_evidence[role] = retrieve_evidence(case_brief, boost=hint)
 
-        # 全局编号：同一条资料在所有角色提示词里编号一致，Director 汇总时才不会串号
+        # 全局编号
         evidence: list[dict] = []
         numbers: dict[str, int] = {}
         for role in roles:
@@ -569,9 +565,7 @@ class MedicalReportGenerator:
                 ", ".join(f"[{e['index']}]{e['id']}({e['score']})" for e in evidence)
             )
 
-        os.remove(temp_jpg_path)
-
-        # 证据块放在提示词最末尾：模型的注意力更靠后，引用规则容易被遵守
+        # ---- 构建角色提示词（不变）----
         def role_block(role):
             items = [i for i in role_evidence[role] if i["id"] in numbers]
             return format_evidence_block(items, numbers)
@@ -588,19 +582,13 @@ class MedicalReportGenerator:
 
         prompts = {role: build_prompt(role) for role in roles}
 
-        # 六个专科互不依赖，并发调用。串行时整条链路要 8 分钟以上，
-        # 并发后耗时约等于最慢的那一次。
-        # chat_with_gpt(reset=True) 只用局部 messages，不碰共享状态，可以安全并发。
-        print(f"Concurrent expert calls: {len(roles)} roles\n")
-        if len(roles) == 1:
-            only = next(iter(roles))
-            expert_reports = {only: self.chat_with_gpt(prompts[only], reset=True)}
-        else:
-            with ThreadPoolExecutor(max_workers=len(roles)) as pool:
-                results = pool.map(
-                    lambda r: (r, self.chat_with_gpt(prompts[r], reset=True)), roles
-                )
-                expert_reports = dict(results)
+        # ---- 角色并发（通过 ParallelOrchestrator）----
+        orchestrator = ParallelOrchestrator()
+        expert_reports = orchestrator.run(
+            roles=roles,
+            prompts=prompts,
+            llm_call=lambda prompt: self.chat_with_gpt(prompt, reset=True),
+        )
 
         return expert_reports, ratio, segmented_output_path, evidence
 

@@ -210,10 +210,29 @@ export default function App() {
   }
 
   const handleGenerate = async (file, note) => {
+    if (busy) return
     setBusy(true)
+
+    // 占位消息必须在跳转前插入。
+    // 原来这里是 setView('chat') 之后直接 await 报告接口，而那几十秒里
+    // messages 仍然是空的 —— 对话区渲染的是"有什么可以帮你"的引导空态，
+    // 和新开一个对话长得一模一样，用户没有任何依据判断报告在生成还是没开始。
+    // 这里先放一条带 pending_report 标记的占位消息，生成结束后原地替换。
+    const pendingId = nextId()
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: pendingId,
+        role: 'assistant',
+        content: '',
+        pending: true,
+        meta: { kind: 'report', pending_report: true, started_at: Date.now() }
+      }
+    ])
+    setView('chat')
+
     try {
       const convId = await ensureConversation()
-      setView('chat')
       const info = await generateReportContent(file, note, convId)
 
       let imgUrl = null
@@ -227,22 +246,32 @@ export default function App() {
         }
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: nextId(),
-          role: 'assistant',
-          content: info.summary,
-          meta: {
-            kind: 'report',
-            img_name: info.img_name,
-            evidence: info.evidence || [],
-            verification: info.verification,
-            rejected: info.rejected,
-            cup_to_disc_ratio: info.cup_to_disc_ratio
-          }
-        }
-      ])
+      // 沿用 pendingId 原地替换，不要 push 新消息：
+      // 换 id 会让 React 卸载再挂载气泡，滚动位置会跟着跳。
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === pendingId
+            ? {
+                ...m,
+                pending: false,
+                content: info.summary,
+                meta: {
+                  kind: 'report',
+                  img_name: info.img_name,
+                  evidence: info.evidence || [],
+                  verification: info.verification,
+                  rejected: info.rejected,
+                  cup_to_disc_ratio: info.cup_to_disc_ratio,
+                  // 原始上传件只留在本条消息里，用来在对话中补「下载 PDF」。
+                  // 不进数据库：刷新/重开会话后 meta 从 SQLite 读回，这两个字段没有，
+                  // 按钮自然不渲染（PDF 接口需要原图，没法凭空重建）。
+                  source_file: file,
+                  source_note: note || ''
+                }
+              }
+            : m
+        )
+      )
       refreshConversations()
 
       // 拒答时后端不产出 PDF，这里也不该让"下载"看起来可用
@@ -251,6 +280,13 @@ export default function App() {
       }
       return !info.rejected
     } catch (err) {
+      // 失败同样要消费掉占位消息，否则它会一直转圈，看起来像卡死
+      const text = err instanceof AuthError ? '登录已过期，请重新登录。' : describeError(err)
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === pendingId ? { ...m, pending: false, content: `⚠️ ${text}`, meta: {} } : m
+        )
+      )
       if (!guard(err)) alert(describeError(err))
       return false
     } finally {
@@ -339,6 +375,7 @@ export default function App() {
             messages={messages}
             imageUrls={imageUrls}
             onSend={handleSend}
+            onDownloadPdf={handleDownloadPdf}
             busy={busy}
             title={activeConv?.title}
             notConfigured={notConfigured}

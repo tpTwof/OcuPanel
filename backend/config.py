@@ -86,6 +86,37 @@ CORS_ORIGINS = [o.strip() for o in _cors_raw.split(",") if o.strip()]
 # 不存在时自动降级为纯 API 模式。
 FRONTEND_DIST = Path(os.getenv("FRONTEND_DIST") or (Path(__file__).resolve().parent.parent / "frontend" / "dist"))
 
+# ---------------------------------------------------------------------------
+# 升级功能开关（套壳阶段默认值指向现有行为，启用时只改变量值）
+# ---------------------------------------------------------------------------
+
+# 视觉分析管线：legacy / vlm / ensemble
+# legacy = 现有 SwinV2 + SegFormer（默认，保持可运行）
+# vlm = 眼科 VLM 后端（待选定模型后在 pipeline/vlm_stub.py 中实现）
+# ensemble = Legacy + VLM 融合（依赖 vlm）
+ANALYSIS_PIPELINE = (os.getenv("ANALYSIS_PIPELINE") or "legacy").strip().lower()
+
+# VLM 模型标识符或 API 端点（ANALYSIS_PIPELINE=vlm/ensemble 时使用）
+VLM_MODEL = (os.getenv("VLM_MODEL") or "").strip() or None
+
+# VLM 后端类型：local（本地加载权重）/ api（调用云端接口）
+VLM_BACKEND = (os.getenv("VLM_BACKEND") or "local").strip().lower()
+
+# GraphRAG 知识引擎。0=关闭（默认，退化为纯 BM25/vector），1=开启图检索路。
+GRAPH_RAG_ENABLED = (os.getenv("GRAPH_RAG_ENABLED", "0") != "0")
+
+# 图存储后端：networkx（内存图，默认）/ neo4j / light_rag
+GRAPH_STORE = (os.getenv("GRAPH_STORE") or "networkx").strip().lower()
+
+# Multi-Agent 协作模式：parallel / collaborative / adaptive
+# parallel = 现有六角色并发（默认，行为不变）
+# collaborative = Agent 间消息传递（TODO）
+# adaptive = 根据初步诊断动态选择角色（TODO）
+MULTI_AGENT_MODE = (os.getenv("MULTI_AGENT_MODE") or "parallel").strip().lower()
+
+# Agent 协作轨迹记录。1=写入 agent_traces 表，0=不记录（默认）。
+AGENT_TRACE_ENABLED = (os.getenv("AGENT_TRACE_ENABLED", "0") != "0")
+
 # 报告生成器缓存
 EXPIRY_SECONDS = int(os.getenv("EXPIRY_SECONDS", "300"))
 CLEANUP_INTERVAL = int(os.getenv("CLEANUP_INTERVAL", "300"))

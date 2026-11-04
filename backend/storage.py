@@ -91,6 +91,28 @@ CREATE TABLE IF NOT EXISTS reports (
     created_at      REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_report_user ON reports(user_id, created_at DESC);
+
+-- Agent 协作轨迹：记录每个 Agent 的执行过程，供调试和审计。
+-- AGENT_TRACE_ENABLED=0 时不写入，表存在但为空。
+CREATE TABLE IF NOT EXISTS agent_traces (
+    id              TEXT PRIMARY KEY,
+    report_id       TEXT REFERENCES reports(id) ON DELETE CASCADE,
+    user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    agent_name      TEXT NOT NULL,
+    phase           TEXT NOT NULL,     -- 'plan', 'execute', 'message', 'verify'
+    input_summary   TEXT,
+    output_summary  TEXT,
+    duration_ms     INTEGER,
+    created_at      REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_trace_report ON agent_traces(report_id, created_at);
+
+-- 知识图谱元数据：记录图索引的构建状态和版本信息。
+CREATE TABLE IF NOT EXISTS graph_metadata (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at REAL NOT NULL
+);
 """
 
 
