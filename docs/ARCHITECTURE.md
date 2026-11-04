@@ -58,6 +58,18 @@ OcuPanel/
 │   ├── schemas/                #   Pydantic 请求/响应模型
 │   ├── classifier/             #   SwinV2 青光眼分类器
 │   ├── segmenter/              #   SegFormer 视杯/视盘分割 + CDR 计算
+│   ├── pipeline/               #   视觉分析抽象层（唯一模型接入点）
+│   │   ├── protocol.py         #     AnalysisPipeline Protocol
+│   │   ├── types.py            #     FundusAnalysis / DiseaseFinding / LesionDescription
+│   │   ├── legacy.py           #     SwinV2 + SegFormer 封装（完整可用）
+│   │   ├── vlm_stub.py         #     眼科 VLM 后端（占位，待选定模型）
+│   │   └── ensemble_stub.py    #     Legacy + VLM 融合（占位）
+│   ├── graphrag/               #   知识图谱检索（骨架，尚未接入检索链）
+│   │   ├── retriever.py        #     GraphRetriever（空图时返回空列表）
+│   │   └── builder.py          #     从语料构建图（占位）
+│   ├── agents/                 #   Multi-Agent 协作框架
+│   │   ├── protocol.py         #     Agent Protocol（execute + name + role_description）
+│   │   └── parallel.py         #     ParallelOrchestrator（六角色并发）
 │   ├── knowledge/corpus/       #   知识语料（示例，正式使用需换权威指南）
 │   ├── main.py                 #   应用入口（路由 / CORS / 静态托管 / 启动）
 │   ├── storage.py              #   SQLite 数据层 + Key 加密
@@ -79,7 +91,11 @@ OcuPanel/
 ├── docs/
 │   ├── ARCHITECTURE.md         #   本文档
 │   ├── DEPLOY.md               #   云服务器部署指南
+│   ├── SPEC-Ophthalmology-Copilot.md  # VLM/GraphRAG/Multi-Agent 升级规格
+│   ├── adr/                    #   架构决策记录
+│   ├── research/               #   技术选型调研
 │   └── diagrams/               #   流程图（纯 SVG，无外部依赖）
+├── GLOSSARY.md                 # 领域术语表
 └── README.md                   # 使用说明
 ```
 

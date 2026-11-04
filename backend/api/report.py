@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import io
 import uuid
+from pathlib import Path
 from typing import Optional
 
 import imageio.v2 as imageio
@@ -158,10 +159,15 @@ async def generate_content(
         rejected = summary is None
         display_text = generator.reject_message(verification) if rejected else summary
 
-        # 分割图要长期可访问（前端按 img_name 取回），存进 img_store
-        im = Image.open(seg_path)
-        img_name = uuid.uuid4().hex
-        im.convert("RGB").save(str(IMG_STORE_DIR / f"{img_name}.jpg"))
+        # 分割图要长期可访问（前端按 img_name 取回），存进 img_store。
+        # 某些管线（如 vlm）不产出分割图，此时 img_name 为空、前端不渲染图片区域，
+        # 不能当成错误 —— 也不该因此让整份报告 500。
+        if seg_path and Path(seg_path).is_file():
+            im = Image.open(seg_path)
+            img_name = uuid.uuid4().hex
+            im.convert("RGB").save(str(IMG_STORE_DIR / f"{img_name}.jpg"))
+        else:
+            img_name = ""
 
         report_id = await run_in_threadpool(
             storage.save_report,

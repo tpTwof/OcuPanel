@@ -59,6 +59,10 @@ class LegacyPipeline:
                     source="swinv2",
                 )
             ],
+            # vlm_narrative 在这里承载分类器的叙述文本（promptB）。
+            # 这是套壳期的权宜：LegacyPipeline 没有真正的 VLM，但 promptB 的输出
+            # 与重构前 core_prompt 的取值逐字一致，改掉会破坏 legacy 模式的行为等价性。
+            # 等 VLMPipeline 落地后，这里应改为空串，由 VLM 字段承载真正的视觉描述。
             vlm_narrative=disease_class.promptB(),
             raw_model_outputs={
                 "swinv2_prob": disease_prob,
@@ -69,12 +73,16 @@ class LegacyPipeline:
 
 
 def _prob_to_severity(prob: float) -> str:
-    """将青光眼概率映射为严重度标签，与 GlaucomaProb2Text.grading() 对齐。"""
-    if prob < 0.2:
-        return "none"
-    elif prob < 0.5:
-        return "possible"
-    elif prob < 0.9:
-        return "likely"
-    else:
-        return "definitive"
+    """将青光眼概率映射为严重度标签。
+
+    阈值复用 GlaucomaProb2Text.grading()，避免同一套 0.2/0.5/0.9 分档在两处
+    各写一遍后失去同步。
+    """
+    from classifier import GlaucomaProb2Text
+
+    return {
+        "0": "none",
+        "1": "possible",
+        "2": "likely",
+        "3": "definitive",
+    }[GlaucomaProb2Text(prob).grade]

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from .types import FundusAnalysis
@@ -25,7 +26,7 @@ class VLMPipeline:
         print(
             "[VLM] VLMPipeline 尚未接入模型，返回空结果。"
             "请在 pipeline/vlm_stub.py 中实现具体 VLM 推理逻辑。",
-            file=__import__("sys").stderr,
+            file=sys.stderr,
         )
         return FundusAnalysis(
             glaucoma_prob=None,
@@ -33,6 +34,8 @@ class VLMPipeline:
             segmented_image_path=None,
             diseases_detected=[],
             lesion_descriptions=[],
-            vlm_narrative="[VLM 未接入]",
+            # 空串而非"[VLM 未接入]"这类哨兵：下游只用 `or "..."` 兜底，
+            # 非空哨兵会被当成真实视觉描述塞进角色提示词，污染报告。
+            vlm_narrative="",
             raw_model_outputs={"status": "stub"},
         )

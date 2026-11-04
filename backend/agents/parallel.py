@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable
+from typing import Callable
 
 
 class ParallelOrchestrator:

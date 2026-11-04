@@ -531,19 +531,25 @@ class MedicalReportGenerator:
         # ---- 视觉分析（通过 AnalysisPipeline 抽象层）----
         analysis = get_pipeline().analyze(data_pth, job_dir)
 
-        # 从 FundusAnalysis 提取向后兼容字段
-        ratio = analysis.cup_to_disc_ratio or 0.0
+        # 从 FundusAnalysis 提取向后兼容字段。
+        # 注意：CDR 为 None 表示该管线没测出这个指标（如 VLM 模式），
+        # 绝不能兜底成 0.0 —— 那会把"没测量"伪装成"杯盘比正常"写进证据查询和 PDF。
+        ratio = analysis.cup_to_disc_ratio
         segmented_output_path = analysis.segmented_image_path or ""
 
         # 构建核心提示词（与原有逻辑等价）
         core_prompt = analysis.vlm_narrative or "No visual analysis available."
-        if analysis.cup_to_disc_ratio is not None:
-            core_prompt += f" Network B estimates that the cup-to-disc ratio is approximately {analysis.cup_to_disc_ratio:.2f}."
+        if ratio is not None:
+            core_prompt += f" Network B estimates that the cup-to-disc ratio is approximately {ratio:.2f}."
         clinical_note = note if note.strip() else "No clinical note provided."
         core_prompt += f"\n\nClinician's note: {clinical_note}"
 
         # ---- 证据检索（不变）----
-        case_brief = f"{clinical_note[:200]} 青光眼 杯盘比 {ratio:.2f}"
+        # CDR 缺失时不把 "0.00" 写进检索简报，避免检索被伪造指标带偏。
+        if ratio is None:
+            case_brief = f"{clinical_note[:200]} 青光眼"
+        else:
+            case_brief = f"{clinical_note[:200]} 青光眼 杯盘比 {ratio:.2f}"
         role_evidence: dict[str, list[dict]] = {}
         for role in roles:
             hint = ROLE_QUERY_HINTS.get(role, role)
@@ -583,6 +589,13 @@ class MedicalReportGenerator:
         prompts = {role: build_prompt(role) for role in roles}
 
         # ---- 角色并发（通过 ParallelOrchestrator）----
+        # 目前只实现了 parallel 模式。其它模式若被打开却静默按 parallel 跑，
+        # 会让人误以为协作模式已生效，所以这里显式拒绝。
+        mode = config.MULTI_AGENT_MODE
+        if mode != "parallel":
+            raise NotImplementedError(
+                f"MULTI_AGENT_MODE={mode} 尚未实现，当前仅支持 parallel。"
+            )
         orchestrator = ParallelOrchestrator()
         expert_reports = orchestrator.run(
             roles=roles,
@@ -716,7 +729,11 @@ class MedicalReportGenerator:
         set_font("", 12)
         pdf.ln(4)
         sep = "：" if USE_CHINESE else ": "
-        write_text(f"{LABELS['cdr']}{sep}{cup_to_disc_ratio:.2f}")
+        if cup_to_disc_ratio is None:
+            cdr_text = "未测量" if USE_CHINESE else "not measured"
+        else:
+            cdr_text = f"{cup_to_disc_ratio:.2f}"
+        write_text(f"{LABELS['cdr']}{sep}{cdr_text}")
         write_text(LABELS["legend"])
 
         pdf.ln(4)

@@ -22,7 +22,7 @@ Markdown 渲染用 Showdown（**已显式开启 `tables: true`**，默认是关�
 
 ```
 src/
-├── main.jsx                     # 挂载入口
+├── index.jsx                    # 挂载入口（index.html 的 script src 指向这里）
 ├── App.jsx                      # 全局状态与业务逻辑（登录态、会话、视图切换）
 ├── api.js                       # 接口封装：统一带 Bearer 令牌，401 自动退回登录
 ├── debug.js                     # 调试记录的收集与订阅

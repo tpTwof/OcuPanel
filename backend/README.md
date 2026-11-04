@@ -45,6 +45,9 @@ cd backend
 | `schemas/` | Pydantic 请求 / 响应模型 |
 | `classifier/swinv2_classifier.py` | 青光眼概率推理 |
 | `segmenter/segmenter.py` | 视杯 / 视盘分割、CDR 计算、掩膜叠加 |
+| `pipeline/` | 视觉分析抽象层，**所有视觉模型的唯一接入点**。`legacy.py` 封装 SwinV2+SegFormer（默认，完整可用）；`vlm_stub.py` / `ensemble_stub.py` 为占位，返回空但合法的 `FundusAnalysis`。由 `ANALYSIS_PIPELINE` 选择 |
+| `graphrag/` | 知识图谱检索骨架。`GraphRetriever.search()` 在图不可用时返回空列表，**尚未接入 `retrieval.py` 的 RRF 融合** |
+| `agents/` | Multi-Agent 框架。`protocol.py` 定义最小 `Agent` 协议；`parallel.py` 的 `ParallelOrchestrator` 封装六角色并发 |
 | `report_generator.py` | 角色分派、Director 合成、PDF 渲染、临时目录管理；**对话与报告的两套系统提示词分开**（`CHAT_SYSTEM_PROMPT` 只作用于追问答疑，`self.system_prompt` 供六专科与 Director 使用） |
 | `retrieval.py` | BM25 + 多语言向量 + RRF 融合、语言配额与门控、启动自检 |
 | `verifier.py` | 引用校验：核查 → 打回重写 → 复核 → 拒答判定 |
