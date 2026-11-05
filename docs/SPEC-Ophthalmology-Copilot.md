@@ -1,5 +1,7 @@
 # Spec: OcuPanel → 眼科智能诊疗 Copilot（GraphRAG + Multi-Agent + VLM）
 
+> 历史设计/调研记录，不代表当前实现或可用配置。当前结构、能力与约定以 [ARCHITECTURE.md](ARCHITECTURE.md) 和各模块 README 为准；文中旧路径和视觉管线配置已被后续重构替代。
+
 ## Problem Statement
 
 当前 OcuPanel 系统存在以下局限：

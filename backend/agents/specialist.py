@@ -4,8 +4,9 @@ from typing import Any
 from llm.models import LLMCall
 from knowledge.models import RetrieveEvidence
 from .tools.evidence import EvidenceTools
+from .tools.json_response import parse_agent_decision
 from knowledge.retrieval import format_evidence_block
-from llm.prompts import LANGUAGE_INSTRUCTION
+from agents.prompts.language import LANGUAGE_INSTRUCTION
 
 class SpecialistAgent:
     def __init__(
@@ -47,12 +48,7 @@ class SpecialistAgent:
             reply = self.llm_call(prompt, reset=True)
             if not isinstance(reply,str) or not reply.strip() or reply.startswith('Error:'):
                 raise RuntimeError(f'Agent {self.name} failed: {reply}')
-            try:
-                decision = json.loads(reply)
-            except json.JSONDecodeError:
-                decision = {'action':'final','text':reply}
-            if not isinstance(decision,dict):
-                raise ValueError('Agent response must be text or a JSON object')
+            decision = parse_agent_decision(reply)
             action = decision.get('action')
             if action == 'final':
                 text = decision.get('text')

@@ -1,5 +1,5 @@
-<svg font-family="-apple-system,BlinkMacSystemFont,&#39;Segoe UI&#39;,&#39;PingFang SC&#39;,&#39;Hiragino Sans GB&#39;,&#39;Microsoft YaHei&#39;,sans-serif" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 464" width="680" height="464" role="img" aria-label="第 7 个智能体：引用校验的删除、重生成与拒答">
-<title>第 7 个智能体：引用校验的删除、重生成与拒答</title>
+<svg font-family="-apple-system,BlinkMacSystemFont,&#39;Segoe UI&#39;,&#39;PingFang SC&#39;,&#39;Hiragino Sans GB&#39;,&#39;Microsoft YaHei&#39;,sans-serif" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 464" width="680" height="464" role="img" aria-label="Verifier Agent：引用校验的删除、重生成与拒答">
+<title>Verifier Agent：引用校验的删除、重生成与拒答</title>
 <desc>逐句核查后删除无依据内容，复核不通过则整篇重生成，轮次用尽则拒答不交报告</desc>
 <defs>
 <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">

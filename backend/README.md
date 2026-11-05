@@ -1,6 +1,6 @@
 # backend — FastAPI 服务
 
-> 代码分层已更新：报告流程见 [`report/README.md`](report/README.md)，Agent 实现见 [`agents/README.md`](agents/README.md)，影像分析见 [`vision/README.md`](vision/README.md)。原根目录 `report/generation.py`、`verifier.py`、`retrieval.py`、`check_llm.py` 已分别迁入 `report/`、`agents/`、`knowledge/`、`llm/`；下文涉及旧文件位置的说明以这些模块文档为准。LLM 自检在 backend 下运行 `python -m llm.check`。
+> 当前模块与接口规范见 [架构说明](../docs/ARCHITECTURE.md) 和 [数据对象归属](../docs/DATA_MODELS.md)。LLM 自检在 backend 下运行 `python -m llm.check`。
 
 OcuPanel 的后端：影像分析（SwinV2 分类 + SegFormer 分割）、证据检索、六专科并发生成、
 Director 综合、引用校验、PDF 导出，同时托管前端构建产物。项目整体介绍与使用说明见
@@ -22,15 +22,15 @@ cd backend
   <img src="../docs/diagrams/pipeline.svg" alt="OcuPanel 主链路：眼底图上传 → 影像分析 → 证据检索 → 六专科并发 → Director 综合" width="720">
 </p>
 
-1. **视觉预处理** — SwinV2 给出青光眼概率 *p*，分箱为「无青光眼 / 可能 / 较可能 / 检测到青光眼」；
+1. **视觉预处理** — SwinV2 输出青光眼类别的模型概率 *p*，不按概率推断疾病分期；
    SegFormer 给出视杯与视盘掩码 → 杯盘比（CDR）。
 2. **核心提示词** — 用自然语言概括 *p* 与 CDR，可附加临床医生备注。
 3. **证据检索** — 本地检索知识语料，得到带出处的证据包（见下文「知识检索」）。
 4. **角色化子报告** — 每个临床角色（眼科医生、验光师、药师等）拿到核心提示词 + 本专业的窄指令，
    撰写聚焦的子报告。
 5. **Director 综合** — 另一个 LLM 实例合并全部子报告，消解轻微冲突，产出唯一一份报告。
-6. **引用校验（第 7 个智能体）** — 逐句核对 `[n]` 是否真的支撑该句（见下文「引用校验」）。
-7. **输出** — 正文、概率、CDR、证据包、校验结果返回客户端；可选渲染 PDF。
+6. **引用校验（Verifier Agent）** — 逐句核对 `[n]` 是否真的支撑该句（见下文「引用校验」）。
+7. **输出** — 正文、CDR、图像标识、证据包、校验结果返回客户端；可选渲染 PDF。
 
 第六步既可能让流程回头（重生成），也可能让流程关门（拒答），所以没画进主链路。
 六个专科互不依赖，用 `ThreadPoolExecutor` 并发——串行时整条链路要 8 分钟以上，
@@ -107,7 +107,7 @@ cd backend
 
 ## API
 
-除注册 / 登录外，**所有接口都要求 `Authorization: Bearer <token>`**，未带或失效统一返回 `401`。
+除注册、登录与预设列表外，**业务接口要求 `Authorization: Bearer <token>`**，未带或失效统一返回 `401`。
 
 ### 账户
 
@@ -148,7 +148,7 @@ cd backend
 |---|---|---|
 | `file` | File | 眼底图像（`.jpg` / `.jpeg` / `.png`） |
 | `note` | Text | 临床备注（可选） |
-| `conversation_id` | Text | 关联到哪个会话（可选，缺省则新建） |
+| `conversation_id` | Text | 关联到哪个会话（可选；接口缺省不自动新建，前端提交前创建） |
 
 未配置 LLM 时这两个接口返回 `409`，提示去个人设置填写。
 `generate-report-content` 的响应字段：`summary` / `cup_to_disc_ratio` / `img_name` /
@@ -189,7 +189,7 @@ curl -X POST http://127.0.0.1:8000/api/generate-report/ \
   <img src="../docs/diagrams/rag-hybrid.svg" alt="混合检索：BM25 与多语言向量双路召回，RRF 按名次融合，经每源上限、语言配额、查询门控过滤后输出证据包" width="720">
 </p>
 
-- **实现**：`retrieval.py`，BM25（中文 2-gram）+ 多语言向量 + RRF 融合；语料按「小节 → 段落」两级切分。
+- **实现**：`knowledge/retrieval.py`，BM25（中文 2-gram）+ 多语言向量 + RRF 融合；语料按「小节 → 段落」两级切分。
 - **按角色差异化**：`agents.roles.SPECIALIST_ROLES` 给药师「禁忌 / 相互作用」、
   给技师「眼压测量 / 视野检查」等关键词加权，避免六个角色拿到同一批证据。
 - **全局编号**：一条资料在所有角色提示词与最终报告里编号一致，Director 汇总不会串号。
@@ -229,7 +229,7 @@ curl -X POST http://127.0.0.1:8000/api/generate-report/ \
 （相关 0.918–0.939，无关 0.852–0.867，取两组的中性点）。换 `RAG_VECTOR_MODEL` 或语料大改后
 分布会漂移，否则门控要么常关（跨语言召回失效）、要么常开（无关查询被塞英文块）。
 
-因此启动时会跑 `retrieval.selfcheck_gate()`：拿一条相关探针（语料首块的标题 + 小节，
+因此启动时会跑 `knowledge.retrieval.selfcheck_gate()`：拿一条相关探针（语料首块的标题 + 小节，
 跟着语料自适应）和一条跨领域无关探针（挂号 / 停车费）各取最佳余弦，检查 gate 是否被夹在
 两者之间、余量够不够。余量判定不能用固定绝对值——探针间隔本身只有 0.03 量级时要求 0.05 余量
 等于永远判不过；实际取 `min(0.05, 间隔/4)`，即 gate 只需落在两簇中间那一半区间。
@@ -254,12 +254,12 @@ curl -X POST http://127.0.0.1:8000/api/generate-report/ \
 
 ---
 
-## 引用校验（第 7 个智能体）
+## 引用校验（Verifier Agent）
 
 挂一个 `[3]` 只说明「引用了资料」，**不说明 `[3]` 支持这句话**。所以 Director 写完后再过一道闸门：
 
 <p align="center">
-  <img src="../docs/diagrams/citation-verifier.svg" alt="第 7 个智能体：逐句核查 → 删除或改写 → 复核；合格则通过，不合格则整篇重生成并重跑，轮次用尽则拒答且不交报告" width="720">
+  <img src="../docs/diagrams/citation-verifier.svg" alt="Verifier Agent：逐句核查 → 删除或改写 → 复核；合格则通过，不合格则整篇重生成并重跑，轮次用尽则拒答且不交报告" width="720">
 </p>
 
 三个出口只有一个是「通过」。重生成走的是回到核查的循环，不是重新走一遍六个专科
@@ -268,7 +268,7 @@ curl -X POST http://127.0.0.1:8000/api/generate-report/ \
 - **拒答不是失败兜底**：`status=rejected` 时**不返回报告、不生成 PDF**，只给出
   「无法生成有依据的诊断报告」和未通过的断言清单。宁可没有报告，也不给一份看起来对的报告。
   前端据此隐藏下载按钮，PDF 接口返回 422。
-- **删除是正确处置**：没有依据的句子直接删，不设配额。删到正文不成文（低于 `VERIFY_MIN_CHARS`
+- **删除是正确处置**：没有依据的句子直接删，不设配额。复核仍有问题且正文过短（低于 `VERIFY_MIN_CHARS`
   或原稿 40%）时不退回原文，而是触发整篇重生成。
 - **重生成带禁止清单**：把上一版被判无依据的断言列给 Director，要求换写法而不是换个说法
   把同一结论写回来。
@@ -327,7 +327,7 @@ curl -X POST http://127.0.0.1:8000/api/generate-report/ \
 | `RAG_MAX_PER_SOURCE` | `2` | 单文档最多入选条数，`0` 不限 |
 | `VERIFY_ENABLED` | `1` | 引用校验开关 |
 | `VERIFY_MAX_ROUNDS` / `VERIFY_MIN_CHARS` | `2` / `300` | 改写轮数 / 不成文判定字数 |
-| `EXPIRY_SECONDS` / `CLEANUP_INTERVAL` | `300` / `300` | 临时目录清理间隔 |
+| 请求目录清理 | 启动时清理超过 30 分钟的遗留任务目录 | 由 `report/utils/jobs.py` 实现，没有定时清理配置 |
 
 ---
 
@@ -359,13 +359,39 @@ REPORT_FONT_PATH=C:/Windows/Fonts/simhei.ttf
 
 ## 已知问题
 
-**两个视觉模型没有进程级缓存。** `segmenter/segmenter.py` 与
-`classifier/swinv2_classifier.py` 在函数内部调用 `from_pretrained`，
-每次生成报告都会重新读一遍权重（约 300MB，白等几秒），且**并发请求的内存会线性叠加**。
-在小内存机器（2C2G）上两个请求同时进行就可能被 OOM Killer 杀掉，日志里不留痕迹。
-缓解办法见 [`docs/DEPLOY.md`](../docs/DEPLOY.md) 的「只有 2 核 2G 怎么办」一节。
-彻底解决需要把模型提成模块级单例（改动很小，但会动到上游代码，需评估后再做）。
+视觉模型按模型名称、类型和设备缓存（最多四组），加载与推理共用锁。重复请求复用权重，视觉推理不会在同一进程内并发执行。缓存不保证小内存机器可承载所有报告请求：上传图像、RAG、PDF 和多个 worker 仍占用额外内存，部署时需测量目标环境的峰值。
+
+旧视觉管线 `ANALYSIS_PIPELINE` 和 VLM 配置已退出当前接口；当前只实现青光眼分析。旧非默认管线值会在启动时明确报错，不会静默改跑青光眼。图检索仍为未接入的骨架，不代表支持图谱推理。
 
 ## 基础设施位置
 
 配置、路径、认证、SQLite 存储分别位于 utils/config.py、utils/paths.py、utils/auth.py、utils/storage.py。内部统一使用 from utils import config 等导入。迁移只改变代码位置，backend/.env、backend/ocupanel.db、backend/output 和 backend/img_store 均保持原位置。utils 包不会在导入时一次加载所有基础设施。
+
+## 两种会话形态
+
+初次进入与新建会话默认为普通聊天，可在欢迎页或聊天页切换为眼科助手。模式按会话保存，重新打开会话会恢复。普通聊天不注入眼科系统提示词；眼科助手使用 chat/prompts.py 的业务指令。
+
+侧栏“眼科分析”是独立入口，眼科助手聊天页也提供“影像与报告分析”。上传图片与医疗报告/临床记录并提交后，进入当前聊天，自动切为眼科助手，显示生成状态和报告回复，随后可继续追问。未提交分析时只切换形态，不执行视觉模型、Agents 或产生报告费用。切回普通聊天保留已有消息。
+
+后端的 PATCH /api/chat/conversations/{id}/mode 负责持久化形态；旧数据库在启动时迁移，旧报告会话保留眼科助手语义。详细规则见 [会话说明](chat/README.md)。llm/ 不再包含眼科提示词，分析 Agent 与聊天各自管理指令。
+
+## 聊天上下文与回复预算
+
+完整消息保存在 SQLite，发给聊天模型的历史使用 chat/context.py 的窗口选择，不删除存储记录，不产生额外摘要调用。
+
+| 配置 | 默认值 | 含义 |
+|---|---|---|
+| CHAT_HISTORY_MAX_MESSAGES | 20 | 历史消息条数上限，约 10 轮；固定报告计入条数，当前问题和系统指令不计入条数 |
+| CHAT_CONTEXT_MAX_CHARS | 20000 | 系统指令、当前问题与所选历史正文的总字符预算 |
+| CHAT_REPORT_MAX_CHARS | 6000 | 眼科形态最多保留最近一份报告的字符数，同时不超过剩余预算一半 |
+| CHAT_MAX_OUTPUT_TOKENS | 2048 | 单次聊天回复的 max_tokens，不影响专科与报告生成 |
+
+在 backend/.env 中覆盖后重启后端。字符预算不是精确 token 计数，不同供应商分词规则、消息封装开销和模型上下文上限不同，仍需按所用模型调整。输出 token 上限可能截断过长回复，客户端目前不提供 finish_reason 展示。
+
+普通形态只选择连续的近期消息，不截断普通历史消息；一条历史消息超过剩余预算时停止向前取。眼科形态额外固定最近报告，长报告尾部带“报告节选”标记，并排除其他旧报告。更早的病例细节和对话可能不在本次输入中，不等于模型具有永久记忆。
+
+当前问题加系统指令已超过预算，或无法保留必要报告上下文时返回 413，请缩短或分段发送；这类输入不会被保存为新消息，也不会调用模型。窗口选择仍从完整会话记录计算；若会话存储量很大，数据库查询和界面加载仍需后续分页，与 LLM 输入 token 预算是不同问题。
+
+## 当前输出限制
+
+分割图接口要求登录并校验文件名，但尚未核对图片所属用户；会话隔离不能等同于图片权限隔离。PDF 下载接口重新执行完整报告生成，尚无从已存报告直接导出的入口。报告生成速度、内存与真实 LLM 工具选择质量需要在目标环境验证；本地界面/Agent 回归使用模拟 LLM，不使用账户内真实 Key。

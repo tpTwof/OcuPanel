@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any, Callable
 from pathlib import Path
 from typing import Any, BinaryIO
 from vision.models import EyeAnalysis
@@ -28,6 +30,20 @@ def build_generator_for_user(cfg: LLMConfiguration) -> "MedicalReportGenerator":
 
 class MedicalReportGenerator(LLMClient, PDFRenderer):
     reject_message = staticmethod(reject_message)
+
+    def __init__(
+        self, api_key: str | None = None, model: str | None = None,
+        base_url: str | None = None,
+    ) -> None:
+        super().__init__(api_key=api_key, model=model, base_url=base_url)
+        from agents.prompts.language import LANGUAGE_INSTRUCTION
+        self.system_prompt = {
+            "role": "system",
+            "content": "You are an ophthalmic analysis assistant. "
+                       "Use only supplied case findings and evidence. " + LANGUAGE_INSTRUCTION,
+        }
+        self.messages = [self.system_prompt]
+
 
     def generate(
         self,
@@ -134,13 +150,25 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
         from agents.director import DirectorAgent
         return DirectorAgent(self.chat_with_gpt).execute(expert_reports, evidence, avoid)
 
-    def verify_synthesis(self, text, evidence, regenerate=None):
+    def verify_synthesis(
+        self,
+        text: str,
+        evidence: list[dict[str, Any]],
+        regenerate: Callable[[list[dict[str, Any]]], str] | None = None,
+    ) -> tuple[str | None, dict[str, Any]]:
         """调用校验 Agent，必要时通过回调重新生成。
 
         返回 (文本, 校验报告)。**文本为 None 表示不交报告**（拒答或校验故障），
         调用方必须据此走拒答路径，不能把原文返回给用户。
         """
         if not config.VERIFY_ENABLED:
+            from agents.tools.evidence import unknown_citation_issues
+            issues = unknown_citation_issues(text, evidence)
+            if issues:
+                return None, {
+                    "status": "rejected", "reason": "unknown_citations",
+                    "remaining_issues": issues,
+                }
             return text, {"status": "disabled"}
         if not text or text.startswith("Error:"):
             return None, {"status": "rejected", "reason": "empty_text"}

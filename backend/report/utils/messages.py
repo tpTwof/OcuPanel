@@ -1,5 +1,8 @@
-from llm.prompts import USE_CHINESE
-def reject_message(verification):
+from __future__ import annotations
+from utils import config
+from typing import Any
+USE_CHINESE = config.REPORT_LANGUAGE.startswith("zh")
+def reject_message(verification: dict[str, Any]) -> str:
     """拒答文案：告诉用户「为什么没有报告」，而不是交一份打了折的报告。"""
     remaining = verification.get("remaining_issues") or []
     is_error = verification.get("status") == "error"

@@ -1,19 +1,19 @@
+from __future__ import annotations
 import os
 import sys
 import threading
 import openai
 from utils import config
-from llm.prompts import LANGUAGE_INSTRUCTION, CHAT_SYSTEM_PROMPT
 DEFAULT_MODEL = config.DEFAULT_MODEL
-def resolve_model(model=None):
+def resolve_model(model: str | None = None) -> str:
     """模型名：显式入参 > 环境变量 OPENAI_MODEL > 默认值。统一由 config 读取。"""
     return model or config.OPENAI_MODEL or DEFAULT_MODEL
 
-def resolve_base_url():
+def resolve_base_url() -> str | None:
     """OpenAI 兼容端点。None 表示官方 OpenAI API。"""
     return config.OPENAI_BASE_URL or None
 
-def thinking_control(base_url=None):
+def thinking_control(base_url: str | None = None) -> dict[str, dict[str, str]] | None:
     """DeepSeek 的 thinking 模式默认开启，会让单次生成慢 2-3 倍。
 
     LLM_DISABLE_THINKING=1 时通过 extra_body 关掉；其他厂商不支持该字段，
@@ -27,7 +27,11 @@ def thinking_control(base_url=None):
         return None
     return {"thinking": {"type": "disabled"}}
 
-def describe_llm_error(exc, base_url=None, from_user_config=False):
+def describe_llm_error(
+    exc: BaseException,
+    base_url: str | None = None,
+    from_user_config: bool = False,
+) -> str:
     """把 SDK 抛出的嵌套异常压成一行可读信息，并附上排查提示。
 
     from_user_config=True 表示这次调用用的是某个用户在「个人设置」里填的 key，
@@ -80,7 +84,12 @@ def describe_llm_error(exc, base_url=None, from_user_config=False):
 
 
 class LLMClient:
-    def __init__(self, api_key=None, model=None, base_url=None):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+    ) -> None:
         """Initialize model parameters
 
         base_url: 用户自己配置的接口地址。为 None 时回落到环境变量里的全局配置，
@@ -89,28 +98,21 @@ class LLMClient:
         self.api_key = api_key or os.getenv("OPENAI_API_KEY") or None
         self.model = resolve_model(model)
         self.base_url = base_url if base_url is not None else resolve_base_url()
-        self.system_prompt = {
-            "role": "system",
-            "content": (
-                "You are a medical AI assistant answering questions after reviewing diagnostic reports."
-                + LANGUAGE_INSTRUCTION
-            )
-        }
+        self.system_prompt = {"role": "system", "content": "You are a helpful assistant."}
         self.chat_history = []
         self.messages = [self.system_prompt]
         # 同一用户的综合报告与后续追问可能并发，历史列表的读改写要串行化
         self._state_lock = threading.Lock()
 
-    def chat_with_history(self, history: list[dict], user_message: str) -> str:
-        """无状态对话：外部把历史传进来，本方法不读写 self.messages。
-
-        引入数据库后，对话历史的事实来源是 SQLite 而不是进程内存，
-        这样重启不丢、多台机器也能接上。这里只负责拼消息和发起调用。
-
-        系统消息用 CHAT_SYSTEM_PROMPT（眼科辅助诊疗定位），不用 self.system_prompt
-        ——后者是给六专科子报告与 Director 综合用的，措辞与目标都不同。
-        """
-        messages = [CHAT_SYSTEM_PROMPT]
+    def chat_with_history(
+        self,
+        history: list[dict],
+        user_message: str,
+        *,
+        system: str | None = None,
+    ) -> str:
+        """根据调用方提供的消息和可选系统指令发起无状态请求。"""
+        messages = [{"role": "system", "content": system}] if system else []
         for item in history:
             role = item.get("role")
             if role in ("user", "assistant") and item.get("content"):
@@ -123,7 +125,10 @@ class LLMClient:
             timeout=config.LLM_TIMEOUT,
             max_retries=config.LLM_MAX_RETRIES,
         )
-        kwargs = {"model": self.model, "messages": messages, "temperature": 0.7}
+        kwargs = {
+            "model": self.model, "messages": messages, "temperature": 0.7,
+            "max_tokens": config.CHAT_MAX_OUTPUT_TOKENS,
+        }
         extra = thinking_control(self.base_url)
         if extra:
             kwargs["extra_body"] = extra
@@ -135,8 +140,14 @@ class LLMClient:
                 describe_llm_error(exc, self.base_url, from_user_config=True)
             ) from exc
 
-    def chat_with_gpt(self, user_message, conversation=False, reset=True,
-                      system=None, temperature=None):
+    def chat_with_gpt(
+        self,
+        user_message: str,
+        conversation: bool = False,
+        reset: bool = True,
+        system: str | None = None,
+        temperature: float | None = None,
+    ) -> str:
         """Talk to GPT with optional context reset
 
         system / temperature: 供校验智能体使用。校验与重写需要独立的系统提示词
@@ -167,7 +178,7 @@ class LLMClient:
             if extra:
                 kwargs["extra_body"] = extra
             response = client.chat.completions.create(**kwargs)
-            reply = response.choices[0].message.content
+            reply = response.choices[0].message.content or ""
 
             if not reset:
                 with self._state_lock:
@@ -185,7 +196,7 @@ class LLMClient:
             print(f"[LLM ERROR] {detail}", file=sys.stderr)
             return f"Error: {detail}"
 
-    def reset_conversation(self):
+    def reset_conversation(self) -> None:
         """清空对话上下文。
 
         原来只清 chat_history（PDF 用的那份），self.messages 仍留着上一轮的

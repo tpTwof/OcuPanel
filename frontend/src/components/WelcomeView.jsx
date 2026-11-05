@@ -1,11 +1,9 @@
-const SUGGESTIONS = [
-  '请帮我分析这份影像检查结果',
-  '这张眼底图有什么异常？',
-  '关于青光眼的治疗方案有哪些？',
-  '你可以帮我生成一份临床报告吗？'
-]
+import ChatModeSwitcher from './ChatModeSwitcher.jsx'
 
-export default function WelcomeView({ user, onPick }) {
+const GENERAL_SUGGESTIONS = ['帮我制定一份学习计划', '帮我修改一段文字', '解释一个我不熟悉的概念', '一起讨论一个想法']
+const OPHTHALMIC_SUGGESTIONS = ['杯盘比是什么意思？', '眼底图分析还需要什么资料？', '如何理解眼压检查结果？', '解释报告中的 OCT 和 RNFL']
+
+export default function WelcomeView({ user, onPick, mode, onModeChange, busy, onOpenAnalysis }) {
   const name = user.display_name || user.username
   return (
     <div className="welcome">
@@ -23,14 +21,20 @@ export default function WelcomeView({ user, onPick }) {
           </svg>
         </div>
         <h1 className="welcome-title">你好，{name}！</h1>
+        <ChatModeSwitcher
+          mode={mode}
+          onChange={onModeChange}
+          busy={busy}
+          onOpenAnalysis={onOpenAnalysis}
+        />
         <p className="welcome-sub">
-          我是你的 AI 助手，可以帮你解答医学问题、分析报告、
-          <br />
-          提供专业建议。请在下方输入你的问题吧！
+          {mode === 'ophthalmic'
+            ? '眼科助手可以解释检查结果，也可以结合眼底图片与临床记录进行分析。'
+            : '从一个问题开始，可以写作、学习、规划，也可以切换为眼科助手。'}
         </p>
         <div className="welcome-cards">
-          {SUGGESTIONS.map((s) => (
-            <button key={s} type="button" className="suggestion-card" onClick={() => onPick(s)}>
+          {(mode === 'ophthalmic' ? OPHTHALMIC_SUGGESTIONS : GENERAL_SUGGESTIONS).map((s) => (
+            <button key={s} type="button" className="suggestion-card" disabled={busy} onClick={() => onPick(s)}>
               <span className="suggestion-icon" aria-hidden="true">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path

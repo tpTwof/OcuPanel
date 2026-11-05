@@ -5,6 +5,7 @@ from chat.models import (
     CreateConversationRequest,
     SendMessageRequest,
     RenameConversationRequest,
+    ChangeModeRequest,
 )
 from . import service
 
@@ -50,3 +51,10 @@ async def send_message(
     body: SendMessageRequest,
 ) -> dict[str, Any]:
     return await service.send_message(user, conversation_id, body)
+
+
+@chat_router.patch('/chat/conversations/{conversation_id}/mode')
+async def change_mode(
+    user: auth.CurrentUser, conversation_id: str, body: ChangeModeRequest,
+) -> dict[str, str]:
+    return await service.change_mode(user, conversation_id, body)

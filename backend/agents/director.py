@@ -1,7 +1,7 @@
 from typing import Any
 from llm.models import LLMCall
 from knowledge.retrieval import format_evidence_block
-from llm.prompts import LANGUAGE_INSTRUCTION
+from agents.prompts.language import LANGUAGE_INSTRUCTION
 
 class DirectorAgent:
     name = "director"
@@ -51,7 +51,5 @@ class DirectorAgent:
         reply = self.chat_with_gpt(director_prompt, reset=True)
         if not isinstance(reply, str) or not reply.strip() or reply.startswith("Error:"):
             raise RuntimeError("Director failed to produce a report")
-        from .tools.evidence import EvidenceTools
-        numbers = {item["id"]: item.get("index", i) for i, item in enumerate(evidence or [], 1)}
-        EvidenceTools(evidence or [], numbers).validate_citations(reply)
+        # 引用编号错误由 Verifier 确定性识别并修订，草稿不在这里直接中断。
         return reply

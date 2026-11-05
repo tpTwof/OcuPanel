@@ -4,6 +4,7 @@ class LLMCall(Protocol):
     def __call__(
         self,
         prompt: str,
+        /,
         *,
         reset: bool = True,
         system: str | None = None,

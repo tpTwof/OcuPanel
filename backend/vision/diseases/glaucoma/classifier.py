@@ -1,4 +1,6 @@
 """SwinV2 青光眼概率；该权重约定索引 1 为青光眼。"""
+from __future__ import annotations
+import numpy as np
 import torch
 from transformers import Swinv2ForImageClassification
 from ...utils.images import validate_rgb
@@ -6,7 +8,10 @@ from ...utils.runtime import MODEL_LOCK, resolve_device, load_model
 
 MODEL_NAME = "pamixsun/swinv2_tiny_for_glaucoma_classification"
 
-def predict_probability(image, device=None):
+def predict_probability(
+    image: np.ndarray,
+    device: str | torch.device | None = None,
+) -> float:
     validate_rgb(image)
     device = resolve_device(device)
     with MODEL_LOCK:

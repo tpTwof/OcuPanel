@@ -32,6 +32,18 @@ LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "1"))
 # 关闭 DeepSeek 的 thinking 模式以显著提速（1=关闭，默认关闭 thinking）
 LLM_DISABLE_THINKING = (os.getenv("LLM_DISABLE_THINKING", "1") != "0")
 
+# 聊天上下文：数据库保留全量记录，只有发给模型的消息受这些预算限制。
+CHAT_HISTORY_MAX_MESSAGES = int(os.getenv("CHAT_HISTORY_MAX_MESSAGES", "20"))
+CHAT_CONTEXT_MAX_CHARS = int(os.getenv("CHAT_CONTEXT_MAX_CHARS", "20000"))
+CHAT_REPORT_MAX_CHARS = int(os.getenv("CHAT_REPORT_MAX_CHARS", "6000"))
+CHAT_MAX_OUTPUT_TOKENS = int(os.getenv("CHAT_MAX_OUTPUT_TOKENS", "2048"))
+for _setting in (
+    "CHAT_HISTORY_MAX_MESSAGES", "CHAT_CONTEXT_MAX_CHARS",
+    "CHAT_REPORT_MAX_CHARS", "CHAT_MAX_OUTPUT_TOKENS",
+):
+    if globals()[_setting] <= 0:
+        raise ValueError(f"{_setting} must be positive")
+
 # 知识检索（证据包）。RAG_ENABLED=0 可退回纯模型生成，便于 A/B 对比。
 RAG_ENABLED = (os.getenv("RAG_ENABLED", "1") != "0")
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "4"))
@@ -90,17 +102,12 @@ FRONTEND_DIST = Path(os.getenv("FRONTEND_DIST") or (Path(__file__).resolve().par
 # 升级功能开关（套壳阶段默认值指向现有行为，启用时只改变量值）
 # ---------------------------------------------------------------------------
 
-# 视觉分析管线：legacy / vlm / ensemble
-# legacy = 现有 SwinV2 + SegFormer（默认，保持可运行）
-# vlm = 眼科 VLM 后端（待选定模型后在 pipeline/vlm_stub.py 中实现）
-# ensemble = Legacy + VLM 融合（依赖 vlm）
-ANALYSIS_PIPELINE = (os.getenv("ANALYSIS_PIPELINE") or "legacy").strip().lower()
-
-# VLM 模型标识符或 API 端点（ANALYSIS_PIPELINE=vlm/ensemble 时使用）
-VLM_MODEL = (os.getenv("VLM_MODEL") or "").strip() or None
-
-# VLM 后端类型：local（本地加载权重）/ api（调用云端接口）
-VLM_BACKEND = (os.getenv("VLM_BACKEND") or "local").strip().lower()
+# 迁移检查：不再提供旧视觉管线开关，拒绝旧非默认取值以避免静默换模型。
+if os.getenv("ANALYSIS_PIPELINE", "legacy").strip().lower() not in ("", "legacy"):
+    raise ValueError(
+        "ANALYSIS_PIPELINE was removed; only glaucoma analysis is implemented. "
+        "Remove the obsolete setting before starting the application."
+    )
 
 # GraphRAG 知识引擎。0=关闭（默认，退化为纯 BM25/vector），1=开启图检索路。
 GRAPH_RAG_ENABLED = (os.getenv("GRAPH_RAG_ENABLED", "0") != "0")

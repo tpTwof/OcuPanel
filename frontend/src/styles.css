@@ -783,6 +783,10 @@ button:disabled {
   white-space: nowrap;
 }
 
+.chat-view {
+  --chat-content-width: 860px;
+}
+
 .chat-scroll {
   flex: 1;
   min-height: 0;
@@ -818,7 +822,7 @@ button:disabled {
 .msg {
   display: flex;
   gap: 10px;
-  max-width: 860px;
+  max-width: var(--chat-content-width, 860px);
   margin: 0 auto 20px;
 }
 
@@ -997,36 +1001,56 @@ button:disabled {
   flex: none;
   margin: 0 auto;
   width: 100%;
-  max-width: 780px;
-  padding: 0 26px 20px;
+  padding: 8px 26px 20px;
 }
 
-.composer-input {
+.composer-panel {
   width: 100%;
-  min-height: 48px;
-  max-height: 160px;
-  padding: 13px 15px;
+  max-width: var(--chat-content-width, 860px);
+  margin: 0 auto;
+  padding: 12px 16px 10px;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 24px;
   background: var(--card);
-  font-size: 13.5px;
-  line-height: 1.6;
-  outline: none;
-  resize: none;
   box-shadow: var(--shadow-sm);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+.composer-panel:focus-within {
+  border-color: var(--accent-line);
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.08);
+}
+
+.composer-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 52px;
+  max-height: 160px;
+  overflow-y: hidden;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.65;
+  outline: none;
+  resize: none;
+  box-shadow: none;
+}
+
 .composer-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  outline: none;
+  box-shadow: none;
 }
 
 .composer-bar {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .composer-hint {
@@ -1037,20 +1061,34 @@ button:disabled {
 
 .btn-send {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
   background: var(--accent);
   color: #fff;
-  font-size: 13px;
-  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
 .btn-send:hover:not(:disabled) {
   background: var(--accent-dark);
-  border-color: var(--accent-dark);
+}
+
+.btn-send:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.send-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
 }
 
 /* ---------------- Markdown 正文 ---------------- */
@@ -1967,4 +2005,31 @@ button:disabled {
   .msg-bubble {
     max-width: 88%;
   }
+}
+
+
+/* 会话形态：与当前会话一起保存，不改变消息历史。 */
+.chat-mode-switcher { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid #dbe3ee; border-radius: 10px; background: #f5f7fb; }
+.chat-mode-switcher button { border: 0; border-radius: 7px; padding: 7px 12px; background: transparent; color: #526175; cursor: pointer; font: inherit; font-size: 13px; }
+.chat-mode-switcher button.is-selected { background: #fff; color: #2563eb; box-shadow: 0 1px 4px #172b4d14; }
+.chat-mode-switcher button:disabled { cursor: wait; opacity: .6; }
+.chat-head { gap: 12px; flex-wrap: wrap; }
+.chat-head h2 { margin-right: auto; }
+.welcome .chat-mode-switcher { margin: 12px 0; }
+
+.chat-mode-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.chat-mode-analysis.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+.welcome .chat-mode-controls {
+  margin: 12px 0;
+}
+.welcome .chat-mode-switcher {
+  margin: 0;
 }

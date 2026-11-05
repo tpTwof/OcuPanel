@@ -1,8 +1,9 @@
 """从 backend 运行 python -m vision IMAGE --output overlay.png。"""
+from __future__ import annotations
 import argparse
 from pathlib import Path
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="视杯视盘分割测试")
     parser.add_argument("image")
     parser.add_argument("--output", default="overlay.png")

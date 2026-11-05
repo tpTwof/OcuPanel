@@ -1,10 +1,11 @@
+from __future__ import annotations
 import shutil
 import tempfile
 from pathlib import Path
 from utils.paths import OUTPUT_DIR
 JOB_DIR_PREFIXES = ("job_", "report_", "content_")
 
-def new_job_dir(prefix="job"):
+def new_job_dir(prefix: str = 'job') -> Path:
     """为单次请求创建独占的临时工作目录。
 
     之前所有请求共用 output/temp_slo_fundus.png、output/segmented_image.png
@@ -14,14 +15,14 @@ def new_job_dir(prefix="job"):
     return Path(tempfile.mkdtemp(prefix=f"{prefix}_", dir=str(OUTPUT_DIR)))
 
 
-def cleanup_job_dir(path):
+def cleanup_job_dir(path: str | Path | None) -> None:
     """删除本次请求的工作目录（幂等，失败不抛）。"""
     if not path:
         return
     shutil.rmtree(str(path), ignore_errors=True)
 
 
-def purge_stale_job_dirs(max_age_seconds=1800):
+def purge_stale_job_dirs(max_age_seconds: float = 1800) -> int:
     """清掉进程被强杀后遗留的请求级临时目录，返回删除数量。"""
     import time
 

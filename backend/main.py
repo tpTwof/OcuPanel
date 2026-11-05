@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import AsyncIterator
 import asyncio
 import logging
 import os
@@ -29,10 +31,7 @@ DEFAULT_MODEL = config.DEFAULT_MODEL
 
 
 @asynccontextmanager
-async def setup_cache(app: FastAPI):
-    # 持久化层：建表（幂等）+ 清理过期登录态。
-    # 会话、对话历史、LLM 配置都在 SQLite 里，不再依赖进程内字典——
-    # 这样重启不丢会话，也能安全地起多个 worker。
+async def setup_cache(app: FastAPI) -> AsyncIterator[None]:
     storage.init_db()
     auth.init_sessions()
     removed_sessions = storage.purge_expired_sessions()
@@ -49,7 +48,7 @@ async def setup_cache(app: FastAPI):
     # 门控阈值自检：RAG_LANG_GATE 是标定值，换 embedding 模型或语料大改后必须重标。
     # 放到线程里跑（要加载向量模型，几秒到几十秒），不挡启动；失败只告警不影响服务。
     # 另有一个副作用是好的：它会把向量模型预热好，首个真实请求不用再等加载。
-    async def run_gate_selfcheck():
+    async def run_gate_selfcheck() -> None:
         try:
             from knowledge import retrieval
 
@@ -124,9 +123,7 @@ def _mount_frontend() -> bool:
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
-    async def serve_spa(full_path: str):
-        # API 路由已在上面注册，未命中的 /api/* 一律返回 JSON 404，
-        # 避免被 SPA 的 index.html 吞掉。
+    async def serve_spa(full_path: str) -> FileResponse:
         if full_path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not Found")
         candidate = FRONTEND_DIST / full_path

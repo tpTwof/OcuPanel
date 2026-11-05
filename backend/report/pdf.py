@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Any
 from typing import Any
 import os
 import re
@@ -7,7 +9,7 @@ from PIL import Image
 from fpdf import FPDF
 from utils.paths import OUTPUT_DIR
 from .settings import LABELS, USE_CHINESE, _FONT_CANDIDATES
-def plain_text(md):
+def plain_text(md: str) -> str:
     """把模型返回的 Markdown 压成纯文本，避免 PDF 里出现 ## 和 ** 符号。"""
     text = re.sub(r"^#{1,6}\s*", "", md, flags=re.MULTILINE)
     text = re.sub(r"^\s*[-*+]\s+", "· ", text, flags=re.MULTILINE)
@@ -15,7 +17,7 @@ def plain_text(md):
     text = re.sub(r"^\s*>\s?", "", text, flags=re.MULTILINE)
     return text
 
-def soft_wrap(text, limit=38):
+def soft_wrap(text: str, limit: int = 38) -> str:
     """按固定字数切断超长中文行。
 
     fpdf2 的 wrapmode="CHAR" 在长段中文上会陷入死循环（实测卡死 8 分钟以上），
@@ -52,7 +54,7 @@ def _register_cjk_font(pdf):
             print(f"[PDF] 字体不可用，跳过 {path}: {exc}", file=sys.stderr)
     return None
 
-def sanitize_for_latin1(text):
+def sanitize_for_latin1(text: str) -> str:
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
@@ -87,17 +89,17 @@ class PDFRenderer:
                 file=sys.stderr,
             )
 
-        def set_font(style, size):
+        def set_font(style: str, size: int) -> None:
             pdf.set_font(family, style, size)
 
-        def write_text(text, height=10):
+        def write_text(text: str, height: float = 10) -> None:
             if fallback:
                 text = sanitize_for_latin1(text)
             for line in soft_wrap(text).split("\n"):
                 if line.strip():
                     pdf.multi_cell(0, height, line, new_x="LMARGIN", new_y="NEXT")
 
-        def write_block(raw):
+        def write_block(raw: str) -> None:
             block = plain_text(raw)
             if fallback:
                 block = sanitize_for_latin1(block)

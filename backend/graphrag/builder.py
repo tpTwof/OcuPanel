@@ -5,6 +5,7 @@
 """
 
 from __future__ import annotations
+from llm.models import LLMCall
 
 import sys
 from pathlib import Path
@@ -13,7 +14,7 @@ from pathlib import Path
 def build_graph_from_corpus(
     corpus_dir: Path,
     output_path: Path | None = None,
-    llm_call=None,
+    llm_call: LLMCall | None = None,
 ) -> object:
     """从语料目录构建知识图谱（stub）。
 

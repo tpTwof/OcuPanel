@@ -11,8 +11,8 @@
 
 | 决策项 | 建议 | 原因 |
 |---|---|---|
-| 服务器配置 | **2 核 4G 起步**，磁盘 20G+ | 实测空闲 550MB、单次报告峰值 1.3G。2G 也能跑但并发即 OOM，见 [0.5 节](#05-只有-2-核-2g-怎么办实测数据) |
-| GPU | **不需要，别买** | 代码里没有任何 `.to("cuda")`，模型全在 CPU 上跑，GPU 用不上 |
+| 服务器配置 | **2 核 4G 起步**，磁盘 20G+ | 容量需在目标环境测量；旧版本内存数字不能作为当前保证，见 0.5 节 |
+| GPU | **可选** | 视觉模型默认选择 CUDA → MPS → CPU；需安装对应 PyTorch 构建。CPU 版也可运行 |
 | 出网 | 能访问 `huggingface.co` 或 `hf-mirror.com` | 首次启动要下 3 个模型（合计约 700MB） |
 | 域名 | 想要 HTTPS 就需要；国内服务器还需**先备案**才能用 80/443 | 没备案可先用高位端口 + IP 访问，但浏览器会报不安全 |
 
@@ -21,119 +21,17 @@
 
 ---
 
-## 0.5 只有 2 核 2G 怎么办（实测数据）
+## 0.5 小内存部署与并发
 
-**结论：能跑，但贴着天花板，必须做下面三件事，否则迟早 OOM。**
+旧版本逐次加载模型得到的 550MB 常驻、1.3GB 峰值等数字不再作为当前版本的容量指标。当前视觉模型由 `backend/vision/utils/runtime.py` 按设备缓存，加载和推理共用进程内锁，多个请求复用权重；每个 Uvicorn worker 仍各自持有一份缓存。
 
-在本机用 CPU 版 torch、2 线程（等同 2 vCPU）实测，分阶段记录进程内存（Windows 工作集，Linux 通常略低）：
+- 建议先运行单个 worker，在目标硬件上分别测量冷启动、首次推理、重复请求和多用户请求的内存峰值。
+- 视觉锁只限制模型加载和推理，不限制整个报告任务。上传解码、知识检索、并发 LLM 调用和 PDF 仍会消耗资源。
+- 在报告任务量较大时，应根据实测容量增加任务准入/队列；当前没有内置完整任务队列，不要把视觉锁当作整条报告链的限流。
+- CPU 小机器可在 systemd 设置 `OMP_NUM_THREADS=2`、`MKL_NUM_THREADS=2`；分配器与 swap 是否调整应结合实际操作系统和测量结果。
+- 在 2GB 机器上不能仅凭代码缓存就承诺安全运行，优先测量后再决定容量。
 
-| 阶段 | 内存 |
-|---|---|
-| 空解释器 | 20 MB |
-| import 全部依赖（numpy/cv2/torch/pandas/matplotlib/fastapi） | 289 MB |
-| + SegFormer 权重（视盘视杯分割） | 289 MB（模型本身很小） |
-| SegFormer 前向，输入 512×512 | **1155 MB**（激活值是大头） |
-| logits 上采样回原图 1024×1024 | 1156 MB |
-| + SwinV2 推理 | 1277 MB |
-| + e5-small（RAG 向量检索，常驻） | 1492 MB |
-
-关键结论：
-
-- **空闲常驻约 550 MB**（依赖 290 + e5 220 + 余量）。2G 机器装得下。
-- **单次报告的内存峰值约 1.2–1.3 GB**，加上系统占用（Ubuntu + sshd + Nginx 约 200–250 MB），
-  总占用 1.5 GB 左右，**单个用户能跑完**，余量 400–500 MB。
-- **雷区是并发**：`segmenter.py` 和 `swinv2_classifier.py` 里的模型是**每次调用现场 `from_pretrained`**，
-  没有进程级缓存（上游代码遗留）。两个用户同时点"生成报告"就是两份权重 + 两份激活值叠加，
-  轻松越过 2 GB → 内核 OOM Killer 直接杀进程，表现为服务莫名重启、日志里啥也看不到。
-
-### 必做一：加 4G swap（保险丝）
-
-```bash
-sudo fallocate -l 4G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-
-# 尽量别用 swap（只在真要 OOM 时兜一下），否则推理会慢到无法接受
-echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
-sudo sysctl -w vm.swappiness=10
-```
-
-> `btrfs` 根分区上 `fallocate` 会失败，改用：
-> `sudo dd if=/dev/zero of=/swapfile bs=1M count=4096 status=progress`
-
-### 必做二：限制线程与分配器
-
-写进 systemd 的 `[Service]` 段（这些不做，glibc 会在多线程下虚占几百 MB）：
-
-```ini
-Environment=OMP_NUM_THREADS=2
-Environment=MKL_NUM_THREADS=2
-Environment=MALLOC_ARENA_MAX=2
-```
-
-`OMP/MKL` 按实际 vCPU 数设，别超过 2。`MALLOC_ARENA_MAX=2` 是给 glibc 设的
-——默认每个线程一个 arena，内存会明显虚高。
-
-### 必做三：让报告生成串行化
-
-这是 2G 机器唯一的死穴，二选一：
-
-**方案 A（推荐，改 5 行代码）** — 在 `backend/api/report.py` 顶部加一个信号量，
-把 `_run_report_pipeline` 的调用包起来。第二个用户会排队等，而不是把内存撑爆：
-
-```python
-import asyncio
-
-# 2C2G 机器上同时只允许一个影像分析流水线，其余请求排队
-_REPORT_SEM = asyncio.Semaphore(1)
-
-async def _run_report_pipeline(generator, contents: str, note: str, job_dir):
-    async with _REPORT_SEM:
-        ...   # 原有内容整体缩进
-```
-
-**方案 B（不改代码，靠 Nginx 限流）** — 粗暴但有效，缺点是超出限制的请求直接 503：
-
-```nginx
-# http 段
-limit_req_zone $binary_remote_addr zone=report:10m rate=1r/m;
-
-# location 段
-location = /api/generate-report-content/ {
-    limit_req zone=report burst=1 nodelay;
-    proxy_pass http://127.0.0.1:8000;
-    # ...其余 proxy_* 同上面
-}
-```
-
-### 顺手省内存的几招
-
-```bash
-# Ubuntu 轻量镜像常带 snapd，常驻 100–200MB，用不上就关
-sudo systemctl disable --now snapd.service snapd.socket 2>/dev/null
-
-# 确认没有残留的无关服务
-systemctl list-units --type=service --state=running | grep -Ev "ssh|nginx|ocupanel|systemd"
-```
-
-**盯内存**（部署后跑一次报告，观察峰值，超过 1.6G 就该考虑升配）：
-
-```bash
-while true; do
-  free -m | awk 'NR==2{printf "已用 %s MB / 共 %s MB\n", $3, $2}'
-  ps -o rss= -p $(systemctl show -p MainPID --value ocupanel) 2>/dev/null | awk '{printf "后端 RSS %.0f MB\n", $1/1024}'
-  sleep 2
-done
-```
-
-最后一句实话：**2G 能把它跑起来，但你就是余量本身**。只要两个人在同一分钟点生成，
-或者哪天你想关掉 `VERIFY_ENABLED` 做 A/B 对比（关掉校验就失去"无据即拒答"的核心卖点，
-但内存峰值并不会因此下降，因为校验是 LLM 调用、不占本地内存），都只能靠排队顶住。
-能升到 **2 核 4G**（多数云厂商差价在几十元/月）会舒服很多，4G 上并发 2–3 人都不虚。
-
----
+本地单张样本的 CPU 推理验证见 `backend/vision/README.md`；它验证执行和输出结构，不是生产容量测试或临床验证。
 
 ## 1. 服务器初始化
 
@@ -192,7 +90,7 @@ git clone git@github.com:tpTwof/OcuPanel.git .
 ## 3. Python 环境与依赖
 
 **关键：先单独装 CPU 版 torch**。`requirements.txt` 里是 `torch==2.7.0`，直接从 PyPI 装会顺带拉进
-2GB+ 的 CUDA 运行库（服务器上完全用不到）。先装 CPU 版，pip 会认为该版本已满足，跳过重复安装。
+较大的 CUDA 运行库（仅在计划使用 NVIDIA GPU 时需要）。先装 CPU 版，pip 会认为该版本已满足，跳过重复安装。
 
 ```bash
 cd /opt/ocupanel
@@ -514,7 +412,7 @@ journalctl -u ocupanel --since "1 hour ago" | grep -i error
 # 重启 / 停止
 sudo systemctl restart ocupanel
 
-# 看内存占用（空闲约 550MB、跑报告时峰值约 1.3G；跑完不回落到空闲值属正常，
+# 看内存占用（常驻和峰值需在目标环境实测；跑完不回落到启动值属正常，
 # 因为 glibc 不急着把内存还给系统；但要是一直涨到 1.8G 以上就说明有泄漏）
 systemctl status ocupanel | grep Memory
 

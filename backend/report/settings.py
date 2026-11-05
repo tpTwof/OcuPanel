@@ -1,6 +1,6 @@
 from report.models import ReportLabels
 from utils import config
-from llm.prompts import USE_CHINESE
+USE_CHINESE = config.REPORT_LANGUAGE.startswith("zh")
 LABELS: ReportLabels = (
     ReportLabels(
         title='眼底分析报告',

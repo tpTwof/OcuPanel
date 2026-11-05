@@ -54,9 +54,20 @@ def _validate_upload(request: ReportSubmission) -> None:
         raise ApplicationError(status_code=400, detail="仅支持 .jpg / .jpeg / .png 格式的眼底图像")
 
 
+async def _activate_analysis_mode(user: User, conversation_id: str | None) -> None:
+    if not conversation_id:
+        return
+    changed = await run_in_threadpool(
+        storage.set_conversation_mode, user["id"], conversation_id, "ophthalmic",
+    )
+    if not changed:
+        raise ApplicationError(status_code=404, detail="会话不存在")
+
+
 async def generate_report(user: User, request: ReportSubmission) -> ReportDownload:
     """生成 PDF。校验未通过时返回 422，不产出任何文件。"""
     _validate_upload(request)
+    await _activate_analysis_mode(user, request.conversation_id)
     generator = await _load_generator(user)
 
     contents = request.image_bytes
@@ -108,6 +119,7 @@ async def generate_report(user: User, request: ReportSubmission) -> ReportDownlo
 async def generate_content(user: User, request: ReportSubmission) -> ReportContent:
     """生成报告正文（不产出 PDF），并把这一轮对话写进数据库。"""
     _validate_upload(request)
+    await _activate_analysis_mode(user, request.conversation_id)
     generator = await _load_generator(user)
 
     contents = request.image_bytes
@@ -125,8 +137,7 @@ async def generate_content(user: User, request: ReportSubmission) -> ReportConte
         display_text = generator.reject_message(verification) if rejected else summary
 
         # 分割图要长期可访问（前端按 img_name 取回），存进 img_store。
-        # 某些管线（如 vlm）不产出分割图，此时 img_name 为空、前端不渲染图片区域，
-        # 不能当成错误 —— 也不该因此让整份报告 500。
+        # 分析结果没有叠加图时仍可展示文字，img_name 保持为空。
         if seg_path and Path(seg_path).is_file():
             im = Image.open(seg_path)
             img_name = uuid.uuid4().hex
@@ -149,6 +160,19 @@ async def generate_content(user: User, request: ReportSubmission) -> ReportConte
 
         # 落一条 assistant 消息，这样刷新页面后这段报告还在对话里
         if request.conversation_id:
+            await run_in_threadpool(
+                storage.add_message, user["id"], request.conversation_id, "user",
+                f"眼科分析：{request.filename}\n{request.note}",
+                {"kind": "analysis_request"},
+            )
+            conversation = await run_in_threadpool(
+                storage.get_conversation, user["id"], request.conversation_id,
+            )
+            if conversation and conversation["title"] in ("新对话", "", None):
+                await run_in_threadpool(
+                    storage.rename_conversation, user["id"], request.conversation_id,
+                    f"眼科分析 · {request.filename}"[:60],
+                )
             meta = {
                 "kind": "report",
                 "img_name": img_name,

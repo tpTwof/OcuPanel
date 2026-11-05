@@ -1,4 +1,8 @@
 """组合青光眼分类和解剖结构测量，保留可独立使用的部分结果。"""
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import torch
 import numpy as np
 from .classifier import predict_probability, MODEL_NAME as CLASSIFIER
 from ...anatomy.optic_disc_cup import (
@@ -9,7 +13,7 @@ from ...anatomy.optic_disc_cup import (
 )
 from vision.models import EyeAnalysis, DiseaseResult
 
-def analyze(image, device=None):
+def analyze(image: np.ndarray, device: str | torch.device | None = None) -> EyeAnalysis:
     probability = predict_probability(image, device)
     mask = predict_mask(image, device)
     result = DiseaseResult(probability=probability,

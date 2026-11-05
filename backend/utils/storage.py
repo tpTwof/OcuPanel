@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     id         TEXT PRIMARY KEY,
     user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title      TEXT NOT NULL DEFAULT '新对话',
+    mode       TEXT NOT NULL DEFAULT 'general' CHECK (mode IN ('general', 'ophthalmic')),
     created_at REAL NOT NULL,
     updated_at REAL NOT NULL
 );
@@ -140,6 +141,20 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with connect() as conn:
         conn.executescript(SCHEMA)
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(conversations)")}
+        if "mode" not in columns:
+            conn.execute(
+                "ALTER TABLE conversations ADD COLUMN mode TEXT NOT NULL DEFAULT 'general' "
+                "CHECK (mode IN ('general', 'ophthalmic'))"
+            )
+            # 仅迁移旧会话：已有报告的会话保持眼科追问语义。
+            for row in conn.execute("SELECT conversation_id, meta FROM messages WHERE meta IS NOT NULL").fetchall():
+                try:
+                    meta = json.loads(row["meta"])
+                except (ValueError, TypeError):
+                    continue
+                if isinstance(meta, dict) and meta.get("kind") == "report":
+                    conn.execute("UPDATE conversations SET mode='ophthalmic' WHERE id=?", (row["conversation_id"],))
 
 
 def new_id() -> str:
@@ -347,23 +362,25 @@ def delete_llm_config(user_id: str) -> None:
 # ---------------------------------------------------------------------------
 # 会话与消息
 # ---------------------------------------------------------------------------
-def create_conversation(user_id: str, title: str = "新对话") -> dict:
+def create_conversation(user_id: str, title: str = "新对话", mode: str = "general") -> dict:
+    if mode not in ("general", "ophthalmic"):
+        raise ValueError("Invalid conversation mode")
     cid = new_id()
     ts = now()
     with connect() as conn:
         conn.execute(
-            "INSERT INTO conversations (id, user_id, title, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?)",
-            (cid, user_id, title, ts, ts),
+            "INSERT INTO conversations (id, user_id, title, mode, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (cid, user_id, title, mode, ts, ts),
         )
-    return {"id": cid, "title": title, "created_at": ts, "updated_at": ts}
+    return {"id": cid, "title": title, "mode": mode, "created_at": ts, "updated_at": ts}
 
 
 def list_conversations(user_id: str, limit: int = 50) -> list[dict]:
     """只返回该用户自己的会话——user_id 是函数必填参数，避免漏加过滤条件。"""
     with connect() as conn:
         rows = conn.execute(
-            "SELECT id, title, created_at, updated_at FROM conversations"
+            "SELECT id, title, mode, created_at, updated_at FROM conversations"
             " WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?",
             (user_id, limit),
         ).fetchall()
@@ -373,7 +390,7 @@ def list_conversations(user_id: str, limit: int = 50) -> list[dict]:
 def get_conversation(user_id: str, conversation_id: str) -> dict | None:
     with connect() as conn:
         row = conn.execute(
-            "SELECT id, title, created_at, updated_at FROM conversations"
+            "SELECT id, title, mode, created_at, updated_at FROM conversations"
             " WHERE id = ? AND user_id = ?",
             (conversation_id, user_id),
         ).fetchone()
@@ -480,3 +497,15 @@ def list_reports(user_id: str, limit: int = 20) -> list[dict]:
             (user_id, limit),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def set_conversation_mode(user_id: str, conversation_id: str, mode: str) -> bool:
+    """只修改当前用户的会话形态，保留消息历史。"""
+    if mode not in ("general", "ophthalmic"):
+        raise ValueError("Invalid conversation mode")
+    with connect() as conn:
+        cursor = conn.execute(
+            "UPDATE conversations SET mode=?, updated_at=? WHERE id=? AND user_id=?",
+            (mode, now(), conversation_id, user_id),
+        )
+        return cursor.rowcount > 0

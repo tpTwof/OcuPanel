@@ -107,7 +107,7 @@ class VectorIndex:
     QUERY_PREFIX = "query: "
     PASSAGE_PREFIX = "passage: "
 
-    def __init__(self, chunks: list[Chunk], model_name: str | None = None):
+    def __init__(self, chunks: list[Chunk], model_name: str | None = None) -> None:
         self.chunks = chunks
         self.model_name = model_name or config.RAG_VECTOR_MODEL
         self._tokenizer = None
@@ -135,7 +135,7 @@ class VectorIndex:
         pooled = torch.nn.functional.normalize(pooled, p=2, dim=1)
         return pooled.cpu().numpy()
 
-    def ensure(self):
+    def ensure(self) -> None:
         if self._matrix is not None:
             return
         with self._lock:
@@ -181,7 +181,7 @@ class Retriever:
     B = 0.75
     RELATIVE_FLOOR = 0.35
 
-    def __init__(self, chunks: list[Chunk], mode: str | None = None):
+    def __init__(self, chunks: list[Chunk], mode: str | None = None) -> None:
         self.chunks = chunks
         self._tokens = [_tokenize(f"{c.title} {c.section} {c.text}") for c in chunks]
 

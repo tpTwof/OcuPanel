@@ -1,11 +1,6 @@
+"""仅在眼科助手形态中注入的会话指令。"""
 from utils import config
-USE_CHINESE = config.REPORT_LANGUAGE.startswith("zh")
-LANGUAGE_INSTRUCTION = (
-    "\n\n请用简体中文撰写全部内容。专业术语首次出现时可在括号内保留英文缩写"
-    "（如眼压 IOP、光学相干断层扫描 OCT、视网膜神经纤维层 RNFL）。"
-    if USE_CHINESE
-    else ""
-)
+
 CHAT_SYSTEM_ZH = (
     "你是 OcuPanel 眼科辅助诊疗助手，服务于眼底疾病的影像解读辅助与临床答疑。"
     "覆盖范围包括青光眼、糖尿病视网膜病变等常见眼底病变，以及杯盘比（CDR）、眼压（IOP）、"
@@ -50,5 +45,5 @@ CHAT_SYSTEM_EN = (
 )
 CHAT_SYSTEM_PROMPT = {
     "role": "system",
-    "content": CHAT_SYSTEM_ZH if USE_CHINESE else CHAT_SYSTEM_EN,
+    "content": CHAT_SYSTEM_ZH if config.REPORT_LANGUAGE.startswith("zh") else CHAT_SYSTEM_EN,
 }

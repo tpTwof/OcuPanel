@@ -1,5 +1,6 @@
 """文本定位、定点替换和修订检查。相似度仅作启发式检查，不能证明医学事实。"""
 from __future__ import annotations
+from typing import Callable
 import re
 import sys
 _SKIP_CHARS = set(" \t\r\n\u3000\u00a0")
@@ -11,8 +12,13 @@ def _cjk_bigrams(text: str) -> set[str]:
     return {chars[i:i + 2] for i in range(len(chars) - 1)}
 
 
-def is_false_dodge(quote: str, new: str, evidence_text: str,
-                   sim_fn=None, sim_threshold: float = 0.80) -> bool:
+def is_false_dodge(
+    quote: str,
+    new: str,
+    evidence_text: str,
+    sim_fn: Callable[[str, str], float] | None = None,
+    sim_threshold: float = 0.8,
+) -> bool:
     """拦截可能把已有依据改成“资料不足”的修订。
 
     中文二元字符覆盖率或可选相似度达到阈值时保留原句，交给后续复核。
@@ -48,7 +54,7 @@ def _norm_index(text: str) -> tuple[str, list[int]]:
     return "".join(chars), index
 
 
-def locate(text: str, quote: str):
+def locate(text: str, quote: str) -> tuple[int, int] | None:
     """在 text 里定位 quote，返回 (start, end) 或 None。
 
     先按原样找，找不到再去空白后找；还找不到就用前 12 个非空白字符定位
@@ -91,9 +97,13 @@ def content_len(text: str) -> int:
     return len(text)
 
 
-def apply_replacements(text: str, replacements: list[dict],
-                       evidence_text: str = "", sim_fn=None,
-                       evidence_map: dict[int, str] | None = None) -> tuple[str, list[dict], int]:
+def apply_replacements(
+    text: str,
+    replacements: list[dict],
+    evidence_text: str = '',
+    sim_fn: Callable[[str, str], float] | None = None,
+    evidence_map: dict[int, str] | None = None,
+) -> tuple[str, list[dict], int]:
     """返回修订文本、实际应用的修改和删除数。
 
     无法定位或命中内容丢失检查的修改会被跳过；允许空字符串删除。

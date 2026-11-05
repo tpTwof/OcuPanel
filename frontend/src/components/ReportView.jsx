@@ -50,12 +50,13 @@ export default function ReportView({ onGenerate, onDownloadPdf, busy, notConfigu
     <div className="report-view">
       <LoadingOverlay show={busy} />
       <div className="chat-head">
-        <h2>生成报告</h2>
+        <h2>眼科分析</h2>
       </div>
 
       <div className="report-scroll">
+        <p>提交后会进入眼科助手会话，分析结果将作为回复呈现，可以继续追问。</p>
         <label className="field">
-          <span className="field-label">临床记录</span>
+          <span className="field-label">医疗报告或临床记录</span>
           <textarea
             className="report-note"
             rows={4}

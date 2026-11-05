@@ -59,7 +59,7 @@ export default function Sidebar({
         onClick={onOpenReport}
       >
         <Icon name="report" />
-        生成报告
+        眼科分析
       </button>
 
       <div className="nav-divider" />

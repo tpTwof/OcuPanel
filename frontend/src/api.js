@@ -151,11 +151,11 @@ export const fetchUsage = () =>
 export const listConversations = () =>
   callApi({ name: '会话列表', url: `${API_BASE_URL}/api/chat/conversations`, read: json })
 
-export const createConversation = (title = '新对话') =>
+export const createConversation = (title = '新对话', mode = 'general') =>
   callApi({
     name: '新建会话',
     url: `${API_BASE_URL}/api/chat/conversations`,
-    init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) },
+    init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, mode }) },
     read: json
   })
 
@@ -232,3 +232,15 @@ export const downloadReportPdf = (file, note, conversationId) => {
     read: (res) => res.blob()
   })
 }
+
+
+export const changeConversationMode = (id, mode) =>
+  callApi({
+    name: '切换会话形态',
+    url: `${API_BASE_URL}/api/chat/conversations/${id}/mode`,
+    init: {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode })
+    },
+    read: json
+  })

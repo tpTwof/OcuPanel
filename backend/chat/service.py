@@ -5,13 +5,16 @@ from chat.models import (
     CreateConversationRequest,
     SendMessageRequest,
     RenameConversationRequest,
+    ChangeModeRequest,
 )
 
 from utils.errors import ApplicationError
 from starlette.concurrency import run_in_threadpool
 
-from utils import storage
-from report.generation import build_generator_for_user
+from utils import storage, config
+from llm.client import LLMClient
+from .prompts import CHAT_SYSTEM_PROMPT
+from .context import select_history
 
 
 async def list_conversations(user: User) -> dict[str, Any]:
@@ -23,7 +26,7 @@ async def create_conversation(
     user: User,
     body: CreateConversationRequest,
 ) -> dict[str, Any]:
-    return await run_in_threadpool(storage.create_conversation, user["id"], body.title or "新对话")
+    return await run_in_threadpool(storage.create_conversation, user["id"], body.title or "新对话", body.mode)
 
 
 async def conversation_detail(user: User, conversation_id: str) -> dict[str, Any]:
@@ -80,14 +83,27 @@ async def send_message(
         raise ApplicationError(status_code=409, detail="尚未配置 LLM API，请先在「个人设置」中填写")
 
     history = await run_in_threadpool(storage.list_messages, user["id"], conversation_id)
+    client = LLMClient(
+        api_key=cfg["api_key"], model=cfg["model"], base_url=cfg["base_url"] or None,
+    )
+    system = CHAT_SYSTEM_PROMPT["content"] if conv.get("mode") == "ophthalmic" else None
+
+    try:
+        context = select_history(
+            history, text, system=system, mode=conv.get("mode", "general"),
+            max_messages=config.CHAT_HISTORY_MAX_MESSAGES,
+            max_chars=config.CHAT_CONTEXT_MAX_CHARS,
+            report_max_chars=config.CHAT_REPORT_MAX_CHARS,
+        )
+    except ValueError as exc:
+        raise ApplicationError(status_code=413, detail=str(exc)) from exc
     await run_in_threadpool(storage.add_message, user["id"], conversation_id, "user", text, None)
 
-    generator = build_generator_for_user(cfg)
-
     def _run() -> str:
-        return generator.chat_with_history(
-            [{"role": m["role"], "content": m["content"]} for m in history],
+        return client.chat_with_history(
+            context,
             text,
+            system=system,
         )
 
     try:
@@ -107,3 +123,14 @@ async def send_message(
         await run_in_threadpool(storage.rename_conversation, user["id"], conversation_id, title)
 
     return {"reply": reply, "message_id": saved["id"]}
+
+
+async def change_mode(
+    user: User, conversation_id: str, body: ChangeModeRequest,
+) -> dict[str, str]:
+    changed = await run_in_threadpool(
+        storage.set_conversation_mode, user["id"], conversation_id, body.mode,
+    )
+    if not changed:
+        raise ApplicationError(status_code=404, detail="会话不存在")
+    return {"mode": body.mode}

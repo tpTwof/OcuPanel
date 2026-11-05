@@ -4,6 +4,7 @@
 病例数据无需外部文献引用，其真实性需要与原始病例核对，不由本模块保证。
 """
 from __future__ import annotations
+from typing import Any, Callable
 import sys
 from typing import Any, Callable
 from llm.models import LLMCall
@@ -14,6 +15,7 @@ from .prompts.verification import (
     build_rewrite_prompt,
 )
 from .tools.json_response import parse_json
+from .tools.evidence import unknown_citation_issues
 from .tools.text_revision import apply_replacements, content_len
 
 MAX_ISSUES_PER_ROUND = 12
@@ -42,8 +44,8 @@ class CitationVerifier:
         llm_call: LLMCall,
         min_chars: int = 300,
         min_ratio: float = 0.4,
-        sim_fn = None,
-    ):
+        sim_fn: Callable[[str, str], float] | None = None,
+    ) -> None:
         self._llm = llm_call
         # 修订后仍有问题且正文低于阈值时，优先请求整篇重生成。
         self.min_chars = min_chars
@@ -52,7 +54,7 @@ class CitationVerifier:
         self.sim_fn = sim_fn
 
     # -- 单步 ---------------------------------------------------------------
-    def verify(self, text: str, evidence: list[dict]):
+    def verify(self, text: str, evidence: list[dict]) -> list[dict[str, Any]] | None:
         """返回问题句列表；调用或解析失败返回 None，主流程据此返回 error。"""
         raw = self._llm(
             build_verify_prompt(text, evidence),
@@ -82,6 +84,12 @@ class CitationVerifier:
                 "citations": item.get("citations") or [],
                 "reason": str(item.get("reason") or "")[:120],
             })
+        deterministic = unknown_citation_issues(text, evidence)
+        known = {(item["quote"], tuple(item["citations"])) for item in issues}
+        issues.extend(
+            item for item in deterministic
+            if (item["quote"], tuple(item["citations"])) not in known
+        )
         return issues
 
     def rewrite(
@@ -105,8 +113,13 @@ class CitationVerifier:
         return [r for r in (data.get("replacements") or []) if isinstance(r, dict)]
 
     # -- 主流程 -------------------------------------------------------------
-    def verify_and_rewrite(self, text: str, evidence: list[dict], max_rounds: int = 2,
-                           regenerate=None):
+    def verify_and_rewrite(
+        self,
+        text: str,
+        evidence: list[dict],
+        max_rounds: int = 2,
+        regenerate: Callable[[list[dict[str, Any]]], str] | None = None,
+    ) -> tuple[str | None, dict[str, Any]]:
         """执行核查、有限轮修订与复核。
 
         返回状态：pass（首次通过）、rewritten（修订后通过）、

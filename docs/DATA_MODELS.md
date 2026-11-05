@@ -5,7 +5,7 @@
 | 位置 | 职责 |
 |---|---|
 | user/models.py | 用户身份、注册和登录请求、保存用户 LLM 配置的请求 |
-| chat/models.py | 创建会话、发送消息、重命名请求 |
+| chat/models.py | ChatMode、创建会话、发送消息、重命名及切换形态请求 |
 | report/models.py | 报告提交、生成结果、文件交付、展示标签 |
 | vision/models.py | 影像分析与各病种结果 |
 | agents/models.py | 专科角色定义 |

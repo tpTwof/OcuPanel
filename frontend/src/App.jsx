@@ -8,6 +8,7 @@ import ReportView from './components/ReportView.jsx'
 import SettingsView from './components/SettingsView.jsx'
 import {
   AuthError,
+  changeConversationMode,
   createConversation,
   deleteConversation,
   downloadReportPdf,
@@ -40,6 +41,7 @@ export default function App() {
   const [conversations, setConversations] = useState([])
   const [activeId, setActiveId] = useState(null)
   const [messages, setMessages] = useState([])
+  const [chatMode, setChatMode] = useState('general')
 
   // view: 'welcome' | 'chat' | 'report' | 'settings'
   const [view, setView] = useState('welcome')
@@ -56,6 +58,7 @@ export default function App() {
     setConversations([])
     setMessages([])
     setActiveId(null)
+    setChatMode('general')
     setView('welcome')
   }
 
@@ -144,6 +147,7 @@ export default function App() {
       setImageUrls(nextImages)
       setMessages(msgs.map((m) => ({ ...m, id: m.id || nextId() })))
       setActiveId(id)
+      setChatMode(data.conversation?.mode || 'general')
       setView('chat')
     } catch (err) {
       if (!guard(err)) alert(describeError(err))
@@ -155,6 +159,7 @@ export default function App() {
   const newChat = () => {
     if (busy) return
     setActiveId(null)
+    setChatMode('general')
     setMessages([])
     // 直接进对话界面，不要回欢迎页。
     // 欢迎页只有引导卡片、没有输入框，点「新建对话」却停在那一屏，
@@ -163,12 +168,34 @@ export default function App() {
   }
 
   /** 确保有会话 id：首次发消息时懒创建，避免点一次"新建"就留一条空记录。 */
-  const ensureConversation = async () => {
+  const ensureConversation = async (mode = chatMode) => {
     if (activeId) return activeId
-    const conv = await createConversation('新对话')
+    const conv = await createConversation('新对话', mode)
     setActiveId(conv.id)
     setConversations((prev) => [conv, ...prev])
     return conv.id
+  }
+
+  const handleModeChange = async (mode) => {
+    if (busy || mode === chatMode) return
+    if (!activeId) {
+      setChatMode(mode)
+      return
+    }
+    setBusy(true)
+    try {
+      await changeConversationMode(activeId, mode)
+      setChatMode(mode)
+      setConversations((prev) => prev.map((c) => c.id === activeId ? { ...c, mode } : c))
+    } catch (err) {
+      if (!guard(err)) alert(describeError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const openAnalysis = () => {
+    if (!busy) setView('report')
   }
 
   const ask = async (text, convId) => {
@@ -221,6 +248,7 @@ export default function App() {
     const pendingId = nextId()
     setMessages((prev) => [
       ...prev,
+      { id: nextId(), role: 'user', content: `眼科分析：${file.name}\n${note || ''}` },
       {
         id: pendingId,
         role: 'assistant',
@@ -232,7 +260,9 @@ export default function App() {
     setView('chat')
 
     try {
-      const convId = await ensureConversation()
+      const convId = await ensureConversation('ophthalmic')
+      await changeConversationMode(convId, 'ophthalmic')
+      setChatMode('ophthalmic')
       const info = await generateReportContent(file, note, convId)
 
       let imgUrl = null
@@ -320,6 +350,7 @@ export default function App() {
       setConversations((prev) => prev.filter((c) => c.id !== id))
       if (id === activeId) {
         setActiveId(null)
+        setChatMode('general')
         setMessages([])
         // 同理：删完直接给一个空白可输入的对话页，别弹回没有输入框的欢迎页
         setView('chat')
@@ -361,7 +392,7 @@ export default function App() {
         activeId={activeId}
         view={view}
         onNewChat={newChat}
-        onOpenReport={() => setView('report')}
+        onOpenReport={openAnalysis}
         onSelectConversation={openConversation}
         onDeleteConversation={handleDeleteConversation}
         onOpenSettings={() => setView('settings')}
@@ -369,9 +400,15 @@ export default function App() {
       />
 
       <main className="app-main">
-        {view === 'welcome' && <WelcomeView user={user} onPick={handleSend} />}
+        {view === 'welcome' && (
+          <WelcomeView user={user} onPick={handleSend} mode={chatMode}
+            onModeChange={handleModeChange} busy={busy} onOpenAnalysis={openAnalysis} />
+        )}
         {view === 'chat' && (
           <ChatView
+            mode={chatMode}
+            onModeChange={handleModeChange}
+            onOpenAnalysis={openAnalysis}
             messages={messages}
             imageUrls={imageUrls}
             onSend={handleSend}

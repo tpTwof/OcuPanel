@@ -23,7 +23,7 @@ class GraphRetriever:
     当前 search() 返回空列表，不影响现有 BM25/vector 检索。
     """
 
-    def __init__(self, graph_store: str = "networkx"):
+    def __init__(self, graph_store: str = 'networkx') -> None:
         self.graph_store = graph_store
         self._graph = None  # TODO: NetworkX DiGraph or other store
         self._is_built = False

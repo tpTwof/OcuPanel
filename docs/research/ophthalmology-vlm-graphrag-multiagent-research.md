@@ -1,5 +1,7 @@
 # Ophthalmology VLM + GraphRAG + Multi-Agent Research Report
 
+> 历史设计/调研记录，不代表当前实现或可用配置。当前结构、能力与约定以 [ARCHITECTURE.md](../ARCHITECTURE.md) 和各模块 README 为准；文中旧路径和视觉管线配置已被后续重构替代。
+
 **Date:** 2025-01  
 **Scope:** Vision-Language Models for fundus image analysis, GraphRAG implementations for medical knowledge bases, Multi-Agent frameworks for medical AI, and integration architectures.
 

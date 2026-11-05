@@ -7,6 +7,7 @@ r"""LLM 连通性自检。
 只依赖 config + openai，不加载 torch/transformers，几秒内出结果。
 退出码：0 正常，1 失败。
 """
+from __future__ import annotations
 import sys
 
 
@@ -26,13 +27,13 @@ except ModuleNotFoundError as exc:
     sys.exit(_fail_missing(exc))
 
 
-def mask(key):
+def mask(key: str | None) -> str:
     if not key:
         return "(未设置)"
     return key[:6] + "***" + key[-4:] if len(key) > 12 else key[:3] + "***"
 
 
-def main():
+def main() -> int:
     base_url = config.OPENAI_BASE_URL
     model = config.OPENAI_MODEL
 

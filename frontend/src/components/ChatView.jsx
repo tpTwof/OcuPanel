@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import ChatModeSwitcher from './ChatModeSwitcher.jsx'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Markdown from './Markdown.jsx'
 import EvidenceList from './EvidenceList.jsx'
 import VerificationResult from './VerificationResult.jsx'
@@ -123,6 +124,7 @@ function MessageItem({ m, imageUrls, onDownloadPdf, busy }) {
 }
 
 export default function ChatView({
+  mode, onModeChange, onOpenAnalysis,
   messages,
   imageUrls,
   onSend,
@@ -134,6 +136,7 @@ export default function ChatView({
 }) {
   const [input, setInput] = useState('')
   const listRef = useRef(null)
+  const inputRef = useRef(null)
   const pinnedRef = useRef(true)
 
   // 报告生成和普通提问都会让 busy=true，按钮文案要能区分，否则都是"思考中…"
@@ -145,6 +148,38 @@ export default function ChatView({
     if (!el || !pinnedRef.current) return
     el.scrollTop = el.scrollHeight
   }, [messages])
+
+  const resizeInput = () => {
+    const el = inputRef.current
+    if (!el) return
+    // 先恢复自动高度才能测量删除内容后的高度；CSS 负责限制最大高度。
+    el.style.overflowY = 'hidden'
+    el.style.height = 'auto'
+    const style = getComputedStyle(el)
+    const border = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)
+    el.style.height = `${el.scrollHeight + border}px`
+    el.style.overflowY = el.scrollHeight > el.clientHeight ? 'auto' : 'hidden'
+    if (pinnedRef.current && listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight
+    }
+  }
+
+  useLayoutEffect(() => {
+    resizeInput()
+  }, [input])
+
+  useEffect(() => {
+    const container = inputRef.current?.parentElement
+    if (!container) return
+    let width = container.clientWidth
+    const observer = new ResizeObserver(() => {
+      if (container.clientWidth === width) return
+      width = container.clientWidth
+      resizeInput()
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
 
   const handleScroll = () => {
     const el = listRef.current
@@ -164,6 +199,12 @@ export default function ChatView({
     <div className="chat-view">
       <div className="chat-head">
         <h2>{title || '新对话'}</h2>
+        <ChatModeSwitcher
+          mode={mode}
+          onChange={onModeChange}
+          busy={busy}
+          onOpenAnalysis={onOpenAnalysis}
+        />
       </div>
 
       <div className="chat-scroll" ref={listRef} onScroll={handleScroll}>
@@ -171,7 +212,9 @@ export default function ChatView({
           <div className="chat-empty">
             <div className="chat-empty-title">有什么可以帮你？</div>
             <div className="chat-empty-sub">
-              在下方输入问题开始对话，或点左侧「生成报告」上传眼底影像。
+              {mode === 'ophthalmic'
+                ? '可以询问眼科问题，或选择「影像与报告分析」上传图片和临床记录。'
+                : '在下方输入问题开始对话；需要分析眼底影像时，可切换为眼科助手。'}
             </div>
           </div>
         )}
@@ -196,27 +239,43 @@ export default function ChatView({
       )}
 
       <div className="composer">
-        <textarea
-          className="composer-input"
-          placeholder={generatingReport ? '报告生成中，完成后可继续追问…' : '请输入您的问题...'}
-          value={input}
-          rows={1}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              submit()
-            }
-          }}
-        />
-        <div className="composer-bar">
-          <span className="composer-hint">Enter 发送 · Shift+Enter 换行</span>
-          <button type="button" className="btn-send" onClick={submit} disabled={busy || !input.trim()}>
-            {busy ? (generatingReport ? '生成中…' : '思考中…') : '发送'}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M4 12l16-8-6 8 6 8z" fill="currentColor" />
-            </svg>
-          </button>
+        <div className="composer-panel">
+          <textarea
+            ref={inputRef}
+            className="composer-input"
+            placeholder={generatingReport ? '报告生成中，完成后可继续追问…' : '请输入您的问题...'}
+            value={input}
+            rows={1}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault()
+                submit()
+              }
+            }}
+          />
+          <div className="composer-bar">
+            <span className="composer-hint">
+              {mode === 'ophthalmic' ? '眼科助手' : '普通聊天'} · Enter 发送 · Shift+Enter 换行
+            </span>
+            <button
+              type="button"
+              className="btn-send"
+              onClick={submit}
+              disabled={busy || !input.trim()}
+              aria-label={busy ? (generatingReport ? '正在生成报告' : '正在回复') : '发送消息'}
+              title={busy ? (generatingReport ? '正在生成报告' : '正在回复') : '发送消息'}
+            >
+              {busy ? (
+                <span className="spinner send-spinner" aria-hidden="true" />
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 19V5m-6 6 6-6 6 6" stroke="currentColor" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
