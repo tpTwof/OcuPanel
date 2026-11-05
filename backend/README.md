@@ -1,5 +1,7 @@
 # backend — FastAPI 服务
 
+> 代码分层已更新：报告流程见 [`report/README.md`](report/README.md)，Agent 实现见 [`agents/README.md`](agents/README.md)，影像分析见 [`vision/README.md`](vision/README.md)。原根目录 `report/generation.py`、`verifier.py`、`retrieval.py`、`check_llm.py` 已分别迁入 `report/`、`agents/`、`knowledge/`、`llm/`；下文涉及旧文件位置的说明以这些模块文档为准。LLM 自检在 backend 下运行 `python -m llm.check`。
+
 OcuPanel 的后端：影像分析（SwinV2 分类 + SegFormer 分割）、证据检索、六专科并发生成、
 Director 综合、引用校验、PDF 导出，同时托管前端构建产物。项目整体介绍与使用说明见
 [根目录 README](../README.md)。
@@ -14,7 +16,7 @@ cd backend
 
 ## 主链路
 
-`api/report.py:generate_content` 是入口，对应下图：
+`report/api.py:generate_content` 是入口，对应下图：
 
 <p align="center">
   <img src="../docs/diagrams/pipeline.svg" alt="OcuPanel 主链路：眼底图上传 → 影像分析 → 证据检索 → 六专科并发 → Director 综合" width="720">
@@ -36,27 +38,24 @@ cd backend
 
 ## 模块职责
 
-| 文件 | 职责 |
+| 位置 | 职责 |
 |---|---|
-| `main.py` | 应用入口：路由挂载、CORS、静态托管、启动清理、RAG 门控自检 |
-| `api/account.py` | 注册 / 登录 / 注销 / 当前用户 / LLM 配置 / 用量 |
-| `api/chat.py` | 会话 CRUD 与问答 |
-| `api/report.py` | 报告生成（JSON 与 PDF 两个入口）、取分割图 |
-| `schemas/` | Pydantic 请求 / 响应模型 |
-| `classifier/swinv2_classifier.py` | 青光眼概率推理 |
-| `segmenter/segmenter.py` | 视杯 / 视盘分割、CDR 计算、掩膜叠加 |
-| `pipeline/` | 视觉分析抽象层，**所有视觉模型的唯一接入点**。`legacy.py` 封装 SwinV2+SegFormer（默认，完整可用）；`vlm_stub.py` / `ensemble_stub.py` 为占位，返回空但合法的 `FundusAnalysis`。由 `ANALYSIS_PIPELINE` 选择 |
-| `graphrag/` | 知识图谱检索骨架。`GraphRetriever.search()` 在图不可用时返回空列表，**尚未接入 `retrieval.py` 的 RRF 融合** |
-| `agents/` | Multi-Agent 框架。`protocol.py` 定义最小 `Agent` 协议；`parallel.py` 的 `ParallelOrchestrator` 封装六角色并发 |
-| `report_generator.py` | 角色分派、Director 合成、PDF 渲染、临时目录管理；**对话与报告的两套系统提示词分开**（`CHAT_SYSTEM_PROMPT` 只作用于追问答疑，`self.system_prompt` 供六专科与 Director 使用） |
-| `retrieval.py` | BM25 + 多语言向量 + RRF 融合、语言配额与门控、启动自检 |
-| `verifier.py` | 引用校验：核查 → 打回重写 → 复核 → 拒答判定 |
-| `storage.py` | SQLite 数据层与 Key 加密 |
-| `auth.py` | 令牌签发 / 校验 / 注销 |
-| `config.py` | 环境变量集中管理（不散落魔法值） |
-| `paths.py` | `output/`、`img_store/` 路径解析 |
-| `check_llm.py` | 命令行 LLM 连通性自检 |
-| `knowledge/corpus/*.md` | 知识语料（**示例语料，正式使用需换权威指南**） |
+| `main.py` | 应用组装、生命周期、异常映射和前端静态托管 |
+| 各模块的 `models.py` | 管理本领域拥有的数据对象，供其他模块导入 |
+| `user/api.py`、`user/service.py` | 用户路由与账户、配置、用量业务 |
+| `chat/api.py`、`chat/service.py` | 会话路由与消息、问答业务 |
+| `report/api.py`、`report/service.py` | 报告路由、上传对象绑定、生成任务与留痕 |
+| `report/generation.py` | 调用影像分析、专科 Agent、Director、Verifier |
+| `report/context.py`、`report/pdf.py` | 病例上下文与 PDF 输出 |
+| `report/settings.py` | ReportLabels 展示配置和字体候选 |
+| `agents/roles.py` | SpecialistRole 角色与检索关键词定义 |
+| `agents/` | 专科、综合、引用校验及受限工具 |
+| `vision/` | 青光眼分类、视杯视盘分割和指标计算 |
+| `knowledge/` | 本地语料、检索、证据格式化 |
+| `llm/` | 模型调用与连通性检查 |
+| `utils/` | 认证、配置、路径、SQLite 存储和应用错误 |
+
+统一规范见 [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) 与 [`../docs/DATA_MODELS.md`](../docs/DATA_MODELS.md)。
 
 ---
 
@@ -191,7 +190,7 @@ curl -X POST http://127.0.0.1:8000/api/generate-report/ \
 </p>
 
 - **实现**：`retrieval.py`，BM25（中文 2-gram）+ 多语言向量 + RRF 融合；语料按「小节 → 段落」两级切分。
-- **按角色差异化**：`report_generator.ROLE_QUERY_HINTS` 给药师「禁忌 / 相互作用」、
+- **按角色差异化**：`agents.roles.SPECIALIST_ROLES` 给药师「禁忌 / 相互作用」、
   给技师「眼压测量 / 视野检查」等关键词加权，避免六个角色拿到同一批证据。
 - **全局编号**：一条资料在所有角色提示词与最终报告里编号一致，Director 汇总不会串号。
 - **开关**：`RAG_ENABLED=0` 退回纯模型生成，便于 A/B 对比——但**没有证据包时引用校验会把结论判为无据**，
@@ -366,3 +365,7 @@ REPORT_FONT_PATH=C:/Windows/Fonts/simhei.ttf
 在小内存机器（2C2G）上两个请求同时进行就可能被 OOM Killer 杀掉，日志里不留痕迹。
 缓解办法见 [`docs/DEPLOY.md`](../docs/DEPLOY.md) 的「只有 2 核 2G 怎么办」一节。
 彻底解决需要把模型提成模块级单例（改动很小，但会动到上游代码，需评估后再做）。
+
+## 基础设施位置
+
+配置、路径、认证、SQLite 存储分别位于 utils/config.py、utils/paths.py、utils/auth.py、utils/storage.py。内部统一使用 from utils import config 等导入。迁移只改变代码位置，backend/.env、backend/ocupanel.db、backend/output 和 backend/img_store 均保持原位置。utils 包不会在导入时一次加载所有基础设施。

@@ -5,17 +5,20 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from utils.errors import ApplicationError
 from fastapi.staticfiles import StaticFiles
 
-import auth
-import config
-import paths
-import storage
-from api import account_router, chat_router, report_router
-from report_generator import purge_stale_job_dirs
+from utils import auth
+from utils import config
+from utils import paths
+from utils import storage
+from user.api import account_router
+from chat.api import chat_router
+from report.api import report_router
+from report.utils.jobs import purge_stale_job_dirs
 
 load_dotenv()
 config.apply_hf_endpoint()
@@ -48,7 +51,7 @@ async def setup_cache(app: FastAPI):
     # 另有一个副作用是好的：它会把向量模型预热好，首个真实请求不用再等加载。
     async def run_gate_selfcheck():
         try:
-            import retrieval
+            from knowledge import retrieval
 
             report = await asyncio.to_thread(retrieval.selfcheck_gate)
             if report.get("skipped"):
@@ -80,6 +83,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=setup_cache,
 )
+
+@app.exception_handler(ApplicationError)
+async def handle_application_error(request: Request, exc: ApplicationError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 # CORS：单服务模式下页面与 API 同源，不触发跨域；
 # 只有 Vite 开发服务器（默认 5500）需要放行。

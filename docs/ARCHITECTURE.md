@@ -1,119 +1,64 @@
-# 架构与设计
+# 当前项目结构
 
-OcuPanel 的整体设计与关键取舍。使用说明见 [根目录 README](../README.md)，
-后端实现细节见 [`backend/README.md`](../backend/README.md)，
-前端见 [`frontend/README.md`](../frontend/README.md)，部署见 [`DEPLOY.md`](DEPLOY.md)。
+以仓库当前实现为准。历史 ADR 和升级规格描述的是当时方案，不代表尚未实现的功能已经可用。
 
----
-
-## 方法流程
-
-核心思想：让每个智能体只聚焦一个窄领域的临床角色，模拟真实的多学科会诊；
-再用一个独立的校验智能体，把「看起来合理但没有依据」的句子挡在成品之外。
-
-<p align="center">
-  <img src="diagrams/pipeline.svg" alt="OcuPanel 主链路：眼底图上传 → 影像分析 → 证据检索 → 六专科并发 → Director 综合" width="720">
-</p>
-
-1. **视觉预处理** — SwinV2 分类器输出青光眼概率 *p*，分箱为「无青光眼 / 可能 / 较可能 / 检测到青光眼」；
-   SegFormer 分割器输出视杯与视盘掩码，据此算杯盘比（CDR）。这两个数字是后面所有文字的地基。
-2. **核心提示词** — 用自然语言概括 *p* 与 CDR，可附加临床医生备注。
-3. **证据检索** — 本地检索知识语料，得到带出处的证据包（编号 + 出处）。
-4. **角色生成** — 元提示词让模型列出相关临床角色（眼科医生、验光师、药师等）；
-   每个角色拿到核心提示词 + 本专业的窄指令，各自撰写聚焦的子报告。
-5. **Director 综合** — 另一个模型实例合并全部子报告，消解轻微冲突，产出唯一一份诊断报告。
-6. **引用校验（第 7 个智能体）** — 逐句核对 `[n]` 是否真的支撑该句，不支撑的打回重写，再复核一轮。
-7. **输出** — 报告正文、概率、CDR、子报告、证据包、校验结果返回客户端，支持追问与 PDF 导出。
-
-第六步既可能让流程回头（重生成），也可能让流程关门（拒答），所以没画进主链路。
-六个专科互不依赖，用 `ThreadPoolExecutor` 并发——串行时整条链路要 8 分钟以上，
-并发后约等于最慢的那一次。
-
-## 核心贡献
-
-| # | 贡献 | 意义 |
-|---|---|---|
-| 1 | **多智能体推理**：眼科医生、验光师、药师等角色 + Director 智能体 | 降低幻觉，反映真实临床协作 |
-| 2 | **CAD ⇄ LLM 紧耦合**：SwinV2 分类器（青光眼概率）+ SegFormer 分割器（视杯 / 视盘掩码） | 让语言输出锚定在可验证的图像特征（如 CDR）上 |
-| 3 | **浏览器客户端** | 支持交互式问答与 PDF 报告下载，由 FastAPI 直接托管 |
-| 4 | **引用校验智能体**：第 7 个 Agent 逐句核对引用，不支撑的句子打回重写 | 把「看起来合理」的话挡在报告之外，幻觉可被定位、可被修正 |
-
-## 与本项目的关系
-
-本项目基于 Philip Liu 等人的 *Multi-Agent Diagnosis using Multimodal Large Language Models*
-（MIPR 2025，引用见根 README）改造而来，在原仓库基础上完成了以下本地化改造：
-
-1. 前端从原生 HTML/JS 重写为 **React + Vite**（旧版原生文件已随重构删除，仓库只保留 React 版本）；
-2. 后端（FastAPI）**直接托管前端构建产物**，一条命令即可同时启动 API 和页面；
-3. **多用户账号体系**：SQLite 存账户、会话与报告，所有数据按 `user_id` 隔离；
-   每人在「个人设置」里填自己的 LLM API Key（服务端 Fernet 加密），代码中不再硬编码任何密钥；
-4. 新增**证据检索**与**引用校验**两条链路，让结论可追溯、无据即拒答。
-
-## 目录结构
-
-```
-OcuPanel/
-├── backend/                    # FastAPI 后端（同时托管前端页面）
-│   ├── api/                    #   REST 路由：account.py / chat.py / report.py
-│   ├── schemas/                #   Pydantic 请求/响应模型
-│   ├── classifier/             #   SwinV2 青光眼分类器
-│   ├── segmenter/              #   SegFormer 视杯/视盘分割 + CDR 计算
-│   ├── pipeline/               #   视觉分析抽象层（唯一模型接入点）
-│   │   ├── protocol.py         #     AnalysisPipeline Protocol
-│   │   ├── types.py            #     FundusAnalysis / DiseaseFinding / LesionDescription
-│   │   ├── legacy.py           #     SwinV2 + SegFormer 封装（完整可用）
-│   │   ├── vlm_stub.py         #     眼科 VLM 后端（占位，待选定模型）
-│   │   └── ensemble_stub.py    #     Legacy + VLM 融合（占位）
-│   ├── graphrag/               #   知识图谱检索（骨架，尚未接入检索链）
-│   │   ├── retriever.py        #     GraphRetriever（空图时返回空列表）
-│   │   └── builder.py          #     从语料构建图（占位）
-│   ├── agents/                 #   Multi-Agent 协作框架
-│   │   ├── protocol.py         #     Agent Protocol（execute + name + role_description）
-│   │   └── parallel.py         #     ParallelOrchestrator（六角色并发）
-│   ├── knowledge/corpus/       #   知识语料（示例，正式使用需换权威指南）
-│   ├── main.py                 #   应用入口（路由 / CORS / 静态托管 / 启动）
-│   ├── storage.py              #   SQLite 数据层 + Key 加密
-│   ├── auth.py                 #   登录态（令牌签发、校验、注销）
-│   ├── config.py               #   环境变量集中管理
-│   ├── paths.py                #   output/ 与 img_store/ 路径解析
-│   ├── report_generator.py     #   报告生成 / Director 合成 / PDF 导出
-│   ├── retrieval.py            #   证据检索（BM25 + 多语言向量 + RRF 融合）
-│   ├── verifier.py             #   引用校验智能体
-│   ├── check_llm.py            #   LLM 连通性自检
-│   └── README.md               #   后端实现细节
-├── frontend/                   # React + Vite 前端
-│   ├── src/                    #   App.jsx / api.js / components/ / styles.css
-│   └── README.md               #   前端与交互说明
-├── tools/
-│   ├── shot.py                 #   无头 Chrome 截图（CDP，仅标准库）
-│   └── check_isolation.py      #   多用户隔离自检（24 项）
-├── samples/                    # 测试样本（眼底图、临床记录、样例报告）
-├── docs/
-│   ├── ARCHITECTURE.md         #   本文档
-│   ├── DEPLOY.md               #   云服务器部署指南
-│   ├── SPEC-Ophthalmology-Copilot.md  # VLM/GraphRAG/Multi-Agent 升级规格
-│   ├── adr/                    #   架构决策记录
-│   ├── research/               #   技术选型调研
-│   └── diagrams/               #   流程图（纯 SVG，无外部依赖）
-├── GLOSSARY.md                 # 领域术语表
-└── README.md                   # 使用说明
+```text
+backend/
+  main.py                 FastAPI 组装、启动及静态页面托管
+  各模块/models.py        该领域拥有的数据对象与接口类型
+  user/api.py             用户 HTTP 路由
+  user/service.py         账户、LLM 配置和用量业务
+  chat/api.py             会话 HTTP 路由
+  chat/service.py         会话、消息和问答业务
+  report/api.py           上传参数绑定、报告/图片 HTTP 响应
+  report/service.py       生成任务、记录保存和文件交付
+  report/generation.py    影像分析、专科、综合与校验的生成流程
+  report/context.py       组织病例事实
+  report/pdf.py           PDF 渲染
+  report/settings.py      有类型的展示标签与字体配置
+  agents/                 专科分析、Director、Verifier 及工具
+  agents/roles.py         唯一的专科角色与检索关键词定义
+  vision/                 影像模型、测量和可视化
+  knowledge/              检索与知识语料
+  llm/                    模型请求和提示词配置
+  utils/                  认证、配置、路径、持久化和应用错误
+  tests/                  离线数值、Agent、路由和业务测试
+frontend/                 React 界面与 HTTP 客户端
 ```
 
-## 关键取舍
+## 请求如何进入业务
 
-**为什么用 SQLite 而不是 Postgres / MySQL。** 单机、单进程、用户量小，一个文件就够，
-零额外服务、零运维。所有查询以 `user_id` 为第一过滤条件，越权统一 404。
-真要横向扩容时，`storage.py` 是唯一需要重写的地方。
+```mermaid
+flowchart TD
+  Browser[浏览器] --> API[各模块 api.py：HTTP 参数绑定]
+  API --> Request[models：请求对象]
+  Request --> Service[各模块 service.py：应用业务]
+  Service --> Generation[report/generation.py：报告生成]
+  Generation --> Vision[vision：EyeAnalysis]
+  Generation --> Knowledge[knowledge：证据]
+  Generation --> Agents[agents：专科、综合、校验]
+  Agents --> Result[report.models.ReportResult]
+  Result --> Service
+  Service --> API
+```
 
-**为什么用令牌而不是 JWT。** 注销要能真正失效。随机令牌存 `sessions` 表，
-删一行就下线；JWT 在过期前无法撤销，只能再维护一张黑名单，反而更麻烦。
+## 上传参数的含义
 
-**为什么单进程。** 每个 Uvicorn worker 都会独立加载一遍 torch 与三个模型，
-内存线性叠加。数据层本身支持多进程，瓶颈在模型。
+`user: auth.CurrentUser` 由 Authorization 请求头中的 Bearer 令牌解析，客户端不能通过表单指定当前用户。`file` 是 multipart 的文件字段；`note` 和 `conversation_id` 是同一表单中的字符串字段。`parse_report_submission()` 将后三者组装成 ReportSubmission，通过 Depends 注入路由。路由仅接收 user 和 request 两个对象，再委托 report/service.py。
 
-**为什么校验不合格就拒答。** 医学场景里"看起来对的报告"比"没有报告"更危险。
-所以删到不成篇就整篇重生成，仍不合格就直接告诉用户拿不到有依据的结论，
-并列出未通过的断言——不交未校验的成品。
+普通 JSON 请求使用 user/models.py、chat/models.py 中的 Pydantic 请求类。不能把上传文件直接改成普通 JSON 对象，否则会破坏现有 multipart 协议。
 
-**为什么模型各自成模块而不是一个大文件。** 分类器、分割器、检索、校验、生成各有独立的
-输入输出契约，可以单独替换或关闭（`RAG_ENABLED` / `VERIFY_ENABLED`），也便于做 A/B 对比。
+## 开发约定
+
+- 每个领域的 api.py 只声明路由、HTTP 输入绑定和响应构造，不写模型推理、数据库操作和报告生成。
+- service.py 接收已命名的数据对象，负责业务和资源生命周期；通过 ApplicationError 表达可预期错误，main.py 统一映射为 HTTP。
+- 数据模型放在所属模块的 models.py。跨模块使用时直接导入拥有方，不复制定义。配置实例放在所属模块，例如 agents/roles.py、report/settings.py。
+- 实现类留在业务模块；models.py 只保存数据契约，不保存执行逻辑。
+- 公共接口标注参数与返回类型。异构 JSON 用 dict[str, Any]，已有明确结构时使用命名模型。
+- 文件名体现实际职责：generation、context、retrieval、pdf、roles；不使用缺少含义的 workflow 或万能业务工具模块。
+- utils 只收基础设施，领域工具放在领域内部的 tools/ 或 utils/。
+- 前端 URL、multipart 字段和 JSON 字段保持兼容；重构后用路由和业务回归测试验证。
+
+## 当前能力与限制
+
+影像目前只实现青光眼模型，结果结构支持按病种扩展。专科 Agent 有受限的证据搜索/读取循环，Director 综合，Verifier 修订与复核。报告/PDF 的 CDR 和单张叠加图仍是当前展示约定，不表示其他病种已完成接入。前端业务交互本轮不变。
