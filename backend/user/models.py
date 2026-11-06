@@ -14,7 +14,7 @@ class LLMConfigRequest(BaseModel):
     model: str = Field("", max_length=128)
 
 
-from typing import TypedDict
+from typing_extensions import TypedDict
 
 class User(TypedDict):
     id: str

@@ -5,7 +5,7 @@
 ```text
 vision/
   analysis.py                 公共入口，校验请求病种、读取一次图片、汇总结果
-  # 数据对象统一位于 ../vision/models.py
+  models.py                   EyeAnalysis、DiseaseResult 数据契约
   utils/                      跨病种通用工具，不包含病种判断
     images.py                 RGB uint8 图像读取与校验
     runtime.py                设备选择、模型缓存、推理锁
@@ -86,9 +86,17 @@ overlay:              (1024, 1024, 3), RGB uint8
 单独测试分割（在 backend 目录）：
 
 ```powershell
-python -m vision ../samples/fundus_right_eye.png --output overlay.png
+../.venv/Scripts/python.exe -m vision ../samples/fundus_right_eye.png --output overlay.png --device cpu
 ```
 
 当前分割权重沿用类别 0=背景、1=视盘环、2=视杯，分类权重沿用索引 1=青光眼；更换模型必须重新确认语义。输出维度检查不能替代模型标签验证。未增加未经验证的连通域过滤或病灶后处理。
 
 已完成上述单张样本的真实 CPU 推理；模型准确度、GPU 运行与临床阈值仍需另行验证。单元测试只覆盖数值逻辑和接口组织。
+
+## 环境与模型缓存
+
+开发基线为 Python 3.13，本机项目 `.venv` 为 3.13.3。首次调用对应算法时，from_pretrained 自动下载权重与 processor；默认磁盘缓存位于用户主目录 `.cache/huggingface/hub`，可通过 HF_HOME 改变根目录。backend/.env 的 HF_ENDPOINT 由项目配置模块应用；独立导入算法时应在进程环境中预先配置下载源。
+
+磁盘缓存与进程内权重缓存不同。clear_model_cache 只释放进程引用，不删除下载文件；新进程仍需加载权重。默认设备选择 CUDA → MPS → CPU，显式请求不可用设备会报错。图像预处理固定 use_fast=False，沿用权重所保存的 processor 行为。
+
+CLI 只测试分割和叠加图，不运行分类器、Agents 或 PDF。完整病种结果请调用 analyze_fundus；独立分割未检测到视盘时会抛出异常。

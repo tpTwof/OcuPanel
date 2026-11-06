@@ -1,4 +1,5 @@
-from typing import Protocol, TypedDict
+from typing import Protocol
+from typing_extensions import TypedDict
 
 class LLMCall(Protocol):
     def __call__(

@@ -15,7 +15,8 @@
 
 ### 前置要求
 
-- Python 3.10+、Node 18+
+- **Python 3.13**：当前开发与验证基线；本机项目 `.venv` 实测为 **3.13.3**。系统默认 `python` 为 3.14.4，启动时请明确使用项目虚拟环境。
+- 前端本机验证环境：**Node 24.15.0 / npm 11.12.1**（React 18、Vite 6）。其他运行时版本尚未完成整体验证。
 - 能访问 HuggingFace（国内需镜像，见下方「常用配置」）
 - 影像分析所需内存取决于模型、图片尺寸与并发；部署前需在目标机器实测，见部署文档
 
@@ -26,7 +27,7 @@ FastAPI 同时提供 API 和页面，只需一条命令。
 ```bash
 # 1. 后端依赖（torch 先装 CPU 版，否则会拖进 2GB+ 的 CUDA 库）
 cd backend
-python -m venv ../.venv
+py -3.13 -m venv ../.venv     # 明确选择 Python 3.13；已有环境则跳过
 ../.venv/Scripts/python.exe -m pip install --upgrade pip
 ../.venv/Scripts/python.exe -m pip install torch==2.7.0 --index-url https://download.pytorch.org/whl/cpu
 ../.venv/Scripts/python.exe -m pip install -r requirements.txt
@@ -38,13 +39,15 @@ npm run build
 
 # 3. 配置并启动
 cd ../backend
-cp .env.example .env          # 服务器默认值可留空，用户自己在界面填 Key
+cp .env.example .env          # 首次安装才复制，已有 .env 不要覆盖
 ../.venv/Scripts/python.exe main.py
 ```
 
 浏览器打开 <http://127.0.0.1:8000> —— 页面和 API 都在这里。
 
-> Linux / macOS 把 `../.venv/Scripts/python.exe` 换成 `../.venv/bin/python` 即可。
+> 若无 `py -3.13`，使用 Python 3.13 可执行文件的完整路径创建环境。Linux / macOS 使用 `python3.13 -m venv ../.venv`，并把虚拟环境路径换成 `../.venv/bin/python`。其他 Python 版本没有完成全套依赖与运行验证，不再笼统声明“Python 3.10+”。
+>
+> PowerShell 可在根目录用 `.\.venv\Scripts\python.exe --version` 确认项目版本；不要只检查系统 `python --version`。
 
 ### 模式二：前后端分离（开发用）
 
@@ -58,7 +61,7 @@ cd backend && ../.venv/Scripts/python.exe main.py
 cd frontend && npm run dev
 ```
 
-浏览器打开 <http://127.0.0.1:5500>。
+浏览器打开 <http://127.0.0.1:5500>。若端口被占用，Vite 会尝试其他端口，以终端输出为准。
 
 > ⚠️ **两个终端都要开着。** 只起前端时页面能正常打开（纯静态），
 > 但一提交表单就会报 `Internal Server Error`——Vite 代理找不到后端，直接回了 500 空响应。
@@ -108,12 +111,12 @@ cd frontend && npm run dev
 
 1. 左栏点「眼科分析」，或在眼科助手形态选择「影像与报告分析」；
 2. 上传眼底照片（`.jpg` / `.jpeg` / `.png`，支持拖拽）+ 填写临床记录；
-3. 点「生成报告」，等 40 秒到几分钟（取决于服务商速度）。
+3. 点「生成报告」，等待推理、检索、LLM 生成与校验完成；耗时取决于硬件、模型服务和修订次数。
 
 结果会追加到当前对话里，包含报告正文、杯盘比、分割图、证据包和校验结果，可下载 PDF。
 
 **如果报告被拒答**，说明校验发现有些结论找不到出处。此时**不会生成 PDF**，
-界面会列出哪些句子没通过——这是设计上的保护，不是故障。补充一点临床信息重新生成即可。
+界面会展示拒答原因和可用的未通过断言；也可能因无证据或校验故障拒答。补充临床信息不能保证下次通过，应结合返回原因排查。
 
 ### 5. 退出登录
 
@@ -124,12 +127,12 @@ cd frontend && npm run dev
 
 ## 常用配置
 
-改 `backend/.env`，全部变量见 [`backend/README.md`](backend/README.md#环境变量)。
+改 `backend/.env`，配置说明见 [`backend/README.md`](backend/README.md#配置)。
 
 | 想改什么 | 加这一行 |
 |---|---|
 | 国内下载模型慢 / 失败 | `HF_ENDPOINT=https://hf-mirror.com` |
-| 用 DeepSeek | `OPENAI_BASE_URL=https://api.deepseek.com` + `OPENAI_MODEL=deepseek-flash` |
+| 设置默认端点与模型名称 | `OPENAI_BASE_URL=...` + `OPENAI_MODEL=...`；业务请求仍要求用户在个人设置中保存自己的 Key |
 | PDF 中文变方块 | `REPORT_FONT_PATH=C:/Windows/Fonts/simhei.ttf` |
 | 换端口 | `PORT=8001`（前端再配 `VITE_API_BASE_URL=http://127.0.0.1:8001`） |
 
@@ -140,7 +143,8 @@ cd frontend && npm run dev
 | 想看什么 | 去哪 |
 |---|---|
 | 整体架构、方法流程、设计取舍 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| 部署到云服务器（含 2C2G 调优） | [`docs/DEPLOY.md`](docs/DEPLOY.md) |
+| 文档状态与维护范围 | [`docs/README.md`](docs/README.md) |
+| 部署到云服务器与容量验证 | [`docs/DEPLOY.md`](docs/DEPLOY.md) |
 | API 端点、数据表、检索与校验细节 | [`backend/README.md`](backend/README.md) |
 | 前端组件、交互约定、调试抽屉 | [`frontend/README.md`](frontend/README.md) |
 | 测试样本 | [`samples/`](samples/) |
@@ -152,7 +156,7 @@ cd frontend && npm run dev
 ## 常见问题
 
 **Q：点了注册 / 登录，只显示 `Internal Server Error`？**
-后端没启动。模式二下页面在 5500、接口要转发到 8000，只起前端时任何提交都会失败。验证：
+先确认后端已启动。模式二下页面在 5500、接口转发到 8000；代理失败与后端自身异常都可能导致请求失败。验证：
 
 ```bash
 curl -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/api/account/llm-presets
@@ -161,7 +165,7 @@ curl -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/api/account/llm-pres
 `200` 说明后端在跑（去看它的 traceback）；连接失败就是后端没起。
 
 **Q：第一次生成报告卡很久？**
-正在从 HuggingFace 下载模型权重（约 700MB）。加 `HF_ENDPOINT=https://hf-mirror.com` 后重启。
+可能正在下载视觉或检索模型。视觉权重首次分析加载，默认向量检索还会在启动后的后台自检中加载；下载量取决于缓存和模型配置。可设置 `HF_ENDPOINT` 或提前下载，缓存目录可用 `HF_HOME` 指定。
 
 **Q：导出的 PDF 中文变成方块 / 空白？**
 字体没探测到，按上面「常用配置」显式指定一个 ttf。
@@ -179,8 +183,8 @@ curl -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/api/account/llm-pres
 **Q：端口被占用？**
 后端设 `PORT=8001`，前端设 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
 
-更多排查（500 的三种成因、并发目录隔离、模型缓存问题）见
-[`backend/README.md`](backend/README.md#排查) 与 [`frontend/README.md`](frontend/README.md#已知坑)。
+更多排查、任务目录和模型缓存说明见
+[`backend/README.md`](backend/README.md#验证与排查) 与 [`frontend/README.md`](frontend/README.md#已知坑)。
 
 ---
 
@@ -205,6 +209,8 @@ MIT License，详见 `LICENSE`。
 
 ## 当前实现说明
 
+当前知识库的四份 Markdown 是检索演示语料，并非已校对的权威指南全文。眼底样本带 AI 生成水印，用于功能验证，不能充当临床模型准确度基准。
+
 当前按业务分层：user/chat/report 各自维护 api.py、service.py 和 models.py，vision/agents/knowledge/llm 分别维护分析、推理、检索和模型调用。详见 [架构说明](docs/ARCHITECTURE.md) 和 [数据对象规范](docs/DATA_MODELS.md)。
 
 当前影像模型只输出青光眼类别概率、视杯视盘掩膜和面积等效 CDR，不提供疾病分期。视觉模型有进程级设备缓存与推理锁，支持可用的 CUDA/MPS/CPU；具体运行资源需在部署环境测量。专科 Agent 支持受限工具循环，Director 综合，Verifier 负责引用修订与复核。旧视觉管线切换配置已移除，详见 [后端说明](backend/README.md)。聊天通过 LLMClient 独立调用；眼科分析使用报告生成流程。
@@ -222,3 +228,13 @@ MIT License，详见 `LICENSE`。
 默认最多携带 20 条历史消息，系统指令、当前问题与选中历史共用 20,000 字符预算；眼科形态最多固定最近一份报告的 6,000 字符（还受剩余预算一半的限制），长报告会标记节选。聊天回复上限为 2,048 token。字符预算不是精确 token 数，较早内容可能不再进入本次请求。
 
 这些是开发阶段的成本与长度控制，不是经过临床验证的长期病例记忆策略。完整记录仍在数据库中，当前没有跨会话记忆。配置见 [会话上下文说明](backend/chat/README.md#聊天上下文与回复预算)。
+
+## 离线验证
+
+从项目根目录执行，测试使用模拟 LLM，不使用账户的真实 Key：
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s backend/tests
+```
+
+当前回归覆盖会话形态与窗口、报告接口、受限工具、引用修订、视觉数值逻辑及 TypedDict schema 兼容。真实模型样本验证记录见 [vision/README.md](backend/vision/README.md)，不代替临床准确度、GPU 或生产容量验证。界面“测试连通”和 `python -m llm.check` 则会调用真实服务，可能产生费用。

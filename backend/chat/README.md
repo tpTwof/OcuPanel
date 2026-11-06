@@ -13,7 +13,9 @@ PATCH /api/chat/conversations/{id}/mode 接收 {"mode":"general"} 或 {"mode":"o
 
 SQLite 启动迁移增加 conversations.mode，已有报告消息的旧会话初始化为 ophthalmic。迁移幂等，用户之后主动切回 general 不会被启动迁移改回。
 
-本次将聊天从完整报告生成器中解耦。llm/ 只处理传入的消息与可选系统指令；分析 Agent 的语言指令归 agents/prompts/language.py，PDF 的展示语言归 report/settings.py。
+聊天直接使用 LLMClient，不依赖完整报告生成器。llm/ 只处理传入的消息与可选系统指令；分析 Agent 的语言指令归 agents/prompts/language.py，PDF 的展示语言归 report/settings.py。
+
+不同会话不共享消息上下文，仅共享该账户的 LLM 配置。眼科形态每次发送都传入系统指令，系统指令不作为消息写库。模型请求失败返回 502，已写入的本次用户消息仍保留。没有消息流式输出或自动历史摘要。
 
 ## 聊天上下文与回复预算
 

@@ -2,7 +2,15 @@
 
 > 历史设计/调研记录，不代表当前实现或可用配置。当前结构、能力与约定以 [ARCHITECTURE.md](../ARCHITECTURE.md) 和各模块 README 为准；文中旧路径和视觉管线配置已被后续重构替代。
 
-**Date:** 2025-01  
+## 与当前项目的关系（2026-11-06）
+
+本轮只核对文档与仓库的实现关系，没有重新验证下文外部论文、排行榜、硬件要求、API 可用性或推荐顺序。原记录日期与部分引用年份存在不一致，不据此声称内容具有时效性。
+
+当前项目没有接入下文的 VLM 或 GraphRAG 框架，图检索仅有占位骨架。实际影像入口为 vision.analyze_fundus → EyeAnalysis，知识检索为 BM25/向量/RRF，报告为六专科受限工具循环 → Director → Verifier。没有旧 AnalysisPipeline、FundusAnalysis、消息总线或自适应会诊。
+
+研究建议不是当前安装依赖或已采用方案；若启动新一轮模型选型，需重新查证原始来源并独立验证。环境和可用功能见[项目 README](../../README.md)、[架构](../ARCHITECTURE.md)与[文档索引](../README.md)。
+
+**原记录标注日期（未核验）:** 2025-01
 **Scope:** Vision-Language Models for fundus image analysis, GraphRAG implementations for medical knowledge bases, Multi-Agent frameworks for medical AI, and integration architectures.
 
 ---

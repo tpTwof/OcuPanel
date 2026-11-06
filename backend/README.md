@@ -1,397 +1,143 @@
 # backend — FastAPI 服务
 
-> 当前模块与接口规范见 [架构说明](../docs/ARCHITECTURE.md) 和 [数据对象归属](../docs/DATA_MODELS.md)。LLM 自检在 backend 下运行 `python -m llm.check`。
+当前开发基线为 **Python 3.13**，本机项目 `.venv` 实测 **3.13.3**。依赖固定在 [requirements.txt](requirements.txt)，安装步骤见[项目 README](../README.md)。系统默认 Python 可能与虚拟环境不同；其他 Python 版本尚未完成整体验证。
 
-OcuPanel 的后端：影像分析（SwinV2 分类 + SegFormer 分割）、证据检索、六专科并发生成、
-Director 综合、引用校验、PDF 导出，同时托管前端构建产物。项目整体介绍与使用说明见
-[根目录 README](../README.md)。
+从项目根目录启动（PowerShell）：
 
-```bash
-cd backend
-../.venv/Scripts/python.exe main.py        # Windows
-../.venv/bin/python main.py                # Linux / macOS
+```powershell
+Set-Location backend
+..\.venv\Scripts\python.exe main.py
 ```
 
----
+Linux 使用 `../.venv/bin/python main.py`。默认监听 `127.0.0.1:8000`；存在 `frontend/dist/index.html` 时同时托管前端，否则只提供 API。接口文档为 `/docs` 和 `/redoc`。
 
-## 主链路
+## 模块与流程
 
-`report/api.py:generate_content` 是入口，对应下图：
-
-<p align="center">
-  <img src="../docs/diagrams/pipeline.svg" alt="OcuPanel 主链路：眼底图上传 → 影像分析 → 证据检索 → 六专科并发 → Director 综合" width="720">
-</p>
-
-1. **视觉预处理** — SwinV2 输出青光眼类别的模型概率 *p*，不按概率推断疾病分期；
-   SegFormer 给出视杯与视盘掩码 → 杯盘比（CDR）。
-2. **核心提示词** — 用自然语言概括 *p* 与 CDR，可附加临床医生备注。
-3. **证据检索** — 本地检索知识语料，得到带出处的证据包（见下文「知识检索」）。
-4. **角色化子报告** — 每个临床角色（眼科医生、验光师、药师等）拿到核心提示词 + 本专业的窄指令，
-   撰写聚焦的子报告。
-5. **Director 综合** — 另一个 LLM 实例合并全部子报告，消解轻微冲突，产出唯一一份报告。
-6. **引用校验（Verifier Agent）** — 逐句核对 `[n]` 是否真的支撑该句（见下文「引用校验」）。
-7. **输出** — 正文、CDR、图像标识、证据包、校验结果返回客户端；可选渲染 PDF。
-
-第六步既可能让流程回头（重生成），也可能让流程关门（拒答），所以没画进主链路。
-六个专科互不依赖，用 `ThreadPoolExecutor` 并发——串行时整条链路要 8 分钟以上，
-并发后约等于最慢的那一次。
-
-## 模块职责
-
-| 位置 | 职责 |
+| 模块 | 职责 |
 |---|---|
-| `main.py` | 应用组装、生命周期、异常映射和前端静态托管 |
-| 各模块的 `models.py` | 管理本领域拥有的数据对象，供其他模块导入 |
-| `user/api.py`、`user/service.py` | 用户路由与账户、配置、用量业务 |
-| `chat/api.py`、`chat/service.py` | 会话路由与消息、问答业务 |
-| `report/api.py`、`report/service.py` | 报告路由、上传对象绑定、生成任务与留痕 |
-| `report/generation.py` | 调用影像分析、专科 Agent、Director、Verifier |
-| `report/context.py`、`report/pdf.py` | 病例上下文与 PDF 输出 |
-| `report/settings.py` | ReportLabels 展示配置和字体候选 |
-| `agents/roles.py` | SpecialistRole 角色与检索关键词定义 |
-| `agents/` | 专科、综合、引用校验及受限工具 |
-| `vision/` | 青光眼分类、视杯视盘分割和指标计算 |
-| `knowledge/` | 本地语料、检索、证据格式化 |
-| `llm/` | 模型调用与连通性检查 |
-| `utils/` | 认证、配置、路径、SQLite 存储和应用错误 |
+| `main.py` | 应用组装、生命周期、错误映射、静态托管 |
+| `user/` | 账户、用户 LLM 配置、用量 |
+| `chat/` | 会话形态、消息存储、上下文选择和 LLM 问答 |
+| `report/` | 上传绑定、病例组织、分析生成、留痕、PDF |
+| `vision/` | 青光眼分类、视杯视盘分割、面积等效 CDR |
+| `agents/` | 六专科、Director、Verifier 和受限工具 |
+| `knowledge/` | 本地示例语料、BM25/向量检索、证据格式化 |
+| `llm/` | 统一模型调用、超时、重试、错误描述和连通自检 |
+| `utils/` | 认证、配置、路径、SQLite、应用错误 |
+| `graphrag/` | 未接入当前报告链的占位骨架 |
+| `tests/` | 离线回归测试 |
 
-统一规范见 [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) 与 [`../docs/DATA_MODELS.md`](../docs/DATA_MODELS.md)。
+HTTP 路由位于各业务模块 `api.py`，应用业务位于 `service.py`，数据契约属于各模块 `models.py`。详见[架构](../docs/ARCHITECTURE.md)与[数据对象](../docs/DATA_MODELS.md)。
 
----
+```mermaid
+flowchart TD
+  Chat[chat/api.py] --> CS[chat/service.py：形态与上下文]
+  CS --> L[LLMClient] --> Reply[聊天回复]
+  R[report/api.py：multipart 绑定] --> RS[report/service.py：校验、任务目录与留痕]
+  RS --> G[report/generation.py]
+  G --> V[vision.analyze_fundus：EyeAnalysis]
+  V --> C[report/context.py：病例事实]
+  C --> K[knowledge：按角色检索、合并编号]
+  K --> S[六个 SpecialistAgent 并发、各自受限工具循环]
+  S --> D[Director 综合]
+  D --> Q[Verifier：核查、修订、复核]
+  Q --> Result[ReportResult：正文或拒答、校验、CDR、叠加图、证据]
+  Result --> RS
+  RS --> Output[JSON / PDF 响应]
+```
 
-## 数据层
-
-没有引入 ORM，也没有额外的数据库服务，就是 `backend/ocupanel.db` 一个 SQLite 文件
-（首次启动自动建表）。
-
-| 表 | 内容 | 说明 |
-|---|---|---|
-| `users` | 用户名、密码哈希、显示名 | PBKDF2-HMAC-SHA256，600k 迭代，每用户随机盐 |
-| `sessions` | 登录令牌 | 7 天 TTL，启动时清理过期项 |
-| `llm_configs` | 每人的 Base URL / 模型 / **加密后的 API Key** | Fernet 对称加密，密钥是 `.env` 的 `OCUPANEL_SECRET_KEY` |
-| `conversations` | 会话标题、创建 / 更新时间 | 按 `user_id` 隔离 |
-| `messages` | 对话逐条记录 | 报告消息的 `meta` 里存分割图名、证据、校验结果 |
-| `reports` | 报告留痕 | 便于查「这份报告是什么时候、用哪个模型生成的」 |
-
-几个刻意的选择：
-
-- **每个用户用自己的 Key。** 代码里不写死 key，也不回退到服务器的 `OPENAI_API_KEY`
-  ——没配就返回 409，而不是偷偷用别人的额度。
-- **Key 不在界面回显明文。** 只给 `sk-xxx...abcd` 形式的掩码，保存时留空表示沿用旧值。
-- **越权统一返回 404。** 访问别人的会话返回「会话不存在」而不是 403，不泄露"这个 id 存在"。
-  GET / PATCH / DELETE 三者的文案也必须一致；DELETE 要检查 `rowcount`，
-  不能因为"删除幂等"就一律 200，否则越权尝试会伪装成成功。
-- **`.gitignore` 已排除 `*.db`。** 这个文件含账户与密文 Key，不能进版本库。
-
-> ⚠️ `OCUPANEL_SECRET_KEY` 丢了，所有用户已存的 Key 就解不开，只能重新填写。
-> 首次启动会自动生成并写回 `.env`，请自行备份。
-
-### 临时文件
-
-每次请求在 `backend/output/` 下新建独占目录（`job_*` / `report_*` / `content_*`），
-原始图、分割图、临时 jpg、PDF 全在里面，多个并发请求互不干扰：
-
-- `generate-report-content`：请求结束立即删目录，只留 `img_store/<uuid>.jpg` 供前端取回；
-- `generate-report`：PDF 随响应体发送完毕后再删目录（`BackgroundTask`）；
-- 进程被强杀留下的目录，下次启动时自动清理（超过 30 分钟的删除）。
-
-`img_store/` 只写不清理（历史报告的分割图要长期可访问），会缓慢增长。
-
-### 单进程假设
-
-服务按**单个 Uvicorn 进程**设计。数据层本身支持多进程（SQLite WAL），但每个 worker
-都会独立加载一遍 torch 与模型，内存占用线性叠加，小内存机器会直接 OOM。
-不要加 `--workers N`。
-
----
+普通聊天和眼科追问不执行报告流程。形态切换只保存状态；眼科问答每次请求注入 `chat/prompts.py`。报告默认六角色为眼科医生、验光师、青光眼专科、全科医生、眼科技师、药师；角色定义在 `agents/roles.py`。
 
 ## API
 
-除注册、登录与预设列表外，**业务接口要求 `Authorization: Bearer <token>`**，未带或失效统一返回 `401`。
-
-### 账户
+除注册、登录、LLM 预设外，业务接口要求 `Authorization: Bearer <token>`。未登录或令牌失效返回 401，其他用户的会话与不存在的会话统一返回 404。
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/api/account/register` | 注册并直接登录，返回 `{user, token}` |
-| POST | `/api/account/login` | 登录；用户名或密码错都只回「用户名或密码错误」，防枚举 |
-| POST | `/api/account/logout` | 注销当前令牌 |
-| GET | `/api/account/me` | 当前用户 + 已配置的 LLM（Key 为掩码） |
-| GET | `/api/account/llm-presets` | 内置服务商预设与服务器默认值 |
-| PUT | `/api/account/llm` | 保存配置；`api_key` 留空表示沿用已存的 |
-| POST | `/api/account/llm/test` | 测试连通，**不落库** |
-| DELETE | `/api/account/llm` | 清除配置 |
-| GET | `/api/account/usage` | 对话数 / 报告数 / 被拒答次数 |
+| POST | `/api/account/register` | 注册并登录，密码至少 6 位 |
+| POST | `/api/account/login` | 登录 |
+| POST | `/api/account/logout` | 当前令牌失效 |
+| GET | `/api/account/me` | 用户与脱敏 LLM 配置 |
+| GET | `/api/account/llm-presets` | 服务商预设和服务器默认端点/模型 |
+| PUT / DELETE | `/api/account/llm` | 保存 / 清除用户配置 |
+| POST | `/api/account/llm/test` | 真实模型连通测试，不保存配置 |
+| GET | `/api/account/usage` | 会话、报告、拒答统计 |
+| GET / POST | `/api/chat/conversations` | 会话列表 / 创建，默认 general |
+| GET / PATCH / DELETE | `/api/chat/conversations/{id}` | 详情与完整消息 / 改名 / 删除 |
+| PATCH | `/api/chat/conversations/{id}/mode` | `{"mode":"general"}` 或 `{"mode":"ophthalmic"}` |
+| POST | `/api/chat/conversations/{id}/messages` | `{"message":"..."}`，返回回复 |
+| POST | `/api/generate-report-content/` | 返回分析 JSON，并在指定会话追加临床记录与报告 |
+| POST | `/api/generate-report/` | 重新分析并返回 PDF；拒答时 422 |
+| GET | `/api/get-report-image/{img_name}` | 获取保存的分割叠加图 |
 
-### 会话与问答
+报告表单使用 `multipart/form-data`：`file` 为 JPG/JPEG/PNG 文件，`note` 为可选临床记录，`conversation_id` 为可选会话 ID。`parse_report_submission()` 转为 `ReportSubmission`，当前用户由令牌注入，不能由表单指定。无会话 ID 时接口不自动创建会话；前端会预先创建。
 
-| 方法 | 路径 | 说明 |
+正文响应字段为 `summary`、`cup_to_disc_ratio`、`img_name`、`evidence`、`verification`、`rejected`、`report_id`。拒答时 `summary` 为原因展示文本，不是未通过的报告草稿。CDR 可能为空，且仍是当前青光眼展示字段，不表示所有病种都使用 CDR。
+
+聊天与报告都要求用户保存自己的 LLM 配置，缺失返回 409，不回退使用服务器 Key。聊天模型请求失败返回 502；报告中的专科/Director 调用失败会中止任务并可能返回 500，校验故障则不交付正文。不能把 `Error:` 字符串当作有效报告。
+
+## 检索与引用校验
+
+`knowledge/retrieval.py` 支持 `bm25`、`vector`、`hybrid`。默认 hybrid 使用 BM25 与 `intfloat/multilingual-e5-small` 向量召回，经 RRF 融合、每源上限、语言配额与门控筛选。hybrid 的 `score` 是融合分，不能当作余弦相似度或医学置信度。
+
+六角色分别检索，报告侧合并、去重并统一引用编号，最多保留 `max(RAG_TOP_K * 2, 6)` 条。专科工具只能搜索/读取当前请求已分配且最终保留的证据；当前没有网络医学搜索或任意文件/命令工具。
+
+启动时后台执行 `knowledge.retrieval.selfcheck_gate()`，可能加载向量模型；失败只告警，不阻止服务启动。阈值是语料和模型相关的标定值，替换后应重新验证，旧版本记录的相似度和延迟不是性能保证。四份 corpus 文件均为演示语料，不能称为已接入权威指南全文。
+
+Verifier 对外部知识核查引用语义，代码另行检测未知编号，经过有限修订与复核，必要时要求 Director 重生成一次；不重跑影像与六专科。状态为 `pass`、`rewritten`、`rejected`、`error` 或 `disabled`；开启校验而证据为空时为 `rejected/no_evidence`，不会因缺证据放行。关闭 LLM 校验时仍拒绝未知引用编号。病例测量真实性不在引用校验范围内，详见 [Agents](agents/README.md)。
+
+## 配置
+
+配置来自 `utils/config.py` 和 `backend/.env`，修改后重启。模板见 [.env.example](.env.example)。
+
+| 配置 | 默认值 | 用途 |
 |---|---|---|
-| GET | `/api/chat/conversations` | 会话列表（只含自己的） |
-| POST | `/api/chat/conversations` | 新建会话 |
-| GET | `/api/chat/conversations/{id}` | 会话详情 + 全部消息 |
-| PATCH | `/api/chat/conversations/{id}` | 重命名 |
-| DELETE | `/api/chat/conversations/{id}` | 删除（连带消息） |
-| POST | `/api/chat/conversations/{id}/messages` | 发消息，返回助手回复 |
+| `HOST` / `PORT` / `RELOAD` | `127.0.0.1` / `8000` / `0` | 服务监听与开发重载 |
+| `OPENAI_API_KEY` | 空 | 直接使用客户端/自检时的服务器 Key；业务接口仍要求用户配置 |
+| `OPENAI_MODEL` / `OPENAI_BASE_URL` | `gpt-4.1` / 官方端点 | 默认模型与端点；服务商可用型号由用户确认 |
+| `OCUPANEL_SECRET_KEY` | 首次自动生成 | Fernet 加密用户 Key，必须备份；丢失后原密文无法解密 |
+| `LLM_TIMEOUT` / `LLM_MAX_RETRIES` | `120` / `1` | 单次调用超时秒数与 SDK 重试 |
+| `LLM_DISABLE_THINKING` | `1` | 只对匹配 DeepSeek 的端点发送关闭 thinking 参数 |
+| `REPORT_LANGUAGE` / `REPORT_FONT_PATH` | `zh` / 自动探测 | 报告语言与 PDF 中文字体 |
+| `CHAT_HISTORY_MAX_MESSAGES` | `20` | 历史消息条数，固定报告计入 |
+| `CHAT_CONTEXT_MAX_CHARS` | `20000` | 系统指令、当前输入和选中历史的正文字符预算 |
+| `CHAT_REPORT_MAX_CHARS` | `6000` | 眼科形态最近报告上限，同时受剩余预算一半限制 |
+| `CHAT_MAX_OUTPUT_TOKENS` | `2048` | 聊天回复上限，不影响报告 Agents |
+| `RAG_ENABLED` / `RAG_MODE` | `1` / `hybrid` | 证据检索开关与模式 |
+| `RAG_TOP_K` / `RAG_MIN_SCORE` | `4` / `0.35` | 角色召回数量与相对得分阈值 |
+| `RAG_VECTOR_MODEL` / `RAG_VECTOR_MIN_SCORE` | `intfloat/multilingual-e5-small` / `0.78` | 向量模型与绝对阈值 |
+| `RAG_RRF_K` | `60` | 排名融合常数 |
+| `RAG_LANG_QUOTA` / `RAG_LANG_GATE` | `1` / `0.89` | 语言配额与查询门控 |
+| `RAG_MAX_PER_SOURCE` | `2` | 每源条数，0 不限 |
+| `VERIFY_ENABLED` | `1` | LLM 引用语义核查 |
+| `VERIFY_MAX_ROUNDS` / `VERIFY_MIN_CHARS` | `2` / `300` | 修订轮数与有问题短稿的重生成判据 |
+| `HF_ENDPOINT` / `HF_HOME` | 默认 Hugging Face 源 / 用户缓存 | 镜像与缓存根目录；HF_HOME 由下载库读取 |
+| `CORS_ORIGINS` | localhost 和 127.0.0.1 的 5500 | 跨域白名单，同源访问不依赖它 |
+| `FRONTEND_DIST` | 项目 `frontend/dist` | 前端构建目录 |
+| `MULTI_AGENT_MODE` | `parallel` | 唯一已实现模式；其他值在报告生成时报错 |
 
-### 报告
+`GRAPH_RAG_ENABLED`、`GRAPH_STORE`、`AGENT_TRACE_ENABLED` 只有占位配置，当前报告链未接入图检索或 Agent 轨迹持久化。`EXPIRY_SECONDS`、`CLEANUP_INTERVAL` 是遗留未使用配置，不控制当前任务清理。旧 `ANALYSIS_PIPELINE`、`VLM_MODEL`、`VLM_BACKEND` 已移除；非默认旧管线值会使启动失败。
 
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST | `/api/generate-report/` | 上传图像 + 备注，直接返回 PDF（校验未通过返回 `422`） |
-| POST | `/api/generate-report-content/` | 上传图像 + 备注，返回 JSON |
-| GET | `/api/get-report-image/{img_name}` | 取回叠加了分割掩膜的眼底图（文件名白名单校验，防路径穿越） |
+## 数据与资源生命周期
 
-两个报告接口的公共表单字段：
+SQLite 固定为 `backend/ocupanel.db`，有 users、sessions、llm_configs、conversations、messages、reports 六张表。密码使用 PBKDF2-HMAC-SHA256，登录令牌有效期 7 天；会话形态启动时自动迁移，已有报告的旧会话初始化为 ophthalmic，之后主动切换的状态会保留。
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `file` | File | 眼底图像（`.jpg` / `.jpeg` / `.png`） |
-| `note` | Text | 临床备注（可选） |
-| `conversation_id` | Text | 关联到哪个会话（可选；接口缺省不自动新建，前端提交前创建） |
+每次任务在 `backend/output/` 创建独占目录。正文请求结束清理；PDF 发送完毕后由后台任务清理。启动时清理超过 30 分钟的遗留任务目录，没有周期性任务清理器。`backend/img_store/` 长期保存叠加图，当前没有自动清理。备份需包含数据库、加密密钥与图片。
 
-未配置 LLM 时这两个接口返回 `409`，提示去个人设置填写。
-`generate-report-content` 的响应字段：`summary` / `cup_to_disc_ratio` / `img_name` /
-`evidence` / `verification` / `rejected` / `report_id`。
+视觉权重按模型、类型和设备缓存，加载和推理共用进程锁；只缓存权重，不缓存分析结果。自动设备选择为 CUDA → MPS → CPU，当前本机使用 CPU 版 torch。每个 worker 都有独立模型副本，部署先使用单 worker，在目标环境实测容量。当前没有完整报告任务队列。
 
-接口文档：`/docs`（Swagger UI）、`/redoc`（ReDoc）。
+会话查询按用户隔离，但分割图接口只要求登录和安全文件名，尚未核对图像所属用户。PDF 接口重新生成，尚不能直接导出已存报告；刷新后前端不再持有原上传文件，也就没有对应下载入口。
 
-示例：
+## 验证与排查
 
-```bash
-TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/account/register \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"doctor01","password":"pass1234"}' | jq -r .token)
+```powershell
+# 根目录：离线测试，不访问真实 LLM
+.\.venv\Scripts\python.exe -m unittest discover -s backend/tests
 
-curl -X POST http://127.0.0.1:8000/api/generate-report/ \
-  -H "Authorization: Bearer $TOKEN" \
-  -F "file=@fundus.jpg" \
-  -F "note=IOP 24 mmHg OU" \
-  -o diagnostic_report.pdf
+# backend 下：真实服务连通自检，可能产生 API 调用费用
+..\.venv\Scripts\python.exe -m llm.check
 ```
 
-> 报告接口是**同步长请求**（1–5 分钟）。放在 Nginx 后面时 `proxy_read_timeout`
-> 必须放大，默认 60s 会在模型还在生成时切断连接。见 [`docs/DEPLOY.md`](../docs/DEPLOY.md)。
+离线回归与模拟 UI 验证不使用账户真实 Key；真实视觉样本结果见 [vision](vision/README.md)。未完成临床准确度、GPU、跨 Python 版本和生产并发容量验证。
 
----
-
-## 知识检索（证据包）
-
-报告不只靠模型参数。每次生成前会做一次本地检索，把带出处的指南片段注入提示词：
-
-```
-病历 + 影像结论 → 各角色用自己的专业关键词检索 → 证据包（编号 + 出处）
-                 → 注入提示词（要求句末标注 [n]）→ 报告正文带引用
-                 → PDF 末尾附「参考资料」→ 前端展示证据卡片
-```
-
-<p align="center">
-  <img src="../docs/diagrams/rag-hybrid.svg" alt="混合检索：BM25 与多语言向量双路召回，RRF 按名次融合，经每源上限、语言配额、查询门控过滤后输出证据包" width="720">
-</p>
-
-- **实现**：`knowledge/retrieval.py`，BM25（中文 2-gram）+ 多语言向量 + RRF 融合；语料按「小节 → 段落」两级切分。
-- **按角色差异化**：`agents.roles.SPECIALIST_ROLES` 给药师「禁忌 / 相互作用」、
-  给技师「眼压测量 / 视野检查」等关键词加权，避免六个角色拿到同一批证据。
-- **全局编号**：一条资料在所有角色提示词与最终报告里编号一致，Director 汇总不会串号。
-- **开关**：`RAG_ENABLED=0` 退回纯模型生成，便于 A/B 对比——但**没有证据包时引用校验会把结论判为无据**，
-  所以关掉 RAG 等于关掉「可追溯」这个卖点，只适合做对比实验。
-
-### 中英语料混存（`RAG_MODE`）
-
-语料可中英混排，但**词面检索救不了跨语言**：中文查询在英文块里没有任何 token，实测零命中；
-只能靠缩写（OCT/RNFL）和数字漏网，而数字还会造成 1.0 的假命中。所以默认走多语言向量：
-
-| 模式 | 中文查询 → 英文块 | 说明 |
-|---|---|---|
-| `bm25` | 永不命中 | 零依赖，只适合同一语料 |
-| `vector` | 命中（余弦 0.82–0.84） | `intfloat/multilingual-e5-small`，AutoModel + mean pooling，不装 sentence-transformers |
-| `hybrid`（默认） | 命中，且中文块排前 | 两路各宽召回，RRF 排名融合 |
-
-三个容易被忽略的细节：
-
-1. **光有语义对齐不够，还要语言配额**（`RAG_LANG_QUOTA`）。中文块的相似度天然更高
-   （0.93 vs 跨语言 0.85），top-4 会被中文块占满，英文块一个都排不上。配额给每种语言留
-   `k/语言数` 个位置。
-2. **配额必须门控**（`RAG_LANG_GATE=0.89`）。否则「门诊预约流程」这种无关查询也会被硬塞两条英文块。
-   不能逐项卡阈值——跨语言相关块（0.82–0.84）比同语言无关块（0.867）还低；看「最佳命中」才干净：
-   相关查询 ≥0.918，无关查询 ≤0.867。
-3. **每源最多 2 条**（`_diversify`）。同一文档的相邻段落本来就重复，随访主题 6 段全在 0.91–0.94，
-   会把名额吃光。
-
-融合用 RRF（`score = Σ 1/(60+rank)`）而不是分数加权：中英 BM25 的分数量纲不可比，
-向量分又是另一种，比名次最省事。
-
-**关于 `score`**：hybrid 下它是融合相对分，不是余弦，直接当「相关度」显示会误导
-（实测某条真实余弦 0.81 却显示 0.37）。所以前端证据卡片只标命中方式（`词面` / `语义` / `混合`），
-三个原始分（`bm25` / `vector` / `rrf`）放在展开后的明细里。
-
-**门控阈值是标定值，会让服务自己复核**：`0.89` 是在「当前语料 + e5-small」上量的
-（相关 0.918–0.939，无关 0.852–0.867，取两组的中性点）。换 `RAG_VECTOR_MODEL` 或语料大改后
-分布会漂移，否则门控要么常关（跨语言召回失效）、要么常开（无关查询被塞英文块）。
-
-因此启动时会跑 `knowledge.retrieval.selfcheck_gate()`：拿一条相关探针（语料首块的标题 + 小节，
-跟着语料自适应）和一条跨领域无关探针（挂号 / 停车费）各取最佳余弦，检查 gate 是否被夹在
-两者之间、余量够不够。余量判定不能用固定绝对值——探针间隔本身只有 0.03 量级时要求 0.05 余量
-等于永远判不过；实际取 `min(0.05, 间隔/4)`，即 gate 只需落在两簇中间那一半区间。
-失配或余量不足都写日志告警并给出建议值，**不自动改配置、也不挡启动**
-（自检跑在后台线程，顺带预热向量模型，首个请求不用再等加载）。
-
-实测三种阈值下的行为：`0.89` → 通过；`0.95` → 判「跨语言配额永不触发」；
-`0.85` → 判「无关查询也会被塞英文块」。
-
-升级路径：区分度不够时可换 `intfloat/multilingual-e5-base`（需 `pip install protobuf`）
-或 `bge-m3`，改 `RAG_VECTOR_MODEL` 即可。
-
-`evidence` 字段结构：
-
-```json
-[{ "index": 1, "id": "glaucoma-diagnosis#3-1", "title": "青光眼诊断要点",
-   "section": "分型与鉴别", "source": "glaucoma-diagnosis.md", "score": 1.0, "text": "…" }]
-```
-
-实测（样本病例）：命中 8 条证据，报告正文出现 16 处引用标记
-（如「双眼均高于正常参考上限 21 mmHg [4]」），PDF 从 4 页增至 5 页并多出「参考资料」章节。
-
----
-
-## 引用校验（Verifier Agent）
-
-挂一个 `[3]` 只说明「引用了资料」，**不说明 `[3]` 支持这句话**。所以 Director 写完后再过一道闸门：
-
-<p align="center">
-  <img src="../docs/diagrams/citation-verifier.svg" alt="Verifier Agent：逐句核查 → 删除或改写 → 复核；合格则通过，不合格则整篇重生成并重跑，轮次用尽则拒答且不交报告" width="720">
-</p>
-
-三个出口只有一个是「通过」。重生成走的是回到核查的循环，不是重新走一遍六个专科
-——影像结论和证据包都没变，变的只是写法。
-
-- **拒答不是失败兜底**：`status=rejected` 时**不返回报告、不生成 PDF**，只给出
-  「无法生成有依据的诊断报告」和未通过的断言清单。宁可没有报告，也不给一份看起来对的报告。
-  前端据此隐藏下载按钮，PDF 接口返回 422。
-- **删除是正确处置**：没有依据的句子直接删，不设配额。复核仍有问题且正文过短（低于 `VERIFY_MIN_CHARS`
-  或原稿 40%）时不退回原文，而是触发整篇重生成。
-- **重生成带禁止清单**：把上一版被判无依据的断言列给 Director，要求换写法而不是换个说法
-  把同一结论写回来。
-- **校验故障也不交稿**：校验调用本身出错时 `status=error`，同样不输出——未经核查的内容一律不放行。
-- **判定四档**：`supported` / `partial`（多为模型自加「必须 / 一定 / 唯一」）/ `unsupported` / `uncited`。
-- **不算问题**：本病例的影像所见与测量值（杯盘比 0.85、眼压 26 mmHg）本来就不需要外部出处，
-  否则整篇会被标红。
-- **唯一被拦下的改写**是「假覆盖」：语料明写「前列腺素类似物是首选一线用药」，模型却把该句
-  改成「资料未涵盖」——那是把真实内容抹掉，方向反了（`verifier.is_false_dodge`）。
-  判据有两条：中文 2-gram 覆盖率 ≥0.4，或语义相似度 ≥0.80（中英混排时词面判据恒为 0，
-  只能靠后者，否则这道守卫会静默失效）。
-- **开关**：`VERIFY_ENABLED=0` 关闭；`VERIFY_MAX_ROUNDS=2`（最多 2 轮改写 + 1 次重生成）；
-  `VERIFY_MIN_CHARS=300`。实测正常病例增加 8–12 秒，走重生成约 +20 秒。
-
-`verification` 字段结构：
-
-```json
-{ "status": "rewritten", "rounds": 2, "initial_issues": 5, "deleted": 2, "regenerated": false,
-  "fixed": [{ "quote": "建议每 3 个月复查…唯一推荐方案 [2]。", "new": "", "citations": [] }],
-  "remaining_issues": [] }
-```
-
-`status` 取值：`pass` / `rewritten` / `rejected`（拒答，无报告）/ `error`（校验故障，无报告）/
-`disabled` / `skipped`（无证据包可校验）。
-
----
-
-## 环境变量
-
-`backend/.env`（模板见 `.env.example`）：
-
-| 变量 | 默认值 | 说明 |
-|---|---|---|
-| `OPENAI_API_KEY` | 无 | 服务器默认 Key。留空则跳过 LLM 调用，视觉流水线仍可运行；用户自己的 Key 优先 |
-| `OPENAI_MODEL` | `gpt-4.1` | 模型 ID，可换成任何 OpenAI 兼容模型（DeepSeek 用 `deepseek-flash`，旧的 `deepseek-chat` 已下线） |
-| `OPENAI_BASE_URL` | 官方 OpenAI | 设为第三方 / 本地端点即可接入，如 `https://api.deepseek.com` |
-| `OCUPANEL_SECRET_KEY` | 自动生成 | Fernet 密钥，加密用户 Key。**丢失即无法解密，务必备份** |
-| `REPORT_LANGUAGE` | `zh` | 报告语言，`zh` / `en`；只影响 LLM 输出与 PDF 文案 |
-| `REPORT_FONT_PATH` | 自动探测 | 中文 PDF 字体；按 `simhei.ttf` → `Deng.ttf` → `msyh.ttc` → `simsun.ttc` → Noto CJK → wqy 顺序找 |
-| `LLM_TIMEOUT` | `120` | 单次 LLM 请求超时（秒） |
-| `LLM_MAX_RETRIES` | `1` | LLM 请求失败重试次数 |
-| `LLM_DISABLE_THINKING` | `1` | 对 DeepSeek 端点关闭 thinking，单请求从 ~15s 降到 ~2s；设 `0` 恢复 |
-| `HOST` | `127.0.0.1` | 监听地址。生产环境保持回环，由 Nginx 反代 |
-| `PORT` | `8000` | 监听端口 |
-| `RELOAD` | `0` | 热重载。开发设 `1`；**改文件名 / 移目录时务必关掉**，reloader 中间态会 import 失败 |
-| `CORS_ORIGINS` | `http://127.0.0.1:5500,http://localhost:5500` | 跨域白名单；单服务模式同源，不需要 |
-| `FRONTEND_DIST` | `../frontend/dist` | 前端构建产物目录；不存在则进入纯 API 模式 |
-| `HF_ENDPOINT` | 无 | HuggingFace 镜像，`huggingface.co` 不通时设 `https://hf-mirror.com` |
-| `RAG_ENABLED` | `1` | 是否注入证据包 |
-| `RAG_TOP_K` / `RAG_MIN_SCORE` | `4` / `0.35` | 召回数量 / 相对阈值 |
-| `RAG_MODE` | `hybrid` | `bm25` / `vector` / `hybrid` |
-| `RAG_VECTOR_MODEL` | `intfloat/multilingual-e5-small` | 向量模型 |
-| `RAG_VECTOR_MIN_SCORE` | `0.78` | 向量路绝对阈值 |
-| `RAG_RRF_K` | `60` | RRF 常数 |
-| `RAG_LANG_QUOTA` / `RAG_LANG_GATE` | `1` / `0.89` | 语言配额开关 / 门控阈值（标定值，见上文） |
-| `RAG_MAX_PER_SOURCE` | `2` | 单文档最多入选条数，`0` 不限 |
-| `VERIFY_ENABLED` | `1` | 引用校验开关 |
-| `VERIFY_MAX_ROUNDS` / `VERIFY_MIN_CHARS` | `2` / `300` | 改写轮数 / 不成文判定字数 |
-| 请求目录清理 | 启动时清理超过 30 分钟的遗留任务目录 | 由 `report/utils/jobs.py` 实现，没有定时清理配置 |
-
----
-
-## 排查
-
-**请求返回 500** — 先看运行 `main.py` 的终端，FastAPI 会把完整 traceback 打在那里。常见三种：
-
-- 服务已经挂了（浏览器显示拒绝连接 / 502）→ 重新 `python main.py`；
-- 刚改过文件名 / 目录名 → 关掉 `RELOAD` 再启动，reloader 的中间态会 import 失败；
-- LLM 相关报错**不会**返回 500（会以 `Error: ...` 写进报告正文），所以 500 基本都出在影像或 PDF 环节。
-
-**分类器 / 分割器首次推理卡很久** — 正在从 HuggingFace 拉权重
-（`pamixsun/swinv2_tiny_for_glaucoma_classification`、
-`pamixsun/segformer_for_optic_disc_cup_segmentation`）。
-国内网络在 `.env` 加 `HF_ENDPOINT=https://hf-mirror.com`；生产环境建议提前手动下载预热。
-
-**PDF 中文变方块 / 空白** — `REPORT_FONT_PATH` 没探测到中文字体，显式指向一个 ttf / ttc：
-
-```env
-REPORT_FONT_PATH=C:/Windows/Fonts/simhei.ttf
-```
-
-**生成一份报告要多久** — 默认配置约 40–50 秒（6 角色并发 + Director + PDF）。
-把 `LLM_DISABLE_THINKING` 设为 `0` 会退回 3 分钟以上。校验走重生成时再加约 20 秒。
-
-**只想跑 API 不跑页面** — 把 `FRONTEND_DIST` 指向不存在的目录，自动进入纯 API 模式。
-
----
-
-## 已知问题
-
-视觉模型按模型名称、类型和设备缓存（最多四组），加载与推理共用锁。重复请求复用权重，视觉推理不会在同一进程内并发执行。缓存不保证小内存机器可承载所有报告请求：上传图像、RAG、PDF 和多个 worker 仍占用额外内存，部署时需测量目标环境的峰值。
-
-旧视觉管线 `ANALYSIS_PIPELINE` 和 VLM 配置已退出当前接口；当前只实现青光眼分析。旧非默认管线值会在启动时明确报错，不会静默改跑青光眼。图检索仍为未接入的骨架，不代表支持图谱推理。
-
-## 基础设施位置
-
-配置、路径、认证、SQLite 存储分别位于 utils/config.py、utils/paths.py、utils/auth.py、utils/storage.py。内部统一使用 from utils import config 等导入。迁移只改变代码位置，backend/.env、backend/ocupanel.db、backend/output 和 backend/img_store 均保持原位置。utils 包不会在导入时一次加载所有基础设施。
-
-## 两种会话形态
-
-初次进入与新建会话默认为普通聊天，可在欢迎页或聊天页切换为眼科助手。模式按会话保存，重新打开会话会恢复。普通聊天不注入眼科系统提示词；眼科助手使用 chat/prompts.py 的业务指令。
-
-侧栏“眼科分析”是独立入口，眼科助手聊天页也提供“影像与报告分析”。上传图片与医疗报告/临床记录并提交后，进入当前聊天，自动切为眼科助手，显示生成状态和报告回复，随后可继续追问。未提交分析时只切换形态，不执行视觉模型、Agents 或产生报告费用。切回普通聊天保留已有消息。
-
-后端的 PATCH /api/chat/conversations/{id}/mode 负责持久化形态；旧数据库在启动时迁移，旧报告会话保留眼科助手语义。详细规则见 [会话说明](chat/README.md)。llm/ 不再包含眼科提示词，分析 Agent 与聊天各自管理指令。
-
-## 聊天上下文与回复预算
-
-完整消息保存在 SQLite，发给聊天模型的历史使用 chat/context.py 的窗口选择，不删除存储记录，不产生额外摘要调用。
-
-| 配置 | 默认值 | 含义 |
-|---|---|---|
-| CHAT_HISTORY_MAX_MESSAGES | 20 | 历史消息条数上限，约 10 轮；固定报告计入条数，当前问题和系统指令不计入条数 |
-| CHAT_CONTEXT_MAX_CHARS | 20000 | 系统指令、当前问题与所选历史正文的总字符预算 |
-| CHAT_REPORT_MAX_CHARS | 6000 | 眼科形态最多保留最近一份报告的字符数，同时不超过剩余预算一半 |
-| CHAT_MAX_OUTPUT_TOKENS | 2048 | 单次聊天回复的 max_tokens，不影响专科与报告生成 |
-
-在 backend/.env 中覆盖后重启后端。字符预算不是精确 token 计数，不同供应商分词规则、消息封装开销和模型上下文上限不同，仍需按所用模型调整。输出 token 上限可能截断过长回复，客户端目前不提供 finish_reason 展示。
-
-普通形态只选择连续的近期消息，不截断普通历史消息；一条历史消息超过剩余预算时停止向前取。眼科形态额外固定最近报告，长报告尾部带“报告节选”标记，并排除其他旧报告。更早的病例细节和对话可能不在本次输入中，不等于模型具有永久记忆。
-
-当前问题加系统指令已超过预算，或无法保留必要报告上下文时返回 413，请缩短或分段发送；这类输入不会被保存为新消息，也不会调用模型。窗口选择仍从完整会话记录计算；若会话存储量很大，数据库查询和界面加载仍需后续分页，与 LLM 输入 token 预算是不同问题。
-
-## 当前输出限制
-
-分割图接口要求登录并校验文件名，但尚未核对图片所属用户；会话隔离不能等同于图片权限隔离。PDF 下载接口重新执行完整报告生成，尚无从已存报告直接导出的入口。报告生成速度、内存与真实 LLM 工具选择质量需要在目标环境验证；本地界面/Agent 回归使用模拟 LLM，不使用账户内真实 Key。
+500 查看后端 traceback；502 检查聊天模型连接；409 去个人设置配置 LLM；413 检查聊天字符预算或反向代理上传上限；PDF 422 查看引用校验原因。首轮分析慢应检查模型下载、缓存与网络；中文 PDF 空框则配置 `REPORT_FONT_PATH`。不要用固定秒数承诺报告耗时。

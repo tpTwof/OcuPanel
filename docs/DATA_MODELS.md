@@ -19,3 +19,11 @@ Pydantic 模型负责 JSON 请求校验，dataclass 保存进程内数据，Type
 配置实例同样就近维护：agents/roles.py、report/settings.py。基础设施 utils/ 不集中收纳业务模型。只有确实存在多个模块共同定义、无法合理归属于单一模块的契约时，才考虑单独共享模块，目前没有引入。
 
 函数声明超过可读长度时，参数逐行书写、保留尾逗号；复杂表达式按步骤展开，避免用紧凑的一行替代清晰实现。
+
+## Python / Pydantic 兼容
+
+本项目当前以 Python 3.13 为开发与验证基线，本机 `.venv` 为 3.13.3。其他 Python 版本未完成全部固定依赖与服务运行验证，不再沿用“Python 3.10+”的宽泛支持声明。环境统一见[项目 README](../README.md#前置要求)。
+
+可能进入 Pydantic/FastAPI schema 生成的数据对象统一从 typing_extensions 导入 TypedDict；Pydantic 2.11 在 Python 3.10/3.11 上会拒绝 typing.TypedDict。typing_extensions 已在 requirements.txt 固定版本；这项兼容措施不代表旧解释器已全面受支持。
+
+回归测试通过触发已安装 Pydantic 的旧解释器检查分支覆盖该问题；这不等于在 Python 3.10/3.11 原生环境完成全部依赖和服务验证。

@@ -1,69 +1,36 @@
-# Glossary
+# OcuPanel 领域术语
 
-OcuPanel 项目的领域术语表。纯领域概念，不含实现细节。
+描述当前业务概念。实现与类型归属见[架构](docs/ARCHITECTURE.md)与[数据对象](docs/DATA_MODELS.md)。
 
----
+## 会话与分析
 
-## Fundus Analysis（眼底分析）
+**普通聊天（General Chat）**：不注入眼科业务指令的会话形态。此前在同一会话留下的医疗内容仍可进入上下文。
 
-对一张眼底照相（fundus photograph）进行视觉分析后产出的结构化结果。包含疾病检测结果、病灶描述、自然语言叙述，以及向后兼容的青光眼概率和杯盘比。是所有下游消费者（角色提示词、Director 综合、引用校验、前端展示）的唯一数据来源。
+**眼科助手（Ophthalmic Assistant）**：使用眼科业务指令进行问答的会话形态。切换形态本身不等于发起影像分析。
 
-## Disease Finding（疾病发现）
+**眼科分析（Ophthalmic Analysis）**：针对眼底照片与临床记录执行影像分析、证据检索、专科分析、报告综合与引用核查的一次任务。
 
-单个疾病的检测结果，包含疾病名称、严重度分级、置信度和检测来源。一个眼底分析可以包含多个疾病发现。
+**病例事实（Case Findings）**：用户提交的临床记录与模型影像结果。它们与外部知识分开表达，通过引用核查不能证明它们真实。
 
-## Lesion Description（病灶描述）
+**眼底分析结果（Eye Analysis）**：按病种组织的影像结果，可包含概率、测量、严重程度、警告、模型来源、掩膜与叠加图。当前只有青光眼相关分析。
+_Avoid_: 用旧称 FundusAnalysis 暗示已删除的数据结构仍存在。
 
-单个病灶的结构化描述，包含类型（如微血管瘤、硬性渗出）、位置（如黄斑区、周边部）和自然语言描述。由 VLM 生成，LegacyPipeline 不产出此项。
+**病种结果（Disease Result）**：一种疾病对应的模型输出。概率与严重程度是独立概念，未评估严重程度不表示正常或轻度。
 
-## Analysis Pipeline（分析管线）
+**面积等效杯盘比（Area-equivalent CDR）**：视杯面积与完整视盘面积之比的平方根。它不是直接测得的垂直杯盘比，也不是疾病分期。
 
-可替换的视觉分析后端接口。所有实现接收眼底图路径和工作目录，返回 FundusAnalysis。调用方不关心具体使用了什么模型。当前有三种实现：LegacyPipeline、VLMPipeline、EnsemblePipeline。
+**分割掩膜（Segmentation Mask）**：标记每个像素所属解剖类别的图像。当前类别为背景、视盘环和视杯。
 
-## Legacy Pipeline（遗留管线）
+**分割叠加图（Segmentation Overlay）**：把分割类别颜色叠加在原眼底照片上的可视化图像。
 
-封装现有 SwinV2 青光眼分类器和 SegFormer 视杯/视盘分割器的 AnalysisPipeline 实现。仅产出青光眼相关结果（概率、杯盘比、分割图），是多病种升级前的默认后端。
+## 报告与证据
 
-## VLM Pipeline（VLM 管线）
+**证据包（Evidence Package）**：本次任务检索并最终保留的带出处文本片段。引用编号在同一报告内统一，不能跨报告沿用。
 
-使用眼科专用视觉-语言模型（Vision-Language Model）的 AnalysisPipeline 实现。能直接从眼底图中识别多种病变特征并用自然语言描述。待选定具体模型后填入实现。
+**专科 Agent（Specialist Agent）**：按专业职责，结合病例事实和本次证据形成分析的参与者。多个角色可以共享同一种执行方式。
 
-## Ensemble Pipeline（融合管线）
+**Director（综合 Agent）**：汇总各专科分析形成报告草稿的参与者。
 
-同时运行 LegacyPipeline 和 VLMPipeline 并合并结果的 AnalysisPipeline 实现。冲突时标记来源供人工判断。依赖 VLMPipeline 接入后才有效。
+**Verifier（引用校验 Agent）**：核查外部知识陈述与引用是否相符，并协调修订复核的参与者。它不证明病例测量和临床结论真实。
 
-## Graph Retriever（图检索器）
-
-基于知识图谱的证据检索器。与现有 BM25/向量检索并行工作，作为第三路加入 RRF 融合。返回格式与现有检索器兼容，额外包含遍历路径信息。
-
-## Knowledge Graph（知识图谱）
-
-眼科领域的结构化知识表示。节点类型包括疾病、症状、体征、检查、治疗、药物、指南、解剖结构；关系类型包括因果、指示、治疗、禁忌等。用于支持多跳推理和跨概念关联检索。
-
-## Agent（智能体）
-
-多智能体协作框架中的最小执行单元。具有名称、角色描述和执行能力。套壳阶段仅定义 execute 方法，plan 方法作为 collaborative 模式的可选扩展。
-
-## Orchestrator（编排器）
-
-负责协调多个 Agent 执行的组件。根据 MULTI_AGENT_MODE 配置选择不同的编排策略：ParallelOrchestrator（并发）、CollaborativeOrchestrator（协作，TODO）、AdaptiveOrchestrator（自适应，TODO）。
-
-## Parallel Orchestrator（并行编排器）
-
-将所有角色 Agent 同时执行的编排器。角色间无消息传递，耗时约等于最慢的那一次。行为与改造前的 ThreadPoolExecutor 并发逻辑完全等价。
-
-## Message Bus（消息总线）
-
-Agent 间通信的发布-订阅机制。collaborative/adaptive 模式的核心组件，parallel 模式不需要。套壳阶段仅留占位，待协作模式启动时再设计和实现。
-
-## Citation Verifier（引用校验器）
-
-逐句核查报告中事实性断言是否被标注的参考资料真实支持的第 7 个 Agent。不支持的句子允许删除或打回重写，始终无法通过则拒答。在所有协作模式下都作为最后一个 Agent 运行。
-
-## Director（综合智能体）
-
-合并全部角色子报告、消解轻微冲突、产出唯一一份诊断报告的智能体。不属于 AnalysisPipeline，而是报告生成流程的第二阶段。
-
-## Evidence（证据）
-
-从知识库检索到的带出处的文本片段。每条证据有唯一编号，在提示词中以 [n] 形式引用。所有角色共享同一套编号体系，确保 Director 汇总时不会串号。
+**拒答（Report Rejection）**：因证据不足、引用问题未解决或校验故障而不交付报告正文的结果。可以展示原因，不能把未通过的草稿作为最终报告。

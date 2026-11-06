@@ -21,6 +21,7 @@ backend/
   agents/roles.py         唯一的专科角色与检索关键词定义
   vision/                 影像模型、测量和可视化
   knowledge/              检索与知识语料
+  graphrag/               未接入报告链的图检索占位骨架
   llm/                    模型连接、请求、超时与错误处理
   utils/                  认证、配置、路径、持久化和应用错误
   tests/                  离线数值、Agent、路由和业务测试
@@ -34,16 +35,21 @@ flowchart TD
   Browser[浏览器] --> API[各模块 api.py：HTTP 参数绑定]
   API --> Request[models：请求对象]
   Request --> Service[各模块 service.py：应用业务]
-  Service --> Generation[report/generation.py：报告生成]
+  Service --> Chat[chat：本会话历史与可选眼科指令]
+  Chat --> LLM[llm：聊天回复]
+  Service --> Account[user：账户与配置]
+  Service --> Generation[仅分析请求：report/generation.py]
   Generation --> Vision[vision：EyeAnalysis]
   Generation --> Knowledge[knowledge：证据]
   Generation --> Agents[agents：专科、综合、校验]
-  Agents --> Result[report.models.ReportResult]
+  Agents --> Result[report.models.ReportResult：报告或拒答]
   Result --> Service
   Service --> API
 ```
 
 ## 上传参数的含义
+
+开发环境以 Python 3.13 为基线，本机 `.venv` 为 3.13.3；系统默认 Python 与项目解释器可能不同，详见[环境与启动](../README.md#前置要求)。当前没有消息流式返回或异步任务队列 API。
 
 `user: auth.CurrentUser` 由 Authorization 请求头中的 Bearer 令牌解析，客户端不能通过表单指定当前用户。`file` 是 multipart 的文件字段；`note` 和 `conversation_id` 是同一表单中的字符串字段。`parse_report_submission()` 将后三者组装成 ReportSubmission，通过 Depends 注入路由。路由仅接收 user 和 request 两个对象，再委托 report/service.py。
 

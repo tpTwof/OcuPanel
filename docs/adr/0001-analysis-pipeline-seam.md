@@ -8,6 +8,10 @@
 
 ## 背景
 
+以下为历史决策正文。当前替代方案（2026-11-06）是 `vision.analysis.analyze_fundus()`，由 `vision/__init__.py` 导出，返回 `vision.models.EyeAnalysis`。报告在 `report/generation.py` 调用入口，并由 `report/context.py` 组织病例事实。新增病种需实现实际算法并在 `vision/analysis.py` 注册，不依赖旧 Pipeline Protocol 或环境开关。
+
+当前不存在 backend/pipeline/、FundusAnalysis、report_adapter.py。旧 ANALYSIS_PIPELINE/VLM_MODEL/VLM_BACKEND 不是可用配置；非默认旧管线值在启动时被拒绝。下文的旧文件列表只用于历史追溯，不能作为代码导航。当前规范见 [ARCHITECTURE](../ARCHITECTURE.md) 与 [DATA_MODELS](../DATA_MODELS.md)。
+
 OcuPanel 原有架构中，`report_generator.generate_reports()` 直接调用 `classifier.predict_glaucoma()` 和 `segmenter.segment_optic_disc_cup()`，将视觉分析与报告生成紧耦合。升级目标是引入眼科 VLM 实现多病种检测，同时保持现有青光眼功能不受影响。
 
 需要决定：如何在不破坏现有功能的前提下，为新的视觉模型预留接入点？

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypedDict, NamedTuple
+from typing import Any, NamedTuple
+from typing_extensions import TypedDict
 
 @dataclass(frozen=True)
 class ReportSubmission:

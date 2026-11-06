@@ -2,7 +2,25 @@
 
 > 历史设计/调研记录，不代表当前实现或可用配置。当前结构、能力与约定以 [ARCHITECTURE.md](ARCHITECTURE.md) 和各模块 README 为准；文中旧路径和视觉管线配置已被后续重构替代。
 
-## Problem Statement
+## 当前实现对照（2026-11-06）
+
+下文原方案按历史背景保留，不是当前待执行需求。当前运行环境与启动方式见 [项目 README](../README.md)，文档分类见[文档索引](README.md)。
+
+| 历史规划 | 当前状态 |
+|---|---|
+| AnalysisPipeline 与 legacy/vlm/ensemble 切换 | 已删除，使用 vision.analyze_fundus → EyeAnalysis；只实现青光眼 |
+| FundusAnalysis 与冗余青光眼顶层字段 | 已删除，病种结果属于 vision.models，按 diseases 字典组织 |
+| VLM 描述、多病灶与糖网分级 | 未实现；severity 未评估，不能按分类概率分期 |
+| GraphRAG、多跳检索 | 只有 graphrag/ 占位；报告实际为 BM25/向量/RRF |
+| collaborative/adaptive、消息总线、轨迹表 | 未实现；报告只支持 parallel，其他模式明确报错 |
+| 简单角色提示词 | 已改为共享 SpecialistAgent 实现与受限证据工具循环；Director 综合，Verifier 修订复核 |
+| report_generator 与中央 api/ | 已按 user/chat/report 业务归属拆分为 api.py、service.py、models.py |
+| 对话入口 | 普通聊天与眼科助手两种形态；仅提交分析时调用报告链 |
+| 图片权限与 PDF | 图片未做所属用户检查；PDF 仍重新生成，尚无历史报告直接导出 |
+
+以下旧模型建议、配置清单、数据库扩展和时间表均未获当前实现承诺，不得照抄为可用配置或部署步骤。选型与外部性能数据若要重新使用，需要单独重新核验。
+
+## 历史 Problem Statement
 
 当前 OcuPanel 系统存在以下局限：
 

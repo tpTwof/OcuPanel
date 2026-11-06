@@ -1,6 +1,6 @@
 # OcuPanel 云服务器部署指南
 
-从零把 OcuPanel 部署到一台 Linux 云服务器（以 **Ubuntu 22.04 / 24.04** 为例，Debian 系通用）。
+本指南给出 Linux 单进程部署步骤。当前实际验证环境是 Windows 项目 Python 3.13.3、Node 24.15.0 / npm 11.12.1；Linux 的 Python 3.13 安装与依赖仍需在目标机器验证，不应直接采用发行版默认 Python 并假定兼容。
 
 整体形态：**Nginx（443/80）→ Uvicorn（127.0.0.1:8000）→ 单进程同时托管 API 与前端页面**。
 前端构建产物由 FastAPI 自己托管，所以线上只需要跑一个进程，不需要 Node 常驻。
@@ -13,11 +13,10 @@
 |---|---|---|
 | 服务器配置 | **2 核 4G 起步**，磁盘 20G+ | 容量需在目标环境测量；旧版本内存数字不能作为当前保证，见 0.5 节 |
 | GPU | **可选** | 视觉模型默认选择 CUDA → MPS → CPU；需安装对应 PyTorch 构建。CPU 版也可运行 |
-| 出网 | 能访问 `huggingface.co` 或 `hf-mirror.com` | 首次启动要下 3 个模型（合计约 700MB） |
+| 出网 | 能访问 `huggingface.co` 或 `hf-mirror.com` | 默认配置涉及两个视觉模型和一个向量模型；下载大小与缓存、版本有关 |
 | 域名 | 想要 HTTPS 就需要；国内服务器还需**先备案**才能用 80/443 | 没备案可先用高位端口 + IP 访问，但浏览器会报不安全 |
 
-> 单次报告生成会并发调用 7 个以上 LLM 请求（六专科 + Director + 最多 3 轮校验），
-> 耗时通常 1–5 分钟。这是**同步长请求**，所以后面 Nginx 的超时必须放大，不能沿用默认 60s。
+> 专科阶段六角色并发，之后 Director 与 Verifier 顺序执行；专科工具循环、校验修订和重生成会增加模型调用。当前是同步长请求，没有内置任务队列；代理超时应结合目标环境耗时配置，不能承诺固定时长。
 
 ---
 
@@ -57,7 +56,7 @@ ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw --force enable
 
 ## 2. 把代码拉下来（私有仓库）
 
-仓库是私有的，服务器上必须能认证。推荐 **Deploy Key（只读）**，比塞个人 Token 安全。
+公开仓库可以使用 HTTPS 克隆；私有仓库或使用 SSH 地址时需配置认证。下面给出只读 Deploy Key 示例，按实际仓库权限选择。
 
 ```bash
 sudo -u ocupanel -H bash
@@ -89,12 +88,15 @@ git clone git@github.com:tpTwof/OcuPanel.git .
 
 ## 3. Python 环境与依赖
 
-**关键：先单独装 CPU 版 torch**。`requirements.txt` 里是 `torch==2.7.0`，直接从 PyPI 装会顺带拉进
+先通过目标系统认可的安装方式准备 Python 3.13 和对应 venv 支持，确认 `python3.13` 可用。下方 apt 的默认 python3 包不能保证提供 3.13。
+
+**CPU 部署先单独装 CPU 版 torch**。`requirements.txt` 里是 `torch==2.7.0`，直接从 PyPI 装会顺带拉进
 较大的 CUDA 运行库（仅在计划使用 NVIDIA GPU 时需要）。先装 CPU 版，pip 会认为该版本已满足，跳过重复安装。
 
 ```bash
 cd /opt/ocupanel
-python3 -m venv .venv
+python3.13 --version
+python3.13 -m venv .venv
 source .venv/bin/activate
 
 pip install -U pip wheel
@@ -107,7 +109,7 @@ pip install -r requirements.txt
 装完自检：
 
 ```bash
-python -c "import torch, transformers, cv2, fpdf2, fastapi; print(torch.__version__)"
+python -c "import sys, torch, transformers, cv2, fpdf, fastapi; print(sys.version); print(torch.__version__)"
 ```
 
 > 若公司/校园网访问 PyPI 慢，临时加 `-i https://pypi.tuna.tsinghua.edu.cn/simple`，
@@ -136,7 +138,7 @@ RELOAD=0
 OPENAI_API_KEY=
 # 只要不是 OpenAI 官方，就把接口地址写上（DeepSeek 示例）
 OPENAI_BASE_URL=https://api.deepseek.com
-OPENAI_MODEL=deepseek-flash
+OPENAI_MODEL=填写该端点实际可用的模型ID
 LLM_TIMEOUT=120
 LLM_MAX_RETRIES=1
 LLM_DISABLE_THINKING=1
@@ -164,34 +166,38 @@ HF_ENDPOINT=https://hf-mirror.com
 chmod 600 .env            # 含密钥，收紧权限
 ```
 
-> `config.py` 会自己加载 `backend/.env`，不依赖启动目录，所以 **systemd 里不需要 EnvironmentFile**
+> `backend/utils/config.py` 会自己加载 `backend/.env`，不依赖启动目录，所以 **systemd 里不需要 EnvironmentFile**
 > ——那样反而容易被带空格的值弄出语法错误。
 
 ---
 
 ## 5. 预下载模型（强烈建议）
 
-模型懒加载，第一次生成报告时才去下载；一旦下载慢，前端就是一个几分钟的白屏，很容易被当成服务挂了。
+视觉模型首次分析时加载；默认向量检索模型可能在启动后的后台自检中加载。下载或预热较慢时查看后端日志，前端分析页会显示生成状态。
 手动先拉一遍：
 
 ```bash
 cd /opt/ocupanel/backend
 source /opt/ocupanel/.venv/bin/activate
 export HF_ENDPOINT=https://hf-mirror.com
+export HF_HOME=/opt/ocupanel/.cache/huggingface
 
 python - <<'PY'
-from transformers import AutoModel, AutoModelForImageClassification, SegformerForSemanticSegmentation, AutoImageProcessor
+from transformers import AutoModel, AutoTokenizer, AutoModelForImageClassification, SegformerForSemanticSegmentation, AutoImageProcessor
 print("segformer...")
 SegformerForSemanticSegmentation.from_pretrained("pamixsun/segformer_for_optic_disc_cup_segmentation")
 print("swinv2...")
 AutoModelForImageClassification.from_pretrained("pamixsun/swinv2_tiny_for_glaucoma_classification")
 print("e5...")
 AutoModel.from_pretrained("intfloat/multilingual-e5-small")
+for name in ("pamixsun/segformer_for_optic_disc_cup_segmentation", "pamixsun/swinv2_tiny_for_glaucoma_classification"):
+    AutoImageProcessor.from_pretrained(name, use_fast=False)
+AutoTokenizer.from_pretrained("intfloat/multilingual-e5-small")
 print("done")
 PY
 ```
 
-下载落在 `~/.cache/huggingface`（约 700MB）。生产环境建议固定到项目盘，避免 `~` 满了：
+默认缓存根目录为 `~/.cache/huggingface`，权重通常在其 hub 子目录。可在预下载前和服务环境中统一设置 HF_HOME，避免下载与运行使用不同缓存目录：
 
 ```bash
 # 在 .env 里加一行，或写进 systemd 的 Environment
@@ -215,9 +221,9 @@ scp -r frontend/dist ocupanel@<服务器IP>:/opt/ocupanel/frontend/
 **方案 B：服务器上装 Node 构建**
 
 ```bash
-# 注意 Ubuntu 自带的 nodejs 只有 12，Vite 6 需要 18+
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
+# 先安装 Node 24 与 npm（本机验证基线），具体安装方式按目标系统选择
+node --version
+npm --version
 
 cd /opt/ocupanel/frontend
 npm ci
@@ -234,12 +240,13 @@ npm run build          # 产出 frontend/dist
 想把本地已有的账号、会话、报告一起搬过去：
 
 ```bash
-# 1) 先停掉本地后端进程（Windows 下 sqlite 文件被占用时拷出来是残的）
+# 1) 先停掉本地后端，确保没有写入；推荐用 SQLite backup 生成一致性快照
 
 # 2) 拷数据库（本地 Git Bash 执行）
 scp backend/ocupanel.db ocupanel@<服务器IP>:/opt/ocupanel/backend/
 
-# 3) 若本地存在 ocupanel.db-wal / ocupanel.db-shm，一并拷过去，否则可能丢最近几条写入
+# 3) 直接复制文件时必须停写并考虑 WAL；不要复制运行中的单个 db 文件
+#    推荐传输 backup 生成的数据库快照，同时迁移 img_store 和原加密密钥
 ```
 
 **还有一件容易漏的事**：本地 `backend/.env` 里的 `OCUPANEL_SECRET_KEY` 必须和服务器上的一致，
@@ -289,8 +296,7 @@ sudo systemctl status ocupanel
 journalctl -u ocupanel -f          # 看启动日志
 ```
 
-**不要加 `--workers N`。** 每个 worker 都会独立加载一遍 torch 和三个模型，
-2 核 4G 的机器开到第二个就会 OOM。会话和对话都在 SQLite 里，单进程完全够用。
+先使用单 worker，每个 worker 会独立加载模型缓存；是否增加 worker 需实测内存、并发和延迟。当前没有完整任务队列，不能仅凭 SQLite 支持并发就判断整条分析链容量足够。
 
 启动日志正常长这样：
 
@@ -300,7 +306,7 @@ Serving frontend build from /opt/ocupanel/frontend/dist
 RAG gate selfcheck ok: {...}
 ```
 
-启动后 10–60 秒 CPU 会飙高，那是 RAG 自检在预热向量模型，属正常。
+启动后的后台 RAG 自检可能触发向量模型下载与预热，耗时和资源占用取决于缓存与硬件；自检失败会写日志告警。
 
 ---
 
@@ -326,7 +332,7 @@ server {
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # 报告生成要 1–5 分钟，这三行是重点
+        # 同步分析可能耗时较长；根据实测调整超时
         proxy_read_timeout 600s;
         proxy_send_timeout 600s;
         proxy_buffering off;
@@ -387,7 +393,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://<服务器IP>/
 1. 打开站点 → 出现登录页（不是白屏、不是 Internal Server Error）
 2. 注册新账号 → 成功进入欢迎页
 3. 左下角「个人设置」→ 填 API Key / 接口地址 / 模型 → 点「测试连通」→ 有回复
-4. 「生成报告」→ 传 `samples/fundus_right_eye.png` + 一段临床记录 → 等 1–5 分钟出报告
+4. 「生成报告」→ 传 `samples/fundus_right_eye.png` + 一段临床记录 → 检查报告或明确拒答原因（耗时随模型服务和硬件变化）
 5. 点下载 PDF → 中文正常显示（若变空框，回第 4 节设 `REPORT_FONT_PATH`）
 6. 退出登录 → 回到登录页；刷新页面仍是登录页（未回退）
 
@@ -398,7 +404,7 @@ cd /opt/ocupanel/backend
 /opt/ocupanel/.venv/bin/python ../tools/check_isolation.py --base http://127.0.0.1:8000 --cleanup
 ```
 
-全部通过会打印 `24/24`，退出码 0。
+通过时退出码为 0，以脚本实际检查总数为准；这不覆盖分割图所属用户校验，也不代表完整权限审计。
 
 ---
 
@@ -413,7 +419,7 @@ journalctl -u ocupanel --since "1 hour ago" | grep -i error
 sudo systemctl restart ocupanel
 
 # 看内存占用（常驻和峰值需在目标环境实测；跑完不回落到启动值属正常，
-# 因为 glibc 不急着把内存还给系统；但要是一直涨到 1.8G 以上就说明有泄漏）
+# 因为 glibc 不急着把内存还给系统；单一绝对数值不能判断泄漏，应比较同等负载下的长期趋势）
 systemctl status ocupanel | grep Memory
 
 # 排查 OOM（被系统杀掉时进程会莫名重启）
@@ -466,3 +472,11 @@ sudo systemctl restart ocupanel
 | 用户填过的 Key 全部失效 | `OCUPANEL_SECRET_KEY` 变了 | 恢复原来的密钥，或让用户重填 |
 | 报告里提示"无据可依"并拒答 | 引用校验没通过（正常防护，不是 bug） | 换个临床描述或补充信息重试；别去关 `VERIFY_ENABLED` |
 | 登录后过一段时间要重新登录 | 会话 7 天过期 | 正常行为 |
+
+## 当前行为与备份范围
+
+普通聊天与眼科追问只调用 LLM，提交影像分析才运行 vision、Agents 与 report。聊天默认上下文与输出限制见 [chat/README](../backend/chat/README.md)。PDF 下载会重新生成并可能额外计费，刷新后暂不能直接导出已存报告。
+
+备份不仅包括 SQLite，还包括 backend/.env 中的 OCUPANEL_SECRET_KEY 与 backend/img_store/。迁移数据库优先使用 SQLite backup 得到一致性快照，再停写并完成图片及密钥迁移，不把运行中的单个 db 文件复制当成完整备份。
+
+分割图接口目前只要求登录并校验文件名，未检查图像所属用户。部署容量、GPU 和临床准确度需要另行验证，演示语料与 AI 生成样本不能作为临床验收依据。
