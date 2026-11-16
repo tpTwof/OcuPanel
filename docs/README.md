@@ -25,10 +25,12 @@
 ## 引用
 
 ```bibtex
-@inproceedings{liu2025multiagent,
-  title     = {Multi-Agent Diagnosis using Multimodal Large Language Models},
-  author    = {Liu, Philip and Bansal, Sparsh and Dinh, Jimmy and Pawar, Aditya and Satishkumar, Ramani and Gupta, Neeraj and Wang, Xin and Hu, Shu},
-  booktitle = {IEEE Int'l Conf. on Multimedia Information Processing and Retrieval (MIPR)},
-  year      = {2025}
+@inproceedings{liu2025medchat,
+  title     = {{MedChat}: A Multi-Agent Framework for Multimodal Diagnosis with Large Language Models},
+  author    = {Liu, Philip R. and Bansal, Sparsh and Dinh, Jimmy and Pawar, Aditya and Satishkumar, Ramani and Desai, Shail and Gupta, Neeraj and Wang, Xin and Hu, Shu},
+  booktitle = {2025 IEEE 8th International Conference on Multimedia Information Processing and Retrieval (MIPR)},
+  year      = {2025},
+  pages     = {456--462},
+  doi       = {10.1109/MIPR67560.2025.00078}
 }
 ```

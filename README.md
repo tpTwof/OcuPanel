@@ -93,7 +93,11 @@ OcuPanel 是一个基于 React 和 FastAPI 的眼科问答与眼底影像分析�
 
 ## 许可证
 
-本项目采用 MIT 许可证，详见 [LICENSE](LICENSE)。项目基于 Philip Liu 等人的研究工作 *Multi-Agent Diagnosis using Multimodal Large Language Models*（IEEE MIPR 2025）改造，引用格式见 [文档索引](docs/README.md#引用)。
+本项目采用 MIT 许可证。[LICENSE](LICENSE) 保留了上游 M2-Lab@Purdue 的版权声明。
+
+## 上游项目与致谢
+
+OcuPanel 最初 fork 自 Purdue M2 Lab 的 MedChat。青光眼报告沿用了上游的六个专科角色（眼科医生、验光师、青光眼专科医生、全科医生、眼科技师和药师）以及由 Director 汇总专科意见的设计。OcuPanel 在此基础上加入了多用户账户、SQLite 持久化、证据检索和引用校验。感谢 MedChat 作者及贡献者公开原始实现。 [上游仓库](https://github.com/Purdue-M2/MedChat) · [原始论文](https://doi.org/10.1109/MIPR67560.2025.00078) · [BibTeX](docs/README.md#引用)
 
 ## 联系方式
 
