@@ -1,31 +1,32 @@
-# backend — FastAPI 服务
+# 后端 · FastAPI
 
-当前开发基线为 **Python 3.13**，本机项目 `.venv` 实测 **3.13.3**。依赖固定在 [requirements.txt](requirements.txt)，安装步骤见[项目 README](../README.md)。系统默认 Python 可能与虚拟环境不同；其他 Python 版本尚未完成整体验证。
+后端提供账号、会话、视觉分析和报告 API。安装 Python 3.13 与依赖的步骤见 [根目录安装指南](../README.md#安装指南)。
 
-从项目根目录启动（PowerShell）：
+## 启动
+
+从仓库根目录运行。
 
 ```powershell
-Set-Location backend
-..\.venv\Scripts\python.exe main.py
+.\.venv\Scripts\python.exe .\backend\main.py
 ```
 
-Linux 使用 `../.venv/bin/python main.py`。默认监听 `127.0.0.1:8000`；存在 `frontend/dist/index.html` 时同时托管前端，否则只提供 API。接口文档为 `/docs` 和 `/redoc`。
+Linux 使用 `./.venv/bin/python backend/main.py`。默认监听 `127.0.0.1:8000`。存在 `frontend/dist/index.html` 时同时托管前端，否则只提供 API。服务启动后可访问 `/docs`（Swagger UI）和 `/redoc`。
 
 ## 模块与流程
 
 | 模块 | 职责 |
 |---|---|
 | `main.py` | 应用组装、生命周期、错误映射、静态托管 |
-| `user/` | 账户、用户 LLM 配置、用量 |
-| `chat/` | 会话形态、消息存储、上下文选择和 LLM 问答 |
-| `report/` | 上传绑定、病例组织、分析生成、留痕、PDF |
-| `vision/` | 青光眼分类、视杯视盘分割、面积等效 CDR |
-| `agents/` | 六专科、Director、Verifier 和受限工具 |
-| `knowledge/` | 本地示例语料、BM25/向量检索、证据格式化 |
-| `llm/` | 统一模型调用、超时、重试、错误描述和连通自检 |
+| [`user/`](user/README.md) | 账户、用户 LLM 配置、用量 |
+| [`chat/`](chat/README.md) | 会话形态、消息存储、上下文选择和 LLM 问答 |
+| [`report/`](report/README.md) | 上传绑定、病例组织、分析生成、留痕、PDF |
+| [`vision/`](vision/README.md) | 青光眼分类、视杯视盘分割、面积等效 CDR |
+| [`agents/`](agents/README.md) | 六专科、Director、Verifier 和受限工具 |
+| [`knowledge/`](knowledge/README.md) | 本地示例语料、BM25/向量检索、证据格式化 |
+| [`llm/`](llm/README.md) | 统一模型调用、超时、重试、错误描述和连通自检 |
 | `utils/` | 认证、配置、路径、SQLite、应用错误 |
-| `graphrag/` | 未接入当前报告链的占位骨架 |
-| `tests/` | 离线回归测试 |
+| [`graphrag/`](graphrag/README.md) | 未接入当前报告链的占位骨架 |
+| [`tests/`](tests/README.md) | 离线回归测试 |
 
 HTTP 路由位于各业务模块 `api.py`，应用业务位于 `service.py`，数据契约属于各模块 `models.py`。详见[架构](../docs/ARCHITECTURE.md)与[数据对象](../docs/DATA_MODELS.md)。
 
@@ -140,4 +141,4 @@ SQLite 固定为 `backend/ocupanel.db`，有 users、sessions、llm_configs、co
 
 离线回归与模拟 UI 验证不使用账户真实 Key；真实视觉样本结果见 [vision](vision/README.md)。未完成临床准确度、GPU、跨 Python 版本和生产并发容量验证。
 
-500 查看后端 traceback；502 检查聊天模型连接；409 去个人设置配置 LLM；413 检查聊天字符预算或反向代理上传上限；PDF 422 查看引用校验原因。首轮分析慢应检查模型下载、缓存与网络；中文 PDF 空框则配置 `REPORT_FONT_PATH`。不要用固定秒数承诺报告耗时。
+500 查看后端 traceback；502 检查聊天模型连接；409 去个人设置配置 LLM；413 检查聊天字符预算或反向代理上传上限；PDF 422 查看引用校验原因。首轮分析慢应检查模型下载、缓存与网络；中文 PDF 空框则配置 `REPORT_FONT_PATH`。模型下载、服务响应和引用修订都会影响报告耗时。

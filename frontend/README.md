@@ -1,19 +1,19 @@
-# frontend — React + Vite
+# 前端 · React + Vite
 
-OcuPanel 的浏览器客户端。布局为左侧导航（会话列表）与主内容区，另有右下角调试抽屉。
-项目整体介绍与使用说明见 [根目录 README](../README.md)。
+OcuPanel 的浏览器客户端。页面提供账号登录、会话、眼科分析、报告与个人设置。 [项目 README](../README.md)
 
-本机验证环境为 Node 24.15.0 / npm 11.12.1，后端使用 Python 3.13 项目虚拟环境。其他运行时版本尚未完成整体验证。
+## 本地开发
 
-```bash
-npm ci
-npm run dev          # 默认 5500，端口占用时以 Vite 输出为准；/api 代理到 8000
-npm run build        # 产出 dist/，由 FastAPI 直接托管
+按 [安装指南](../README.md#安装指南) 准备后端并保持运行。在另一个终端从仓库根目录执行以下命令。
+
+```powershell
+npm.cmd --prefix frontend ci
+npm.cmd --prefix frontend run dev
 ```
 
-> 没有 `npm start` 这个脚本，别试。
+默认打开 [Vite 开发页面](http://127.0.0.1:5500)，实际端口以终端输出为准。`/api` 自动代理到后端的 `http://127.0.0.1:8000`。后端端口有调整时可在启动 Vite 的同一终端设置 `$env:API_PROXY_TARGET = 'http://127.0.0.1:8001'`。
 
----
+从根目录运行 `npm.cmd --prefix frontend run build` 生成 `frontend/dist/`，由 FastAPI 托管。Linux 和 macOS 将命令中的 `npm.cmd` 换成 `npm`。
 
 ## 技术栈
 
@@ -115,7 +115,7 @@ URL 参数 `?debug=0` 可隐藏调试按钮（给医生演示时用），也可�
 | `API_PROXY_TARGET` | `http://127.0.0.1:8000` | Vite 进程环境变量，覆盖开发代理目标；修改后重启 Vite |
 | `VITE_DEBUG` | `1`（开启） | 右下角调试抽屉 |
 
-## 已知坑
+## 故障排查
 
 **页面能打开，但一提交就 `Internal Server Error`。** 开发模式下页面在 5500、接口要转发到 8000，
 只起前端时页面正常（纯静态），但任何提交都会因为代理找不到后端而失败——
@@ -124,7 +124,7 @@ Vite 会返回 `500` + `text/plain` + **空响应体**，浏览器只显示一�
 `api.js` 已针对这个形态给了可读提示。判断方法：
 
 ```bash
-curl -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/api/account/llm-presets
+curl.exe -s -o NUL -w "%{http_code}\n" http://127.0.0.1:8000/api/account/llm-presets
 ```
 
 返回 `200` 说明后端在跑（去看它的 traceback）；连接失败说明后端没起。
@@ -132,8 +132,7 @@ curl -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/api/account/llm-pres
 **改了代码页面没变化。** 单服务模式下页面来自构建产物，改完要重新 `npm run build`；
 想热更新就用 `npm run dev`。
 
-**端口被占用（WinError 10013）。** 后端设 `PORT=8001`，前端设
-`VITE_API_BASE_URL=http://127.0.0.1:8001`。
+**端口被占用（WinError 10013）。** 后端设 `PORT=8001`，开发前端设置 `API_PROXY_TARGET=http://127.0.0.1:8001`。
 
 ## 两种会话形态
 

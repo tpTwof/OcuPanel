@@ -1,4 +1,6 @@
-# 报告流程
+# 报告生成与 PDF
+
+在浏览器中使用示例眼底照和临床记录可体验端到端流程。 [示例数据](../../samples/README.md)
 
 入口为 generation.MedicalReportGenerator.generate(image, note, roles, job_dir)。支持图片路径或上传的二进制文件流。
 

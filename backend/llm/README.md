@@ -1,5 +1,7 @@
 # LLM 调用
 
+业务接口使用当前账号在「个人设置」保存的模型、端点和凭据。 [账号与个人配置](../user/README.md)
+
 client.py 负责端点、凭据、模型、超时、重试及错误处理，不存放眼科业务提示词。
 
 chat_with_history(history, user_message, *, system=None) 仅使用调用方传入的可选系统指令，不读写客户端历史。普通聊天传 None，眼科助手由 chat/service.py 传入 chat/prompts.py 的指令。聊天使用 temperature=0.7 与 CHAT_MAX_OUTPUT_TOKENS 上限，失败抛 RuntimeError，由聊天业务映射为 502。

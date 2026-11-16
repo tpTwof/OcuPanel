@@ -1,4 +1,6 @@
-# 会话形态
+# 会话与上下文
+
+会话接口统一使用当前账号的模型配置。端点与认证规则见 [后端 API](../README.md#api)。
 
 每个会话有独立的 mode：general（普通聊天）或 ophthalmic（眼科助手），新会话默认 general。
 

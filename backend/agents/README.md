@@ -1,5 +1,7 @@
 # 报告分析 Agents
 
+报告生成器负责组织病例输入与各 Agent 的输出。 [报告流程](../report/README.md) · [知识检索](../knowledge/README.md)
+
 - SpecialistAgent：接收病例事实、使用注入的检索工具获取专业证据、根据职责生成分析并验证响应非空且不是调用错误。
 - DirectorAgent：综合各专科结果与证据，接收校验反馈后重新生成；调用不共享聊天历史。
 - CitationVerifier：核查引用，必要时调用重写并复核，再通过 regenerate 回调要求 Director 重写；有次数上限，失败返回明确状态。
