@@ -16,13 +16,20 @@ import re
 import sys
 import threading
 from dataclasses import asdict
-from knowledge.models import Chunk
+from graphrag import GraphRetriever
+from graphrag.builder import SEED_NAME
+from graphrag.retriever import query_regions
+from knowledge.models import Chunk, SourcedChunk
 from pathlib import Path
 
 import numpy as np
 
 from utils import config
 CORPUS_DIR = Path(__file__).resolve().parent / "corpus"
+DEMO_SOURCES = {
+    "glaucoma-aao-ppp.en.md", "glaucoma-diagnosis.md",
+    "glaucoma-followup.md", "glaucoma-treatment.md",
+}
 
 _CJK_RUN = re.compile(r"[\u4e00-\u9fff]+")
 _ASCII_WORD = re.compile(r"[A-Za-z][A-Za-z0-9+\-.]*|\d+(?:\.\d+)?")
@@ -143,7 +150,7 @@ class VectorIndex:
                 return
             self._load()
             texts = [
-                f"{self.PASSAGE_PREFIX}{c.title} §{c.section}\n{c.text}" for c in self.chunks
+                f"{self.PASSAGE_PREFIX}{c.title}\n{c.section}\n{c.text}" for c in self.chunks
             ]
             self._matrix = self._encode(texts)
 
@@ -181,8 +188,10 @@ class Retriever:
     B = 0.75
     RELATIVE_FLOOR = 0.35
 
-    def __init__(self, chunks: list[Chunk], mode: str | None = None) -> None:
+    def __init__(self, chunks: list[Chunk], mode: str | None = None,
+                 graph: GraphRetriever | None = None) -> None:
         self.chunks = chunks
+        self._graph = graph
         self._tokens = [_tokenize(f"{c.title} {c.section} {c.text}") for c in chunks]
 
         self._tfs: list[dict[str, int]] = []
@@ -216,11 +225,29 @@ class Retriever:
         corpus_dir: Path = CORPUS_DIR,
         mode: str | None = None,
     ) -> 'Retriever':
-        return cls(load_chunks(corpus_dir), mode=mode)
+        chunks = load_chunks(corpus_dir)
+        graph = None
+        if config.GRAPH_RAG_ENABLED:
+            graph = GraphRetriever(config.GRAPH_STORE)
+            try:
+                graph.load_graph(corpus_dir / SEED_NAME)
+                curated = [SourcedChunk(**item) for item in graph.evidence()]
+                excluded_sources = DEMO_SOURCES.copy()
+                if any(chunk.id == "nei-amd-symptoms-and-exam" for chunk in curated):
+                    excluded_sources.add("macular-degeneration-nei.md")
+                chunks = [chunk for chunk in chunks if chunk.source not in excluded_sources] + curated
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                print(f"[GraphRAG] 图谱无法加载，使用原检索：{exc}", file=sys.stderr)
+                graph = None
+        return cls(chunks, mode=mode, graph=graph)
 
     @property
     def size(self) -> int:
         return len(self.chunks)
+
+    @property
+    def graph_available(self) -> bool:
+        return self._graph is not None
 
     def _get_vector(self) -> VectorIndex | None:
         if self._vector_failed:
@@ -235,7 +262,6 @@ class Retriever:
         index = self._get_vector()
         if index is None:
             return []
-        # 角色关键词拼进查询，保证六个角色拿到的证据仍有差异
         q = f"{query} {boost}".strip() if boost else query
         try:
             return index.search(q, k=k, min_score=config.RAG_VECTOR_MIN_SCORE)
@@ -251,8 +277,9 @@ class Retriever:
         boost: 该角色最关心的关键词（如药师的「禁忌 相互作用」）。命中这些词的
         片段得分乘以 boost_weight —— 否则病历里的通用词会把所有角色都拉向同一段。
         """
-        query_tokens = set(_tokenize(query))
-        boost_tokens = set(_tokenize(boost)) - query_tokens if boost else set()
+        # An interrogative alone supplies no topic for a clinical evidence match.
+        query_tokens = set(_tokenize(query)) - {"是否"}
+        boost_tokens = set(_tokenize(boost)) - query_tokens - {"是否"} if boost else set()
         if not query_tokens or not self.chunks:
             return []
 
@@ -302,7 +329,7 @@ class Retriever:
                     merged[item["id"]] = entry
                 else:
                     # 两路都命中时要保留各自的原始分数，否则前端只能看到先出现那一路的
-                    for key in ("bm25", "vector"):
+                    for key in ("bm25", "vector", "graph", "graph_path"):
                         if key in item and key not in entry:
                             entry[key] = item[key]
                 entry["_rrf"] += 1.0 / (config.RAG_RRF_K + rank)
@@ -464,6 +491,40 @@ class Retriever:
     def search(self, query: str, k: int = 4, min_score: float = 0.35,
                boost: str = "", boost_weight: float = 1.8) -> list[dict]:
         """统一入口。模式由 RAG_MODE 控制，调用方无需关心。"""
+        if k <= 0:
+            return []
+        if self._graph is not None:
+            regions = query_regions(query)
+            wide = max(k * 6, 20)
+            graph_hits = []
+            try:
+                graph_hits = self._graph.search(query, k=wide)
+            except (ValueError, KeyError, RuntimeError) as exc:
+                print(f"[GraphRAG] 图检索失败，使用词面或向量结果：{exc}", file=sys.stderr)
+            ranked = []
+            if self.mode != "vector":
+                ranked.append(("bm25", self._search_bm25(query, wide, min_score, boost, boost_weight)))
+            if self.mode in ("hybrid", "vector"):
+                ranked.append(("vector", self._search_vector(query, wide, boost)))
+            if regions:
+                ranked = [
+                    (channel, [item for item in items if item.get("jurisdiction") in regions | {"INT"}])
+                    for channel, items in ranked
+                ]
+            if graph_hits:
+                connected = {item["id"] for item in graph_hits}
+                # Every curated clause is also in the graph. With a resolved
+                # query, exclude disconnected clauses with merely lexical matches.
+                ranked = [
+                    (channel, [item for item in items
+                               if item["id"] in connected or not item.get("jurisdiction")])
+                    for channel, items in ranked
+                ]
+                ranked.append(("graph", graph_hits))
+            gate = self._gate_ok(next((items for channel, items in ranked if channel == "vector"), []))
+            merged = self._rrf(ranked, wide)
+            return self._balance_by_lang(merged, k, gate=gate)
+
         # 向量那路要宽召回：跨语言内容天然排在同语言内容之后，取窄了根本进不了候选池
         wide = max(k * 6, 20)
 
@@ -493,13 +554,20 @@ class Retriever:
         )
 
 
+def format_evidence_entry(item: dict, number: int) -> str:
+    provenance = " · ".join(item[key] for key in ("version", "jurisdiction", "scope") if item.get(key))
+    section = f" · {item['section']}" if item.get("section") else ""
+    citation = f"[{number}] 《{item.get('title', '')}》{section}（来源：{item.get('source', '')}）"
+    return "\n".join(filter(None, (citation, provenance, item.get("text", ""))))
+
+
 def format_evidence_block(
     evidence: list[dict],
     numbers: dict[str, int] | None = None,
 ) -> str:
     """把证据条目拼成提示词里的一段，要求模型按编号引用。
 
-    numbers: 全局编号表（id → 序号）。多个角色各自检索时，用同一套编号，
+    numbers: 全局编号表（id → 序号）。同一份报告的各病种分析使用相同编号，
     这样 Director 汇总时 [3] 指的永远是同一条资料。
     """
     if not evidence:
@@ -507,13 +575,13 @@ def format_evidence_block(
     lines = ["\n\n【参考资料】以下片段来自本地知识库，是本病例唯一被允许引用的外部依据："]
     for i, item in enumerate(evidence, 1):
         number = numbers.get(item["id"], i) if numbers else i
-        lines.append(
-            f"[{number}] 《{item['title']}》§{item['section']}（来源：{item['source']}）\n{item['text']}"
-        )
+        lines.append(format_evidence_entry(item, number))
     lines.append(
         "【引用要求】1) 凡结论依赖上述资料的，句末必须标注编号，例如「建议每 3–4 个月复查眼压 [2]」；"
         "2) 资料未覆盖的内容不要编造，直接写「资料未涵盖」；3) 不要在报告正文里复述资料原文。"
     )
+    if any(item.get("scope") for item in evidence):
+        lines.append("【条款适用性】注明适用地区及场景，核对缺失条件。检索关联仅用于定位资料，病例事实以输入所见为准。")
     return "\n".join(lines)
 
 

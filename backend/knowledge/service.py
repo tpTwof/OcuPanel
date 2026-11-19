@@ -20,12 +20,22 @@ def get_retriever() -> Retriever:
 
 def retrieve_evidence(query: str, boost: str = '') -> list[dict[str, Any]]:
     """检索带出处的证据片段；任何异常都退化为「不注入」，不影响报告生成。"""
+    evidence, _ = retrieve_with_status(query, boost)
+    return evidence
+
+
+def retrieve_with_status(query: str, boost: str = '') -> tuple[list[dict[str, Any]], dict[str, str]]:
     if not config.RAG_ENABLED:
-        return []
+        return [], {"result": "disabled", "graph": "disabled"}
+    graph = "unavailable" if config.GRAPH_RAG_ENABLED else "disabled"
     try:
-        return get_retriever().search(
+        retriever = get_retriever()
+        if retriever.graph_available:
+            graph = "ready"
+        evidence = retriever.search(
             query, k=config.RAG_TOP_K, min_score=config.RAG_MIN_SCORE, boost=boost
         )
     except Exception as exc:  # noqa: BLE001 - 检索失败不该让整条链路 500
         print(f"[RAG] 检索失败，本次不注入证据：{exc}", file=sys.stderr)
-        return []
+        return [], {"result": "error", "graph": graph}
+    return evidence, {"result": "found" if evidence else "empty", "graph": graph}

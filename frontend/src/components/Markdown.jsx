@@ -17,7 +17,26 @@ function wrapTables(html) {
   return html.replaceAll('<table>', '<div class="md-table-wrap"><table>').replaceAll('</table>', '</table></div>')
 }
 
-export default function Markdown({ text }) {
-  const html = useMemo(() => wrapTables(converter.makeHtml(text || '')), [text])
-  return <div className="markdown" dangerouslySetInnerHTML={{ __html: html }} />
+export default function Markdown({ text, evidence, evidencePrefix }) {
+  const html = useMemo(() => {
+    const references = (evidence || []).map((item, index) => {
+      const number = item.index ?? index + 1
+      return `[${number}]: #${evidencePrefix}-${number}`
+    })
+    return wrapTables(converter.makeHtml([...references, '', text || ''].join('\n')))
+  }, [text, evidence, evidencePrefix])
+
+  function openCitation(event) {
+    const href = event.target.closest('a')?.getAttribute('href')
+    if (!evidencePrefix || !href?.startsWith(`#${evidencePrefix}-`)) return
+    const item = document.getElementById(href.slice(1))
+    if (!item) return
+    event.preventDefault()
+    const toggle = item.querySelector('button[aria-expanded]')
+    if (toggle?.getAttribute('aria-expanded') === 'false') toggle.click()
+    toggle?.focus({ preventScroll: true })
+    item.scrollIntoView({ block: 'nearest' })
+  }
+
+  return <div className="markdown" onClick={openCitation} dangerouslySetInnerHTML={{ __html: html }} />
 }

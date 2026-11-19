@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from agents.models import SpecialistRole
 from agents.specialist import SpecialistAgent
 from agents.director import DirectorAgent
 from agents.verifier import CitationVerifier
@@ -12,14 +13,14 @@ class ReviewRegressionTests(unittest.TestCase):
 
     def test_fenced_tool_request_is_executed(self):
         llm = Mock(side_effect=['```json\n{"action":"read_evidence","id":"a"}\n```', 'Analysis [1]'])
-        result = SpecialistAgent('Eye', llm, lambda *a, **k: []).execute('Case', self.evidence, {'a':1})
+        result = SpecialistAgent(SpecialistRole('Eye', 'Review the case.'), llm).execute('Case', self.evidence, {'a':1})
         self.assertEqual(result, 'Analysis [1]')
         self.assertEqual(llm.call_count, 2)
 
     def test_malformed_tool_request_is_not_a_report(self):
         for reply in ['```json\n{"action":"read_evidence",\n```', '{"action":', '[{"action":"final"}]']:
             with self.subTest(reply=reply), self.assertRaises(ValueError):
-                SpecialistAgent('Eye', lambda *a, **k: reply, lambda *a, **k: []).execute('Case', self.evidence, {'a':1})
+                SpecialistAgent(SpecialistRole('Eye', 'Review the case.'), lambda *a, **k: reply).execute('Case', self.evidence, {'a':1})
 
     def test_director_invalid_citation_reaches_repair(self):
         draft = DirectorAgent(lambda *a, **k: 'Draft [99]').execute({'Eye':'Analysis [1]'}, self.evidence)
@@ -39,10 +40,9 @@ class ConfigurationRegressionTests(unittest.TestCase):
         import subprocess
         env = dict(os.environ)
         env["ANALYSIS_PIPELINE"] = "vlm"
-        env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1])
         result = subprocess.run(
             [sys.executable, "-c", "from utils import config"],
-            env=env, capture_output=True, text=True,
+            cwd=Path(__file__).resolve().parents[1], env=env, capture_output=True, text=True,
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("ANALYSIS_PIPELINE was removed", result.stderr)

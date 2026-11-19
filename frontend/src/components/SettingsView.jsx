@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { clearLlmConfig, fetchLlmPresets, fetchUsage, saveLlmConfig, testLlmConfig } from '../api.js'
+import { canChoosePdfLocation, getPdfDownloadMode, setPdfDownloadMode } from '../pdfDownload.js'
 
 /**
  * 个人设置：管理自己的 LLM API。
@@ -17,6 +18,19 @@ export default function SettingsView({ user, llm, onSaved, onClose, onLogout }) 
   const [usage, setUsage] = useState(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [pdfMode, setPdfMode] = useState(() => getPdfDownloadMode(user.id))
+  const [pdfFeedback, setPdfFeedback] = useState(null)
+  const pickerAvailable = canChoosePdfLocation()
+
+  const changePdfMode = (mode) => {
+    try {
+      setPdfDownloadMode(user.id, mode)
+      setPdfMode(mode)
+      setPdfFeedback({ kind: 'ok', text: '下载偏好已保存在此浏览器。' })
+    } catch {
+      setPdfFeedback({ kind: 'err', text: '浏览器未允许保存下载偏好。' })
+    }
+  }
 
   useEffect(() => {
     fetchLlmPresets()
@@ -93,6 +107,25 @@ export default function SettingsView({ user, llm, onSaved, onClose, onLogout }) 
       </div>
 
       <div className="settings-scroll">
+        <section className="settings-card" aria-labelledby="pdf-settings-title">
+          <h3 id="pdf-settings-title">报告下载</h3>
+          <fieldset className="settings-options">
+            <legend className="field-label">PDF 保存方式</legend>
+            <label className="settings-option">
+              <input type="radio" name="pdf-mode" value="choose" disabled={!pickerAvailable}
+                     checked={pickerAvailable && pdfMode === 'choose'} onChange={() => changePdfMode('choose')} />
+              <span><strong>每次选择保存位置</strong><small>下载前选择文件夹和文件名。</small></span>
+            </label>
+            <label className="settings-option">
+              <input type="radio" name="pdf-mode" value="browser"
+                     checked={!pickerAvailable || pdfMode === 'browser'} onChange={() => changePdfMode('browser')} />
+              <span><strong>使用浏览器下载设置</strong><small>由浏览器决定默认文件夹或是否询问保存位置。</small></span>
+            </label>
+          </fieldset>
+          {!pickerAvailable && <p className="settings-hint">当前页面由浏览器管理下载位置。可在浏览器的「下载」设置中更改文件夹或开启下载前询问。</p>}
+          {pdfFeedback && <div className={`settings-msg ${pdfFeedback.kind}`} role="status">{pdfFeedback.text}</div>}
+        </section>
+
         <section className="settings-card">
           <h3>账户</h3>
           <div className="kv">
@@ -190,7 +223,7 @@ export default function SettingsView({ user, llm, onSaved, onClose, onLogout }) 
             </datalist>
           </label>
 
-          {msg && <div className={`settings-msg ${msg.kind}`}>{msg.text}</div>}
+          {msg && <div className={`settings-msg ${msg.kind}`} role="status">{msg.text}</div>}
 
           <div className="settings-actions">
             <button type="button" className="btn-secondary" onClick={doTest} disabled={busy}>

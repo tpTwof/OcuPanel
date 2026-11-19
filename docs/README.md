@@ -20,6 +20,9 @@
 - [ADR-0001](adr/0001-analysis-pipeline-seam.md)记录旧视觉管线接口及其后续调整。
 - [眼科 VLM、GraphRAG 和多 Agent 研究](research/ophthalmology-vlm-graphrag-multiagent-research.md)记录调研时的外部方案和评估设想。
 
+- [彩色眼底照多病种模型选型](research/retinal-disease-model-selection.md)比较 FLAIR、RETFound 和 VisionFM 等眼底模型，记录现有 FLAIR 验证缺口。
+- [眼科 Copilot 文献、数据与测试准备](research/ophthalmology-copilot-evidence-and-evaluation.md)记录模型、诊疗资料、公开数据与评估草案。
+
 功能变更时同步维护对应模块的 README。历史方案中的外部模型能力、性能估计与时间表以其原始记录为准。
 
 ## 引用

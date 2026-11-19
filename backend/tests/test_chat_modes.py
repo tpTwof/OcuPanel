@@ -59,13 +59,14 @@ class ConversationModeStorageTests(unittest.TestCase):
 class ChatModeServiceTests(unittest.IsolatedAsyncioTestCase):
     async def test_mode_controls_only_system_prompt(self):
         for mode in ('general','ophthalmic'):
-            with self.subTest(mode=mode), patch('chat.service.storage.get_conversation',return_value={'title':'Case','mode':mode}), patch('chat.service.storage.load_llm_config',return_value={'api_key':'test','model':'test','base_url':''}), patch('chat.service.storage.list_messages',return_value=[{'role':'user','content':'Analyze this'}, {'role':'assistant','content':'Saved report'}]), patch('chat.service.storage.add_message',return_value={'id':'m'}), patch('chat.service.LLMClient') as client:
+            with self.subTest(mode=mode), patch('utils.config.RAG_ENABLED', False), patch('utils.config.VERIFY_ENABLED', False), patch('knowledge.service.get_retriever') as get_retriever, patch('chat.service.storage.get_conversation',return_value={'title':'Case','mode':mode}), patch('chat.service.storage.load_llm_config',return_value={'api_key':'test','model':'test','base_url':''}), patch('chat.service.storage.list_messages',return_value=[{'role':'user','content':'Analyze this'}, {'role':'assistant','content':'Saved report'}]), patch('chat.service.storage.add_message',return_value={'id':'m'}), patch('chat.service.LLMClient') as client:
                 client.return_value.chat_with_history.return_value='Reply'
                 result = await service.send_message({'id':'u'},'c',SendMessageRequest(message='Question'))
                 self.assertEqual(result['reply'],'Reply')
                 args,kwargs=client.return_value.chat_with_history.call_args
                 self.assertEqual(args[0],[{'role':'user','content':'Analyze this'}, {'role':'assistant','content':'Saved report'}])
                 self.assertEqual(kwargs['system'], CHAT_SYSTEM_PROMPT['content'] if mode=='ophthalmic' else None)
+                get_retriever.assert_not_called()
 
     async def test_other_users_mode_is_not_changed(self):
         with patch('chat.service.storage.set_conversation_mode',return_value=False):
@@ -93,8 +94,9 @@ class AnalysisConversationTests(unittest.IsolatedAsyncioTestCase):
             with storage.connect() as conn:
                 conn.execute('INSERT INTO users VALUES (?,?,?,?,?)', ('u', 'u', 'hash', 'u', 1))
             conv = storage.create_conversation('u')
-            result = ReportResult('Analysis result', {'status':'pass'}, .6, '', [])
-            with patch('report.service._load_generator', new_callable=AsyncMock), patch('report.service._run_report_pipeline', new_callable=AsyncMock, return_value=result), patch('report.service.imageio.imread', return_value=[]):
+            findings = {'glaucoma': {'measurements': {'area_equivalent_cdr': .6}}}
+            result = ReportResult('Analysis result', {'status':'pass'}, .6, '', [], findings)
+            with patch('report.service._load_generator', new_callable=AsyncMock), patch('report.service._run_report_pipeline', new_callable=AsyncMock, return_value=result):
                 response = await reports.generate_content(
                     {'id':'u'}, ReportSubmission(b'image', 'eye.png', 'Case note', conv['id']),
                 )
@@ -104,5 +106,8 @@ class AnalysisConversationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual([m['role'] for m in messages], ['user','assistant'])
             self.assertIn('Case note', messages[0]['content'])
             self.assertEqual(messages[1]['content'],'Analysis result')
+            self.assertEqual(response['visual_findings'], findings)
+            self.assertIn('0.60', response['visual_findings_text'])
+            self.assertEqual(messages[1]['meta']['visual_findings_text'], response['visual_findings_text'])
 
 if __name__=='__main__': unittest.main()

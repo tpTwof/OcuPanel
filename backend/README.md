@@ -21,11 +21,11 @@ Linux 使用 `./.venv/bin/python backend/main.py`。默认监听 `127.0.0.1:8000
 | [`chat/`](chat/README.md) | 会话形态、消息存储、上下文选择和 LLM 问答 |
 | [`report/`](report/README.md) | 上传绑定、病例组织、分析生成、留痕、PDF |
 | [`vision/`](vision/README.md) | 青光眼分类、视杯视盘分割、面积等效 CDR |
-| [`agents/`](agents/README.md) | 六专科、Director、Verifier 和受限工具 |
+| [`agents/`](agents/README.md) | 病种专科、Director、Verifier 和受限工具 |
 | [`knowledge/`](knowledge/README.md) | 本地示例语料、BM25/向量检索、证据格式化 |
 | [`llm/`](llm/README.md) | 统一模型调用、超时、重试、错误描述和连通自检 |
 | `utils/` | 认证、配置、路径、SQLite、应用错误 |
-| [`graphrag/`](graphrag/README.md) | 未接入当前报告链的占位骨架 |
+| [`graphrag/`](graphrag/README.md) | 装载和校验眼科图谱，返回有条款出处的多跳证据 |
 | [`tests/`](tests/README.md) | 离线回归测试 |
 
 HTTP 路由位于各业务模块 `api.py`，应用业务位于 `service.py`，数据契约属于各模块 `models.py`。详见[架构](../docs/ARCHITECTURE.md)与[数据对象](../docs/DATA_MODELS.md)。
@@ -38,16 +38,17 @@ flowchart TD
   RS --> G[report/generation.py]
   G --> V[vision.analyze_fundus：EyeAnalysis]
   V --> C[report/context.py：病例事实]
-  C --> K[knowledge：按角色检索、合并编号]
-  K --> S[六个 SpecialistAgent 并发、各自受限工具循环]
-  S --> D[Director 综合]
+  C --> K[knowledge：按病种检索，去重并编号]
+  K --> S[按病种分析，使用各自证据]
+  S -->|多病种| D[Director 综合]
+  S -->|单病种| Q
   D --> Q[Verifier：核查、修订、复核]
   Q --> Result[ReportResult：正文或拒答、校验、CDR、叠加图、证据]
   Result --> RS
   RS --> Output[JSON / PDF 响应]
 ```
 
-普通聊天和眼科追问不执行报告流程。形态切换只保存状态；眼科问答每次请求注入 `chat/prompts.py`。报告默认六角色为眼科医生、验光师、青光眼专科、全科医生、眼科技师、药师；角色定义在 `agents/roles.py`。
+普通聊天和眼科追问通过聊天服务处理。眼科问答使用 `chat/prompts.py` 的系统指令，并按配置检索和校验引用。报告角色由所选病种决定，定义在 `agents/roles.py`。
 
 ## API
 
@@ -69,11 +70,12 @@ flowchart TD
 | POST | `/api/chat/conversations/{id}/messages` | `{"message":"..."}`，返回回复 |
 | POST | `/api/generate-report-content/` | 返回分析 JSON，并在指定会话追加临床记录与报告 |
 | POST | `/api/generate-report/` | 重新分析并返回 PDF；拒答时 422 |
+| GET | `/api/reports/{report_id}/pdf` | 按当前账号导出已保存的报告，页面下载使用此接口 |
 | GET | `/api/get-report-image/{img_name}` | 获取保存的分割叠加图 |
 
-报告表单使用 `multipart/form-data`：`file` 为 JPG/JPEG/PNG 文件，`note` 为可选临床记录，`conversation_id` 为可选会话 ID。`parse_report_submission()` 转为 `ReportSubmission`，当前用户由令牌注入，不能由表单指定。无会话 ID 时接口不自动创建会话；前端会预先创建。
+两个报告接口都接受 `multipart/form-data`。`file` 为 JPG/JPEG/PNG 彩色眼底图，`note` 为可选临床记录，`conversation_id` 为可选会话 ID。通过多个同名 `diseases` 字段选择病种，可用值为 `glaucoma`、`diabetic_retinopathy` 和 `age_related_macular_degeneration`。省略该字段时分析青光眼，未知或重复值返回 422。选了 DR 或 AMD 而 FLAIR 依赖或权重无法加载时返回 503。[启用 FLAIR](vision/README.md#糖网与年龄相关性黄斑变性)
 
-正文响应字段为 `summary`、`cup_to_disc_ratio`、`img_name`、`evidence`、`verification`、`rejected`、`report_id`。拒答时 `summary` 为原因展示文本，不是未通过的报告草稿。CDR 可能为空，且仍是当前青光眼展示字段，不表示所有病种都使用 CDR。
+正文响应字段为 `summary`、`cup_to_disc_ratio`、`img_name`、`evidence`、`verification`、`rejected`、`report_id`。影像指标通过 `visual_findings` 和 `visual_findings_text` 单独交付。FLAIR 差值由指标区展示，正文中的外部知识经引用校验。仅分析 DR 或 AMD 时 `cup_to_disc_ratio` 为空，`img_name` 为空字符串。拒答时 `summary` 展示拒答原因。
 
 聊天与报告都要求用户保存自己的 LLM 配置，缺失返回 409，不回退使用服务器 Key。聊天模型请求失败返回 502；报告中的专科/Director 调用失败会中止任务并可能返回 500，校验故障则不交付正文。不能把 `Error:` 字符串当作有效报告。
 
@@ -81,11 +83,11 @@ flowchart TD
 
 `knowledge/retrieval.py` 支持 `bm25`、`vector`、`hybrid`。默认 hybrid 使用 BM25 与 `intfloat/multilingual-e5-small` 向量召回，经 RRF 融合、每源上限、语言配额与门控筛选。hybrid 的 `score` 是融合分，不能当作余弦相似度或医学置信度。
 
-六角色分别检索，报告侧合并、去重并统一引用编号，最多保留 `max(RAG_TOP_K * 2, 6)` 条。专科工具只能搜索/读取当前请求已分配且最终保留的证据；当前没有网络医学搜索或任意文件/命令工具。
+所选病种决定参与报告的专科。青光眼、DR 和 AMD 各有一份分析任务。报告基于各病种的视觉结果和共同备注分别检索，按片段 ID 去重并统一编号。专科工具只能搜索/读取当前请求已分配且最终保留的证据。
 
-启动时后台执行 `knowledge.retrieval.selfcheck_gate()`，可能加载向量模型；失败只告警，不阻止服务启动。阈值是语料和模型相关的标定值，替换后应重新验证，旧版本记录的相似度和延迟不是性能保证。四份 corpus 文件均为演示语料，不能称为已接入权威指南全文。
+启动时后台执行 `knowledge.retrieval.selfcheck_gate()`，可能加载向量模型；失败只告警，不阻止服务启动。阈值基于语料和模型标定，替换后应重新验证。内置语料包含演示资料和带出处的图谱条款，完整指南见各条款的原文链接。
 
-Verifier 对外部知识核查引用语义，代码另行检测未知编号，经过有限修订与复核，必要时要求 Director 重生成一次；不重跑影像与六专科。状态为 `pass`、`rewritten`、`rejected`、`error` 或 `disabled`；开启校验而证据为空时为 `rejected/no_evidence`，不会因缺证据放行。关闭 LLM 校验时仍拒绝未知引用编号。病例测量真实性不在引用校验范围内，详见 [Agents](agents/README.md)。
+Verifier 对外部知识核查引用语义，代码另行检测未知编号，经过有限修订与复核，必要时请求最终撰稿者重生成一次。单病种由专科重写，多病种由 Director 重写，均复用影像结果和证据。状态为 `pass`、`rewritten`、`rejected`、`error` 或 `disabled`；开启校验而证据为空时为 `rejected/no_evidence`，不会因缺证据放行。关闭 LLM 校验时仍拒绝未知引用编号。病例测量真实性不在引用校验范围内，详见 [Agents](agents/README.md)。
 
 ## 配置
 
@@ -112,12 +114,33 @@ Verifier 对外部知识核查引用语义，代码另行检测未知编号，�
 | `RAG_MAX_PER_SOURCE` | `2` | 每源条数，0 不限 |
 | `VERIFY_ENABLED` | `1` | LLM 引用语义核查 |
 | `VERIFY_MAX_ROUNDS` / `VERIFY_MIN_CHARS` | `2` / `300` | 修订轮数与有问题短稿的重生成判据 |
-| `HF_ENDPOINT` / `HF_HOME` | 默认 Hugging Face 源 / 用户缓存 | 镜像与缓存根目录；HF_HOME 由下载库读取 |
+| `HF_ENDPOINT` / `HF_HOME` / `HF_HUB_CACHE` | 默认 Hugging Face 源 / 用户缓存 | 下载源、Hugging Face 缓存根目录及 Hub 模型缓存目录 |
 | `CORS_ORIGINS` | localhost 和 127.0.0.1 的 5500 | 跨域白名单，同源访问不依赖它 |
 | `FRONTEND_DIST` | 项目 `frontend/dist` | 前端构建目录 |
 | `MULTI_AGENT_MODE` | `parallel` | 唯一已实现模式；其他值在报告生成时报错 |
 
-`GRAPH_RAG_ENABLED`、`GRAPH_STORE`、`AGENT_TRACE_ENABLED` 只有占位配置，当前报告链未接入图检索或 Agent 轨迹持久化。`EXPIRY_SECONDS`、`CLEANUP_INTERVAL` 是遗留未使用配置，不控制当前任务清理。旧 `ANALYSIS_PIPELINE`、`VLM_MODEL`、`VLM_BACKEND` 已移除；非默认旧管线值会使启动失败。
+`AGENT_TRACE_ENABLED` 为占位配置。`EXPIRY_SECONDS`、`CLEANUP_INTERVAL` 是遗留未使用配置，不控制当前任务清理。旧 `ANALYSIS_PIPELINE`、`VLM_MODEL`、`VLM_BACKEND` 已移除；非默认旧管线值会使启动失败。
+
+### GraphRAG
+
+`RAG_ENABLED` 控制报告和眼科问答是否查知识库。`GRAPH_RAG_ENABLED` 控制是否加入图检索。关闭图检索时，眼科问答仍可使用 `RAG_MODE` 指定的词面或向量检索。眼科聊天保存本轮 `retrieval`、`verification` 和命中的 `evidence`，可在页面看到图谱命中、文本命中、无证据或图谱加载失败。点击正文中的引用编号可打开对应证据。开启 `VERIFY_ENABLED` 时，眼科聊天也会核查具体建议的引用，校验失败时显示补充信息提示。自动核查使用当前用户配置的 LLM，结果只反映系统已执行的引用校验。
+
+图谱来源为 [ophthalmology-graph.json](knowledge/corpus/ophthalmology-graph.json)。其中维护概念及中英文别名、定向关系、来源和人工整理的条款摘要。新增条款使用稳定 ID，填写章节、版本、适用范围和原文链接，并连接至对应概念。条款同时进入启用的词面和向量索引。现有 `POST /api/generate-report-content/` 和眼科模式的 `POST /api/chat/conversations/{id}/messages` 通过 `evidence` 返回出处字段；图检索命中还包含 `graph_path`。图谱加载失败时使用基础检索。
+
+成功加载内置图谱后，四份旧青光眼演示文档退出检索。AMD 的 NEI 摘要也由带出处的图谱条目替代，Markdown 留作关闭图谱或加载失败时的检索语料。新版图谱包含 AMD 症状评估与在英国疑似活动性湿性晚期 AMD 时适用的转诊、OCT 和血管造影条款。 [NICE NG82](https://www.nice.org.uk/guidance/ng82/chapter/recommendations#diagnosis-and-referral) · [NEI AMD 资料](https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/age-related-macular-degeneration)
+
+中国 AMD 场景增加了初诊眼底检查与疑似新生血管性 AMD 的 OCT/OCTA 条款。试查「国内怀疑新生血管性 AMD，能用 OCTA 吗？」应命中中国指南。以「英国医院怀疑湿性黄斑变性，需要转诊和 OCT 吗？」做地区对照。用「英国停车收费是否有优惠？」验证 BM25 与图检索模式的无证据显示。 [中国 AMD 临床诊疗指南原文](https://www.ddzxhospital.com/library/up_f/file/20230802/202308020837477207.pdf)
+
+完成项目依赖安装和前端构建后，可从仓库根目录启动单服务测试。以下设置只作用于当前 PowerShell 终端。BM25 与图检索无需下载向量模型，聊天生成仍需在「个人设置」配置自己的 LLM。
+
+```powershell
+$env:RAG_ENABLED = '1'
+$env:GRAPH_RAG_ENABLED = '1'
+$env:RAG_MODE = 'bm25'
+.\.venv\Scripts\python.exe .\backend\main.py
+```
+
+打开 `http://127.0.0.1:8000`，切换到「眼科助手」，输入「英国医院怀疑湿性黄斑变性，需要转诊和 OCT 吗？」并展开证据。预期可看到 NICE NG82 的 `1.4.6` 和 `1.4.7–1.4.9`。把 `GRAPH_RAG_ENABLED` 改为 `0` 后重启，输入「年龄相关性黄斑变性 AMD，直线变弯，需要做什么检查？」可验证 NEI 摘要仍可被检索。这里检查的是资料召回，图谱条款支持对已提供病例信息的解释。
 
 ## 数据与资源生命周期
 
@@ -127,7 +150,7 @@ SQLite 固定为 `backend/ocupanel.db`，有 users、sessions、llm_configs、co
 
 视觉权重按模型、类型和设备缓存，加载和推理共用进程锁；只缓存权重，不缓存分析结果。自动设备选择为 CUDA → MPS → CPU，当前本机使用 CPU 版 torch。每个 worker 都有独立模型副本，部署先使用单 worker，在目标环境实测容量。当前没有完整报告任务队列。
 
-会话查询按用户隔离，但分割图接口只要求登录和安全文件名，尚未核对图像所属用户。PDF 接口重新生成，尚不能直接导出已存报告；刷新后前端不再持有原上传文件，也就没有对应下载入口。
+会话查询按用户隔离，但分割图接口只要求登录和安全文件名，尚未核对图像所属用户。页面通过报告 ID 下载当前账号已保存的报告，可从历史对话访问。
 
 ## 验证与排查
 

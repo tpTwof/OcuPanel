@@ -7,14 +7,19 @@ class ParallelOrchestrator:
     def run(
         self,
         agents: Sequence[SpecialistAgent],
-        context: str,
-        evidence: dict[str, list[dict[str, Any]]],
+        contexts: dict[str, str],
+        evidence_by_role: dict[str, list[dict[str, Any]]],
         numbers: dict[str, int],
     ) -> dict[str, str]:
         if not agents or len({a.name for a in agents}) != len(agents):
             raise ValueError("Agent names must be nonempty and unique")
 
         def execute(agent: SpecialistAgent) -> tuple[str, str]:
-            return agent.name, agent.execute(context, evidence.get(agent.name, []), numbers)
+            return agent.name, agent.execute(
+                contexts[agent.name], evidence_by_role[agent.name], numbers,
+            )
+        if len(agents) == 1:
+            name, report = execute(agents[0])
+            return {name: report}
         with ThreadPoolExecutor(max_workers=len(agents)) as pool:
             return dict(pool.map(execute, agents))

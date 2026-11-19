@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import Mock
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from agents.models import SpecialistRole
 from agents.specialist import SpecialistAgent
 from agents.tools.evidence import EvidenceTools
 
@@ -12,7 +13,7 @@ class AgentToolsTests(unittest.TestCase):
 
     def test_search_read_final_loop(self):
         llm=Mock(side_effect=['{"action":"search_evidence","query":"optic"}', '{"action":"read_evidence","id":"a"}', '{"action":"final","text":"Analysis [1]"}'])
-        agent=SpecialistAgent('Eye',llm,lambda *a,**k:[])
+        agent=SpecialistAgent(SpecialistRole('Eye', 'Review the case.'),llm)
         self.assertEqual(agent.execute('case',self.evidence,{'a':1}),'Analysis [1]')
         self.assertIn('optic disc evidence',llm.call_args.args[0])
         self.assertEqual(llm.call_count,3)
@@ -25,7 +26,7 @@ class AgentToolsTests(unittest.TestCase):
     def test_budget(self):
         llm=Mock(return_value='{"action":"read_evidence","id":"a"}')
         with self.assertRaises(RuntimeError):
-            SpecialistAgent('Eye',llm,lambda *a,**k:[],max_tool_steps=1).execute('case',self.evidence,{'a':1})
+            SpecialistAgent(SpecialistRole('Eye', 'Review the case.'),llm,max_tool_steps=1).execute('case',self.evidence,{'a':1})
         self.assertEqual(llm.call_count,2)
 
 if __name__=='__main__':unittest.main()

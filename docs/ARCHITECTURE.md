@@ -18,10 +18,10 @@ backend/
   report/pdf.py           PDF 渲染
   report/settings.py      有类型的展示标签与字体配置
   agents/                 专科分析、Director、Verifier 及工具
-  agents/roles.py         唯一的专科角色与检索关键词定义
+  agents/roles.py         病种与分析职责的对应关系
   vision/                 影像模型、测量和可视化
   knowledge/              检索与知识语料
-  graphrag/               未接入报告链的图检索占位骨架
+  graphrag/               眼科证据图谱装载、术语匹配和多跳检索
   llm/                    模型连接、请求、超时与错误处理
   utils/                  认证、配置、路径、持久化和应用错误
   tests/                  离线数值、Agent、路由和业务测试
@@ -37,6 +37,7 @@ flowchart TD
   Request --> Service[各模块 service.py：应用业务]
   Service --> Chat[chat：本会话历史与可选眼科指令]
   Chat --> LLM[llm：聊天回复]
+  Chat -->|开启 GraphRAG 的眼科问答| Knowledge
   Service --> Account[user：账户与配置]
   Service --> Generation[仅分析请求：report/generation.py]
   Generation --> Vision[vision：EyeAnalysis]
@@ -68,11 +69,11 @@ flowchart TD
 
 ## 当前能力与限制
 
-影像目前只实现青光眼模型，结果结构支持按病种扩展。专科 Agent 有受限的证据搜索/读取循环，Director 综合，Verifier 修订与复核。报告/PDF 的 CDR 和单张叠加图仍是当前展示约定，不表示其他病种已完成接入。前端增加会话形态切换和独立眼科分析入口。
+眼科分析入口可选择青光眼、糖尿病视网膜病变（DR）及年龄相关性黄斑变性（AMD）。青光眼采用专用分类与视盘视杯分割，DR 和 AMD 共用一次 FLAIR 眼底图像编码，逐病种比较提示词。所选病种决定参与报告的专科。按病种检索并统一编号。单病种由专科成稿，多病种由 Director 综合。Verifier 核查正文引用，页面和 PDF 单独展示结构化影像结果。CDR 和分割叠加图用于青光眼。[视觉模块与启用方式](../backend/vision/README.md)
 
 ## 工具响应与校验失败处理
 
-专科 Agent 支持普通报告文本、完整 JSON 对象及包裹在 JSON Markdown 代码块中的操作。损坏的结构化操作不能作为报告返回。Director 输出草稿后，Verifier 将代码检测到的未知引用编号和模型识别的语义问题合并，执行修订、复核或拒答。未知编号不会因为模型漏检而通过；关闭 LLM 校验时也不允许未知编号进入输出。
+专科 Agent 支持普通报告文本、完整 JSON 对象及包裹在 JSON Markdown 代码块中的操作。损坏的结构化操作不能作为报告返回。最终草稿生成后，Verifier 将代码检测到的未知引用编号和模型识别的语义问题合并，执行修订、复核或拒答。未知编号不会因为模型漏检而通过；关闭 LLM 校验时也不允许未知编号进入输出。
 
 旧 ANALYSIS_PIPELINE/VLM_MODEL/VLM_BACKEND 已不再作为可用配置。迁移时删除这些旧设置；若仍指定非默认 ANALYSIS_PIPELINE 值，启动会明确拒绝，以避免静默使用不同模型。历史 ADR、规格与研究文档已标记为历史记录，不是当前能力清单。
 

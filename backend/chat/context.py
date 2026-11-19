@@ -32,6 +32,9 @@ def select_history(
             if isinstance(meta, dict) and meta.get("kind") == "report":
                 report_index = index
                 content = item["content"]
+                findings = meta.get("visual_findings_text")
+                if isinstance(findings, str) and findings and not meta.get("rejected"):
+                    content = f"{findings}\n\n{content}"
                 # 至多一半剩余预算用于报告，保证最近对话还有可用空间。
                 budget = min(report_max_chars, remaining // 2)
                 marker = "\n[报告节选：其余内容未提供，不得推测缺失结论。]"

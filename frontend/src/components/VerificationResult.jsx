@@ -17,15 +17,20 @@ const STATUS = {
   error: { tone: 'bad', label: '校验故障，报告已中止', hint: '无法确认内容可靠性，未生成报告' },
   disabled: { tone: 'muted', label: '校验已关闭', hint: 'VERIFY_ENABLED=0，内容未经核查' },
   skipped: { tone: 'muted', label: '未校验', hint: '缺少正文或参考资料' },
+  no_claims: { tone: 'muted', label: '本轮未引用知识库', hint: '未发现需要依据的具体建议' },
   rewritten_unresolved: { tone: 'bad', label: '校验未通过', hint: '仍有无依据内容' },
   unresolved: { tone: 'bad', label: '校验未通过', hint: '无法自动修正' }
 }
 
-export default function VerificationResult({ data }) {
+export default function VerificationResult({ data, isChat }) {
   const [open, setOpen] = useState(false)
   if (!data || !data.status) return null
 
-  const meta = STATUS[data.status] || STATUS.skipped
+  const meta = isChat && data.status === 'rejected'
+    ? { tone: 'bad', label: '具体建议未通过核查', hint: '可补充病例信息或适用地区后再问' }
+    : isChat && data.status === 'error'
+    ? { tone: 'bad', label: '引用校验暂不可用', hint: '请稍后重试' }
+    : STATUS[data.status] || STATUS.skipped
   const fixed = data.fixed || []
   const remaining = data.remaining_issues || []
   const deleted = data.deleted || 0

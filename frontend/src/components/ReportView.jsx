@@ -1,16 +1,22 @@
 import { useRef, useState } from 'react'
 import LoadingOverlay from './LoadingOverlay.jsx'
 
+const diseaseOptions = [
+  ['glaucoma', '青光眼'],
+  ['diabetic_retinopathy', '糖尿病视网膜病变（DR）'],
+  ['age_related_macular_degeneration', '年龄相关性黄斑变性（AMD）']
+]
+
 /**
- * 生成报告：上传眼底图 + 填临床记录 → 六专科并发 → Director → 引用校验。
+ * 按所选病种分析眼底图，结合临床记录生成并校验报告。
  * 结果追加到当前对话里，所以生成完能直接接着追问（报告正文本身就是上下文）。
  */
-export default function ReportView({ onGenerate, onDownloadPdf, busy, notConfigured, onOpenSettings }) {
+export default function ReportView({ onGenerate, busy, notConfigured, onOpenSettings }) {
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [note, setNote] = useState('')
+  const [diseases, setDiseases] = useState(['glaucoma'])
   const [dragging, setDragging] = useState(false)
-  const [showDownload, setShowDownload] = useState(false)
   const inputRef = useRef(null)
   const previewRef = useRef(null)
 
@@ -25,7 +31,6 @@ export default function ReportView({ onGenerate, onDownloadPdf, busy, notConfigu
     previewRef.current = url
     setFile(f)
     setPreviewUrl(url)
-    setShowDownload(false)
   }
 
   const run = async () => {
@@ -37,13 +42,8 @@ export default function ReportView({ onGenerate, onDownloadPdf, busy, notConfigu
       alert('请先上传一张眼底影像')
       return
     }
-    const ok = await onGenerate(file, note.trim())
-    setShowDownload(Boolean(ok))
-  }
-
-  const download = async () => {
-    if (!file) return
-    await onDownloadPdf(file, note.trim())
+    if (!diseases.length) return
+    await onGenerate(file, note.trim(), diseases)
   }
 
   return (
@@ -55,6 +55,22 @@ export default function ReportView({ onGenerate, onDownloadPdf, busy, notConfigu
 
       <div className="report-scroll">
         <p>提交后会进入眼科助手会话，分析结果将作为回复呈现，可以继续追问。</p>
+        <fieldset className="field report-diseases" disabled={busy}>
+          <legend className="field-label">分析病种</legend>
+          {diseaseOptions.map(([id, label]) => (
+            <label key={id}>
+              <input
+                type="checkbox"
+                checked={diseases.includes(id)}
+                onChange={(event) => {
+                  setDiseases(event.target.checked ? [...diseases, id] : diseases.filter((item) => item !== id))
+                }}
+              />
+              {label}
+            </label>
+          ))}
+          <small>请上传彩色眼底照片。DR 和 AMD 提供研究性匹配分数。</small>
+        </fieldset>
         <label className="field">
           <span className="field-label">医疗报告或临床记录</span>
           <textarea
@@ -107,17 +123,12 @@ export default function ReportView({ onGenerate, onDownloadPdf, busy, notConfigu
         {file && <div className="file-line">已选择：{file.name}</div>}
 
         <div className="report-actions">
-          <button type="button" className="btn-primary" onClick={run} disabled={busy}>
+          <button type="button" className="btn-primary" onClick={run} disabled={busy || !diseases.length}>
             {busy ? '正在生成…' : '生成报告'}
           </button>
-          {showDownload && (
-            <button type="button" className="btn-secondary" onClick={download} disabled={busy}>
-              下载 PDF
-            </button>
-          )}
         </div>
 
-        {busy && <div className="report-progress">正在并发调用六个专科 → Director 综合 → 引用校验…</div>}
+        {busy && <div className="report-progress">正在分析影像、生成报告并校验引用…</div>}
       </div>
     </div>
   )

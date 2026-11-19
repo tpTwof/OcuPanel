@@ -7,6 +7,8 @@ from utils import auth
 from report.models import ReportSubmission, ReportContent
 from . import service
 from .utils.jobs import cleanup_job_dir
+from utils.errors import ApplicationError
+from vision.analysis import DEFAULT_DISEASES, validate_diseases
 
 report_router = APIRouter()
 
@@ -14,8 +16,13 @@ async def parse_report_submission(
     file: Annotated[UploadFile, File()],
     note: Annotated[str, Form()] = "",
     conversation_id: Annotated[str, Form()] = "",
+    diseases: Annotated[list[str] | None, Form()] = None,
 ) -> ReportSubmission:
-    return ReportSubmission(await file.read(), file.filename or "", note, conversation_id or None)
+    try:
+        selected = validate_diseases(DEFAULT_DISEASES if diseases is None else diseases)
+    except ValueError as exc:
+        raise ApplicationError(status_code=422, detail=str(exc)) from exc
+    return ReportSubmission(await file.read(), file.filename or "", note, conversation_id or None, selected)
 
 ReportRequest = Annotated[ReportSubmission, Depends(parse_report_submission)]
 
@@ -34,6 +41,14 @@ async def generate_content(
     request: ReportRequest,
 ) -> ReportContent:
     return await service.generate_content(user, request)
+
+
+@report_router.get("/reports/{report_id}/pdf")
+async def export_report(report_id: str, user: auth.CurrentUser) -> FileResponse:
+    download = await service.export_report(user, report_id)
+    return FileResponse(str(download.path), media_type="application/pdf", filename=download.filename,
+                        headers={"Cache-Control": "no-store"},
+                        background=BackgroundTask(cleanup_job_dir, download.job_dir))
 
 @report_router.get("/get-report-image/{img_name}")
 async def get_report_image(img_name: str, user: auth.CurrentUser) -> FileResponse:

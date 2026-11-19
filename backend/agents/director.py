@@ -15,6 +15,9 @@ class DirectorAgent:
         expert_reports: dict[str, str],
         evidence: list[dict[str, Any]] | None = None,
         avoid: list[dict[str, Any]] | None = None,
+        *,
+        context: str = "",
+        evidence_by_role: dict[str, list[dict[str, Any]]] | None = None,
     ) -> str:
         """Generate a director-level synthesis based on all expert reports
 
@@ -27,15 +30,30 @@ class DirectorAgent:
         director_prompt = (
             "The following is clinical information regarding a case of fundus disease, "
             "including findings from a fundus image, "
-            f"computer-aided analysis, and a clinician's note:\n\n{combined_reports}\n\n"
+            f"computer-aided analysis, and a clinician's note:\n\n{context}\n\n{combined_reports}\n\n"
             "Based on the information above, write a final comprehensive diagnostic report. "
             "Summarize the key findings, provide "
             "diagnostic reasoning, and include appropriate recommendations. "
+            "Organize findings by disease. Keep disagreements and missing information explicit, "
+            "and consolidate duplicate recommendations. The application displays raw model metrics "
+            "separately, so refer to them without restating numeric results. "
+            "If FLAIR was used, treat it as research-only prompt matching. Do not infer disease "
+            "presence, absence, stage, lesion location, or image quality from its output. "
             "Do not mention any subreports. The report should be "
             f"written in a professional, neutral tone suitable for a clinical team or patient record."
             + LANGUAGE_INSTRUCTION
             + format_evidence_block(evidence or [])
         )
+        if evidence_by_role is not None:
+            prompt_scope = "\n".join(
+                f"- {role}: " + (", ".join(f"[{item['index']}]" for item in items) or "no evidence retrieved")
+                for role, items in evidence_by_role.items()
+            )
+            director_prompt += (
+                "\nUse the references assigned to each disease. When a disease has no references, "
+                "state that evidence gap and limit its section to case observations and missing information.\n"
+                + prompt_scope
+            )
         if avoid:
             listed = "\n".join(
                 f"- {str(it.get('quote', ''))[:80]}（问题：{it.get('verdict')}；{it.get('reason', '')}）"

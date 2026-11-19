@@ -78,7 +78,7 @@ async def setup_cache(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="OcuPanel API",
-    description="Multi-agent glaucoma diagnostic report generation from fundus images",
+    description="Multi-disease fundus image analysis and ophthalmic report generation",
     version="1.0.0",
     lifespan=setup_cache,
 )

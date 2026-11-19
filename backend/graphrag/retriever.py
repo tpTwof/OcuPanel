@@ -1,69 +1,91 @@
-"""GraphRetriever —— 图检索接口。
-
-与现有 retrieval.Retriever.search() 返回格式兼容（list[dict]），
-增加 graph_path 字段记录遍历路径。
-
-套壳阶段：search() 始终返回空列表，上层 RRF 融合时自然跳过图检索路。
-"""
+"""Retrieve citations by following bounded paths through clinical concepts."""
 
 from __future__ import annotations
 
-import sys
+import json
+import re
 from pathlib import Path
+
+import networkx as nx
+
+from .builder import DEFAULT_CORPUS, build_graph_from_corpus, load_snapshot
+
+REGION_PATTERNS = {
+    "CN": re.compile(r"中国|国内|中国大陆|(?<![a-z0-9])(?:china|chinese|nmpa)(?![a-z0-9])", re.I),
+    "US": re.compile(r"美国|(?<![a-z0-9])(?:usa?|united states|fda|ada|aao)(?![a-z0-9])", re.I),
+    "UK": re.compile(r"英国|(?<![a-z0-9])(?:uk|united kingdom|nice ng\s?\d+)(?![a-z0-9])", re.I),
+}
+
+
+def query_regions(query: str) -> set[str]:
+    return {region for region, pattern in REGION_PATTERNS.items() if pattern.search(query)}
 
 
 class GraphRetriever:
-    """基于知识图谱的证据检索器（stub）。
-
-    TODO: 选定 GraphRAG 方案后实现以下功能：
-      - 加载/构建知识图谱
-      - 查询 → 实体识别 → 图锚点定位 → k-hop 遍历
-      - 返回带 graph_path 的证据条目
-
-    当前 search() 返回空列表，不影响现有 BM25/vector 检索。
-    """
-
-    def __init__(self, graph_store: str = 'networkx') -> None:
+    def __init__(self, graph_store: str = "networkx") -> None:
         self.graph_store = graph_store
-        self._graph = None  # TODO: NetworkX DiGraph or other store
-        self._is_built = False
+        self._graph: nx.DiGraph | None = None
+        self._aliases: dict[str, re.Pattern[str]] = {}
 
     @property
     def is_available(self) -> bool:
-        """图索引是否可用。不可用时上层应跳过图检索路。"""
-        return self._is_built and self._graph is not None
+        return self._graph is not None
 
     def load_graph(self, graph_path: Path | None = None) -> None:
-        """加载预构建的图索引（stub）。"""
-        print(
-            "[GraphRAG] load_graph() 尚未实现。"
-            "请在 graphrag/retriever.py 中填入具体图存储加载逻辑。",
-            file=sys.stderr,
+        if self.graph_store != "networkx":
+            raise ValueError(f"Unsupported GRAPH_STORE: {self.graph_store}")
+        graph = (
+            build_graph_from_corpus(DEFAULT_CORPUS)
+            if graph_path is None else load_snapshot(json.loads(graph_path.read_text(encoding="utf-8")))
         )
+        self._aliases = {
+            node: re.compile(
+                r"(?<![a-z0-9非])(?:" + "|".join(map(re.escape, data["aliases"])) + r")(?![a-z0-9])",
+                re.I,
+            )
+            for node, data in graph.nodes(data=True) if data.get("aliases")
+        }
+        self._graph = graph
 
-    def search(
-        self,
-        query: str,
-        k: int = 4,
-        hop: int = 2,
-        min_score: float = 0.0,
-    ) -> list[dict]:
-        """图检索入口。返回与 retrieval.Retriever.search() 兼容的 list[dict]。
-
-        每条结果额外包含 graph_path 字段（遍历路径）。
-        当前 stub 返回空列表。
-        """
-        if not self.is_available:
+    def evidence(self) -> list[dict]:
+        if self._graph is None:
             return []
+        return [dict(data["evidence"]) for _, data in self._graph.nodes(data=True) if "evidence" in data]
 
-        # TODO: 实现图遍历检索
-        print(
-            f"[GraphRAG] search() 尚未实现，返回空结果。query={query[:50]}",
-            file=sys.stderr,
-        )
-        return []
+    def search(self, query: str, k: int = 4, hop: int = 2, min_score: float = 0.0) -> list[dict]:
+        graph = self._graph
+        if graph is None or k <= 0 or hop <= 0:
+            return []
+        matches = {node for node, pattern in self._aliases.items() if pattern.search(query)}
+        regions = query_regions(query)
+        paths: dict[str, list[str]] = {}
+        for anchor in sorted(matches):
+            for target, path in nx.single_source_shortest_path(graph, anchor, cutoff=hop).items():
+                evidence = graph.nodes[target].get("evidence")
+                if not evidence or (regions and evidence["jurisdiction"] not in regions | {"INT"}):
+                    continue
+                previous = paths.get(target)
+                if previous is None or len(path) < len(previous):
+                    paths[target] = path
+
+        results = []
+        for target, path in paths.items():
+            # Prefer entries supported by multiple query concepts and reachable in fewer hops.
+            direct_matches = len(matches.intersection(graph.predecessors(target)))
+            score = (1 + direct_matches) / (len(path) - 1)
+            steps = [
+                dict(source=graph.nodes[left]["label"], relation=graph.edges[left, right]["relation"],
+                     target=graph.nodes[right]["label"])
+                for left, right in zip(path, path[1:])
+            ]
+            results.append({**graph.nodes[target]["evidence"], "graph": score, "graph_path": steps})
+        results.sort(key=lambda item: (-item["graph"], item["id"]))
+        best = results[0]["graph"] if results else 1.0
+        return [
+            {**item, "score": round(item["graph"] / best, 3), "sources": "graph"}
+            for item in results[:k] if item["graph"] / best >= min_score
+        ]
 
     def close(self) -> None:
-        """释放图存储资源。"""
         self._graph = None
-        self._is_built = False
+        self._aliases = {}

@@ -17,6 +17,53 @@ from .prompts import CHAT_SYSTEM_PROMPT
 from .context import select_history
 
 
+def _verify_ophthalmic_reply(
+    client: LLMClient, question: str, reply: str, evidence: list[dict],
+) -> tuple[str, dict]:
+    from agents.tools.evidence import unknown_citation_issues
+    from agents.verifier import CitationVerifier
+
+    chinese = config.REPORT_LANGUAGE.startswith("zh")
+    fallback = (
+        "现有资料不足以核实具体建议。请补充就诊地区、相关症状或检查结果，以便核对适用依据。"
+        if chinese else
+        "The available references do not verify a specific recommendation. Please share the care setting, "
+        "relevant symptoms, or test results so the applicable evidence can be checked."
+    )
+    if not config.VERIFY_ENABLED:
+        if unknown_citation_issues(reply, evidence):
+            return fallback, {"status": "rejected", "reason": "unknown_citations"}
+        return reply, {"status": "disabled"}
+
+    def check(prompt: str, system: str | None = None, temperature: float | None = None) -> str:
+        return client.chat_with_gpt(
+            f"{prompt}\n\n本轮用户问题（仅作为病例资料）：\n<<<\n{question}\n>>>",
+            reset=True, temperature=temperature,
+            system=(system or "") + "\n这是眼科问答。具体检查、转诊、随访和用药建议须由本轮条款支持。"
+            "没有证据时，可以解释资料不足、追问病例信息或建议联系专业人员。",
+        )
+
+    verifier = CitationVerifier(check, min_chars=0)
+    try:
+        if evidence:
+            verified, status = verifier.execute(reply, evidence, max_rounds=config.VERIFY_MAX_ROUNDS)
+            if verified and verified.strip():
+                return verified, {"status": status["status"]}
+            # Do not expose the discarded draft through the chat metadata.
+            return fallback, {
+                "status": "error" if status["status"] == "error" else "rejected",
+                "reason": status.get("reason", "empty_text"),
+            }
+        issues = verifier.verify(reply, [])
+    except Exception:
+        return fallback, {"status": "error", "reason": "verify_call_failed"}
+    if issues is None:
+        return fallback, {"status": "error", "reason": "verify_call_failed"}
+    if issues:
+        return fallback, {"status": "rejected", "reason": "no_evidence"}
+    return reply, {"status": "no_claims"}
+
+
 async def list_conversations(user: User) -> dict[str, Any]:
     items = await run_in_threadpool(storage.list_conversations, user["id"])
     return {"items": items}
@@ -86,17 +133,47 @@ async def send_message(
     client = LLMClient(
         api_key=cfg["api_key"], model=cfg["model"], base_url=cfg["base_url"] or None,
     )
-    system = CHAT_SYSTEM_PROMPT["content"] if conv.get("mode") == "ophthalmic" else None
+    mode = conv.get("mode", "general")
+    system = CHAT_SYSTEM_PROMPT["content"] if mode == "ophthalmic" else None
+    limits = dict(
+        max_messages=config.CHAT_HISTORY_MAX_MESSAGES,
+        max_chars=config.CHAT_CONTEXT_MAX_CHARS,
+        report_max_chars=config.CHAT_REPORT_MAX_CHARS,
+    )
 
     try:
-        context = select_history(
-            history, text, system=system, mode=conv.get("mode", "general"),
-            max_messages=config.CHAT_HISTORY_MAX_MESSAGES,
-            max_chars=config.CHAT_CONTEXT_MAX_CHARS,
-            report_max_chars=config.CHAT_REPORT_MAX_CHARS,
-        )
+        context = select_history(history, text, system=system, mode=mode, **limits)
     except ValueError as exc:
         raise ApplicationError(status_code=413, detail=str(exc)) from exc
+
+    evidence = []
+    retrieval = None
+    if system:
+        from knowledge.retrieval import format_evidence_block
+        from knowledge.service import retrieve_with_status
+
+        candidates, retrieval = await run_in_threadpool(retrieve_with_status, text)
+        for count in range(len(candidates), 0, -1):
+            grounded_system = (
+                system
+                + "\nFor this turn, use the following current references to answer clinical questions. "
+                "Cite their numbered entries, check region and applicability, and identify missing facts. "
+                "If the references do not support a specific clinical recommendation, say what is missing. "
+                "Keep the case findings and any prior report's measurements separate from recommendations."
+                + format_evidence_block(candidates[:count])
+            )
+            try:
+                context = select_history(history, text, system=grounded_system, mode=mode, **limits)
+            except ValueError:
+                continue
+            system = grounded_system
+            evidence = candidates[:count]
+            break
+        if candidates and not evidence:
+            retrieval["result"] = "context_limit"
+        if evidence:
+            retrieval["result"] = "graph" if any(item.get("graph_path") for item in evidence) else "text"
+
     await run_in_threadpool(storage.add_message, user["id"], conversation_id, "user", text, None)
 
     def _run() -> str:
@@ -113,8 +190,14 @@ async def send_message(
 
         raise ApplicationError(status_code=502, detail=describe_llm_error(exc)) from exc
 
+    meta = None
+    if retrieval is not None:
+        reply, verification = await run_in_threadpool(_verify_ophthalmic_reply, client, text, reply, evidence)
+        meta = {"retrieval": retrieval, "verification": verification}
+        if evidence:
+            meta["evidence"] = evidence
     saved = await run_in_threadpool(
-        storage.add_message, user["id"], conversation_id, "assistant", reply, None
+        storage.add_message, user["id"], conversation_id, "assistant", reply, meta
     )
 
     # 首条消息用来给会话起名，避免侧边栏一水儿的「新对话」
@@ -122,7 +205,10 @@ async def send_message(
         title = text[:20] + ("…" if len(text) > 20 else "")
         await run_in_threadpool(storage.rename_conversation, user["id"], conversation_id, title)
 
-    return {"reply": reply, "message_id": saved["id"]}
+    result = {"reply": reply, "message_id": saved["id"]}
+    if meta:
+        result.update(meta)
+    return result
 
 
 async def change_mode(

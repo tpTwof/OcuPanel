@@ -2,9 +2,11 @@
 
 ## 项目简介
 
-OcuPanel 是一个基于 React 和 FastAPI 的眼科问答与眼底影像分析项目，适用于眼科 AI 演示、研究和二次开发。它提供普通聊天、眼科助手问答和影像报告三种入口。提交彩色眼底照片和临床记录后，系统执行视觉分析、专科 Agent 分析、Director 汇总和引用校验。
+OcuPanel 是一个基于 React 和 FastAPI 的眼科问答与眼底影像分析项目，适用于眼科 AI 演示、研究和二次开发。它提供普通聊天、眼科助手问答和影像报告三种入口。提交彩色眼底照片和临床记录后，系统执行视觉分析、按病种检索和撰稿、按需综合及引用校验。
 
 青光眼分析可输出分类概率、视杯视盘分割图和面积等效杯盘比。示例数据用于演示，报告仅供研究和开发参考。引用校验核查外部知识陈述的出处，临床结论仍需专业人员判断。
+
+本地工作区另有 DR（糖尿病视网膜病变）和 AMD（年龄相关性黄斑变性）的 FLAIR 研究性图文匹配、GraphRAG 和历史报告导出。FLAIR 缺少影像质量判断、临床阈值和独立病例验证，暂用于研究评估。[可选依赖](backend/vision/README.md#糖网与年龄相关性黄斑变性) · [模型验证计划](docs/research/retinal-disease-model-selection.md#当前实现的缺陷) · [图检索配置](backend/README.md#graphrag)
 
 ## 安装指南
 
@@ -91,13 +93,15 @@ OcuPanel 是一个基于 React 和 FastAPI 的眼科问答与眼底影像分析�
 4. 使用 `git add` 暂存本次变更，然后执行 `git commit -m "docs: update project guide"`。
 5. 执行 `git push -u origin feature/your-change`，向上游 `main` 提交 Pull Request。
 
+项目的业务演进见 [版本记录](update/README.md)。
+
 ## 许可证
 
 本项目采用 MIT 许可证。[LICENSE](LICENSE) 保留了上游 M2-Lab@Purdue 的版权声明。
 
 ## 上游项目与致谢
 
-OcuPanel 最初 fork 自 Purdue M2 Lab 的 MedChat。青光眼报告沿用了上游的六个专科角色（眼科医生、验光师、青光眼专科医生、全科医生、眼科技师和药师）以及由 Director 汇总专科意见的设计。OcuPanel 在此基础上加入了多用户账户、SQLite 持久化、证据检索和引用校验。感谢 MedChat 作者及贡献者公开原始实现。 [上游仓库](https://github.com/Purdue-M2/MedChat) · [原始论文](https://doi.org/10.1109/MIPR67560.2025.00078) · [BibTeX](docs/README.md#引用)
+OcuPanel 最初 fork 自 Purdue M2 Lab 的 MedChat。MedChat 以青光眼为主，OcuPanel 将其报告流程扩展到多种眼病。每个所选病种生成一份分析，选择多个病种时由 Director 汇总专科意见。OcuPanel 在此基础上加入了多用户账户、SQLite 持久化、证据检索和引用校验。感谢 MedChat 作者及贡献者公开原始实现。 [上游仓库](https://github.com/Purdue-M2/MedChat) · [原始论文](https://doi.org/10.1109/MIPR67560.2025.00078) · [BibTeX](docs/README.md#引用)
 
 ## 联系方式
 

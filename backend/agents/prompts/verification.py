@@ -1,4 +1,6 @@
 """引用核查与定点修订的提示词；不执行模型调用。"""
+from knowledge.retrieval import format_evidence_entry
+
 VERIFIER_SYSTEM = (
     "你是临床报告的引用校验员（citation verifier）。"
     "你的唯一职责是判断报告里的事实性断言是否被标注的参考资料真实支持。"
@@ -13,14 +15,9 @@ REWRITER_SYSTEM = (
 
 def evidence_block(evidence: list[dict]) -> str:
     """参考资料清单。编号与正文 [n] 一一对应，必须沿用后端算好的 index。"""
-    lines = []
-    for i, item in enumerate(evidence, 1):
-        number = item.get("index", i)
-        lines.append(
-            f"[{number}] 《{item.get('title', '')}》§{item.get('section', '')}"
-            f"（来源：{item.get('source', '')}）\n{item.get('text', '')}"
-        )
-    return "\n\n".join(lines)
+    return "\n\n".join(
+        format_evidence_entry(item, item.get("index", i)) for i, item in enumerate(evidence, 1)
+    )
 
 
 def build_verify_prompt(text: str, evidence: list[dict]) -> str:
@@ -30,6 +27,7 @@ def build_verify_prompt(text: str, evidence: list[dict]) -> str:
         "- partial：一部分成立、一部分资料里没有。最常见的是模型自己加了绝对化措辞"
         "（必须 / 一定 / 唯一 / 立即 / 无任何禁忌），或把「可以考虑」写成「首选」。\n"
         "- unsupported：资料里没有对应内容，或句中的数字、结论与资料冲突。\n"
+        "- 逐条核对适用地区、就诊场景及条款前提。条件缺失时只支持明确的条件性陈述。\n"
         "- uncited：讲的是指南、药物、阈值、随访间隔、检查规范这类外部知识，却没有任何 [n]。\n\n"
         "【不算问题，不要报告】\n"
         "- 报告标题、章节名、免责声明；\n"

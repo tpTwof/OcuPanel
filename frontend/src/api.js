@@ -198,11 +198,12 @@ export const sendMessage = (conversationId, message) =>
 // ---------------------------------------------------------------------------
 // 报告
 // ---------------------------------------------------------------------------
-export const generateReportContent = (file, note, conversationId) => {
+export const generateReportContent = (file, note, conversationId, diseases = []) => {
   const form = new FormData()
   form.append('file', file)
   form.append('note', note)
   if (conversationId) form.append('conversation_id', conversationId)
+  diseases.forEach((disease) => form.append('diseases', disease))
   return callApi({
     name: '生成报告',
     url: `${API_BASE_URL}/api/generate-report-content/`,
@@ -219,19 +220,12 @@ export const getReportImage = (imgName) =>
     read: (res) => res.blob()
   })
 
-export const downloadReportPdf = (file, note, conversationId) => {
-  const form = new FormData()
-  form.append('file', file)
-  form.append('note', note)
-  if (conversationId) form.append('conversation_id', conversationId)
-  return callApi({
+export const downloadReportPdf = (reportId) =>
+  callApi({
     name: '下载 PDF',
-    url: `${API_BASE_URL}/api/generate-report/`,
-    init: { method: 'POST', body: form },
-    request: { file: file?.name },
+    url: `${API_BASE_URL}/api/reports/${encodeURIComponent(reportId)}/pdf`,
     read: (res) => res.blob()
   })
-}
 
 
 export const changeConversationMode = (id, mode) =>

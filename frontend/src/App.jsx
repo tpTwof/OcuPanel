@@ -6,6 +6,7 @@ import WelcomeView from './components/WelcomeView.jsx'
 import ChatView from './components/ChatView.jsx'
 import ReportView from './components/ReportView.jsx'
 import SettingsView from './components/SettingsView.jsx'
+import { canChoosePdfLocation, choosePdfFile, getPdfDownloadMode, savePdf } from './pdfDownload.js'
 import {
   AuthError,
   changeConversationMode,
@@ -205,7 +206,13 @@ export default function App() {
       const data = await sendMessage(convId, text)
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === pendingId ? { ...m, pending: false, content: data.reply, meta: {} } : m
+          m.id === pendingId
+            ? { ...m, pending: false, content: data.reply, meta: {
+                evidence: data.evidence,
+                retrieval: data.retrieval,
+                verification: data.verification
+              } }
+            : m
         )
       )
       refreshConversations()
@@ -236,7 +243,7 @@ export default function App() {
     }
   }
 
-  const handleGenerate = async (file, note) => {
+  const handleGenerate = async (file, note, diseases) => {
     if (busy) return
     setBusy(true)
 
@@ -263,7 +270,7 @@ export default function App() {
       const convId = await ensureConversation('ophthalmic')
       await changeConversationMode(convId, 'ophthalmic')
       setChatMode('ophthalmic')
-      const info = await generateReportContent(file, note, convId)
+      const info = await generateReportContent(file, note, convId, diseases)
 
       let imgUrl = null
       if (info.img_name) {
@@ -292,11 +299,8 @@ export default function App() {
                   verification: info.verification,
                   rejected: info.rejected,
                   cup_to_disc_ratio: info.cup_to_disc_ratio,
-                  // 原始上传件只留在本条消息里，用来在对话中补「下载 PDF」。
-                  // 不进数据库：刷新/重开会话后 meta 从 SQLite 读回，这两个字段没有，
-                  // 按钮自然不渲染（PDF 接口需要原图，没法凭空重建）。
-                  source_file: file,
-                  source_note: note || ''
+                  visual_findings_text: info.visual_findings_text,
+                  report_id: info.report_id
                 }
               }
             : m
@@ -324,20 +328,22 @@ export default function App() {
     }
   }
 
-  const handleDownloadPdf = async (file, note) => {
+  const handleDownloadPdf = async (reportId) => {
     setBusy(true)
     try {
-      const blob = await downloadReportPdf(file, note, activeId || '')
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'diagnostic_report.pdf'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      // The picker must run during the click, before the download request.
+      const fileHandle = getPdfDownloadMode(user.id) === 'choose' && canChoosePdfLocation()
+        ? await choosePdfFile()
+        : null
+      const blob = await downloadReportPdf(reportId)
+      await savePdf(blob, fileHandle)
     } catch (err) {
-      if (!guard(err)) alert(describeError(err))
+      if (err?.name === 'AbortError') return
+      if (!guard(err)) {
+        alert(err?.name === 'SecurityError'
+          ? '当前页面无法使用保存对话框。请在「个人设置 → 报告下载」切换为浏览器下载。'
+          : describeError(err))
+      }
     } finally {
       setBusy(false)
     }
@@ -422,7 +428,6 @@ export default function App() {
         {view === 'report' && (
           <ReportView
             onGenerate={handleGenerate}
-            onDownloadPdf={handleDownloadPdf}
             busy={busy}
             notConfigured={notConfigured}
             onOpenSettings={() => setView('settings')}

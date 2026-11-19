@@ -11,10 +11,14 @@ import { useState } from 'react'
 const SOURCE_LABEL = {
   'bm25': '词面',
   vector: '语义',
-  'bm25,vector': '混合'
+  'bm25,vector': '混合',
+  graph: '图检索'
 }
 
-export default function EvidenceList({ items }) {
+// Older conversations may contain graph labels saved before the display change.
+const formatGraphLabel = (label) => label.replace(/\s*\u00a7\s*/g, ' · ')
+
+export default function EvidenceList({ items, evidencePrefix }) {
   const [openId, setOpenId] = useState(null)
   if (!items || items.length === 0) return null
 
@@ -22,7 +26,7 @@ export default function EvidenceList({ items }) {
     <div className="evidence">
       <div className="evidence-head">
         参考资料 <span className="evidence-count">{items.length}</span>
-        <span className="evidence-hint">来自本地知识库，点击展开原文</span>
+        <span className="evidence-hint">点击展开证据与出处</span>
       </div>
 
       {items.map((item, index) => {
@@ -32,10 +36,12 @@ export default function EvidenceList({ items }) {
         if (typeof item.bm25 === 'number') scores.push(`词面 ${item.bm25.toFixed(1)}`)
         if (typeof item.rrf === 'number') scores.push(`融合 ${item.rrf.toFixed(3)}`)
         return (
-          <div className="evidence-item" key={item.id || index}>
+          <div className="evidence-item" key={item.id || index}
+               id={evidencePrefix ? `${evidencePrefix}-${item.index ?? index + 1}` : undefined}>
             <button
               type="button"
               className="evidence-row"
+              aria-expanded={isOpen}
               onClick={() => setOpenId(isOpen ? null : item.id)}
             >
               <span className="evidence-index">[{item.index ?? index + 1}]</span>
@@ -46,10 +52,12 @@ export default function EvidenceList({ items }) {
               )}
               <span className="evidence-title">
                 {item.title}
-                {item.section ? ` §${item.section}` : ''}
+                {item.section ? ` · ${item.section}` : ''}
               </span>
               {item.sources ? (
-                <span className="evidence-source-tag">{SOURCE_LABEL[item.sources] || item.sources}</span>
+                <span className="evidence-source-tag">
+                  {SOURCE_LABEL[item.sources] || item.sources.split(',').map(source => SOURCE_LABEL[source] || source).join(' + ')}
+                </span>
               ) : (
                 typeof item.score === 'number' && (
                   <span className="evidence-score">{item.score.toFixed(2)}</span>
@@ -64,6 +72,22 @@ export default function EvidenceList({ items }) {
                   来源：{item.source}
                   {scores.length > 0 && <span className="evidence-scores"> · {scores.join(' · ')}</span>}
                 </div>
+                {item.scope && (
+                  <div className="evidence-source">
+                    {[item.jurisdiction, item.version, item.scope].filter(Boolean).join(' · ')}
+                    {item.url?.startsWith('https://') && (
+                      <> · <a href={item.url} target="_blank" rel="noopener noreferrer">查看原始出处</a></>
+                    )}
+                  </div>
+                )}
+                {item.graph_path?.length > 0 && (
+                  <div className="evidence-source">
+                    检索路径：{formatGraphLabel(item.graph_path[0].source)}
+                    {item.graph_path.map((step, i) => (
+                      <span key={i}> → {step.relation} → {formatGraphLabel(step.target)}</span>
+                    ))}
+                  </div>
+                )}
                 <pre className="evidence-text">{item.text}</pre>
               </div>
             )}

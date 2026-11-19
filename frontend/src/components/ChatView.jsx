@@ -11,8 +11,8 @@ import VerificationResult from './VerificationResult.jsx'
  */
 const REPORT_STAGES = [
   { at: 0, text: '影像分析：分割视盘与视杯，计算杯盘比' },
-  { at: 8, text: '证据检索：BM25 + 多语言向量，RRF 融合' },
-  { at: 20, text: '六专科并发会诊，Director 综合成文' },
+  { at: 8, text: '检索并合并相关指南证据' },
+  { at: 20, text: '专科分析，综合生成报告' },
   { at: 45, text: '引用校验：逐句核对 [n] 出处，不合格会重写' }
 ]
 
@@ -57,6 +57,15 @@ function ReportPending({ startedAt }) {
   )
 }
 
+const RETRIEVAL_LABELS = {
+  graph: '图谱命中',
+  text: '文本检索命中',
+  empty: '未找到相关证据',
+  error: '本轮检索失败',
+  disabled: '知识检索已关闭',
+  context_limit: '本轮上下文空间不足，未使用检索结果'
+}
+
 /** 一条消息。meta 里可能带报告相关字段（分割图、证据、校验结果）。 */
 function MessageItem({ m, imageUrls, onDownloadPdf, busy }) {
   if (m.role === 'user') {
@@ -70,6 +79,7 @@ function MessageItem({ m, imageUrls, onDownloadPdf, busy }) {
   const meta = m.meta || {}
   const imgName = meta.img_name
   const imgUrl = imgName ? imageUrls[imgName] : null
+  const evidencePrefix = `evidence-${m.id}`
 
   return (
     <div className="msg msg-ai">
@@ -89,20 +99,21 @@ function MessageItem({ m, imageUrls, onDownloadPdf, busy }) {
           )
         ) : (
           <>
-            <Markdown text={m.content} />
+            {meta.kind === 'report' && meta.visual_findings_text && (
+              <Markdown text={meta.visual_findings_text} />
+            )}
+            <Markdown text={m.content} evidence={meta.evidence} evidencePrefix={evidencePrefix} />
             {meta.kind === 'report' && (
               <div className="msg-report-meta">
-                {meta.cup_to_disc_ratio != null && (
+                {!meta.visual_findings_text && meta.cup_to_disc_ratio != null && (
                   <span className="chip">杯盘比 {Number(meta.cup_to_disc_ratio).toFixed(2)}</span>
                 )}
-                {/* 只有本会话内生成、且没被拒答的报告才给下载入口：
-                    切走再回来 / 刷新后 source_file 已不存在，PDF 接口需要原图，没法重建 */}
-                {meta.source_file && !meta.rejected && (
+                {meta.report_id && !meta.rejected && (
                   <button
                     type="button"
                     className="chip-btn"
                     disabled={busy}
-                    onClick={() => onDownloadPdf(meta.source_file, meta.source_note || '')}
+                    onClick={() => onDownloadPdf(meta.report_id)}
                   >
                     下载 PDF
                   </button>
@@ -114,8 +125,20 @@ function MessageItem({ m, imageUrls, onDownloadPdf, busy }) {
                 )}
               </div>
             )}
-            <VerificationResult data={meta.verification} />
-            <EvidenceList items={meta.evidence} />
+            {meta.retrieval && (
+              <div className="msg-report-meta">
+                <span className="chip">{RETRIEVAL_LABELS[meta.retrieval.result]}</span>
+                {meta.retrieval.graph === 'unavailable' && <span className="chip">图谱加载失败</span>}
+                {meta.retrieval.graph === 'disabled' && meta.retrieval.result !== 'disabled' && (
+                  <span className="chip">图检索已关闭</span>
+                )}
+                {meta.retrieval.graph === 'ready' && ['text', 'empty'].includes(meta.retrieval.result) && (
+                  <span className="chip">本轮未使用图谱证据</span>
+                )}
+              </div>
+            )}
+            <VerificationResult data={meta.verification} isChat={meta.kind !== 'report'} />
+            <EvidenceList items={meta.evidence} evidencePrefix={evidencePrefix} />
           </>
         )}
       </div>

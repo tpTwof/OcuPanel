@@ -2,6 +2,15 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+
+class FundusImageDecodeError(ValueError):
+    """The input bytes could not be decoded as an image."""
+
+
+class FundusImageUnusable(ValueError):
+    """Technical image checks found no usable input for the fundus models."""
+
+
 @dataclass
 class DiseaseResult:
     """病种由 EyeAnalysis.diseases 的键标识，概率与分级独立。"""
@@ -10,6 +19,8 @@ class DiseaseResult:
     measurements: dict[str, float] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     model_sources: dict[str, str] = field(default_factory=dict)
+    # Difference between the disease and reference prompt logits, in model units.
+    prompt_similarity_margin: float | None = None
 
 @dataclass
 class EyeAnalysis:

@@ -2,7 +2,7 @@
 import json
 from typing import Any
 from llm.models import LLMCall
-from knowledge.models import RetrieveEvidence
+from agents.models import SpecialistRole
 from .tools.evidence import EvidenceTools
 from .tools.json_response import parse_agent_decision
 from knowledge.retrieval import format_evidence_block
@@ -11,32 +11,29 @@ from agents.prompts.language import LANGUAGE_INSTRUCTION
 class SpecialistAgent:
     def __init__(
         self,
-        name: str,
+        role: SpecialistRole,
         llm_call: LLMCall,
-        retrieve: RetrieveEvidence,
-        query_hint: str = '',
         max_tool_steps: int = 3,
     ) -> None:
-        if not name or max_tool_steps < 0:
+        if not role.name or max_tool_steps < 0:
             raise ValueError('Invalid agent configuration')
-        self.name = name
-        self.role_description = f"Analyze the case as a {name}"
-        self.llm_call, self.retrieve = llm_call, retrieve
-        self.query_hint = query_hint or name
+        self.name = role.name
+        self.instructions = role.instructions
+        self.llm_call = llm_call
         self.max_tool_steps = max_tool_steps
-
-    def gather_evidence(self, case_brief: str) -> list[dict[str, Any]]:
-        return self.retrieve(case_brief, boost=self.query_hint)
 
     def execute(
         self,
         context: str,
         evidence: list[dict[str, Any]],
         numbers: dict[str, int],
+        *,
+        final_report: bool = False,
+        issues: list[dict[str, Any]] | None = None,
     ) -> str:
         tools = EvidenceTools(evidence, numbers)
         prompt = (
-            f"{context}\nAs a {self.name}, analyze only your specialty. "
+            f"{context}\nAs a {self.name}, {self.instructions} "
             "Distinguish model predictions, measurements, missing data and recommendations. "
             "Do not infer untested diseases or severity from probability. Cite evidence for medical claims. "
             'To use tools output JSON: {"action":"search_evidence","query":"..."} or '
@@ -44,6 +41,22 @@ class SpecialistAgent:
             '{"action":"final","text":"report"}, or plain report text. '
             + LANGUAGE_INSTRUCTION + format_evidence_block(evidence, numbers)
         )
+        if not evidence:
+            prompt += (
+                "\nNo reference was retrieved for this disease. State the evidence gap and "
+                "limit the analysis to supplied case observations and missing information."
+            )
+        if final_report:
+            prompt += (
+                "\nWrite the final report for the reader. Organize the interpretation, missing "
+                "information and any supported recommendations. The application displays raw model "
+                "metrics separately, so refer to them without restating numeric results."
+            )
+        if issues:
+            prompt += (
+                "\nCorrect the following claims based on the supplied references, or omit them: "
+                + json.dumps(issues[:12], ensure_ascii=False)
+            )
         for step in range(self.max_tool_steps + 1):
             reply = self.llm_call(prompt, reset=True)
             if not isinstance(reply,str) or not reply.strip() or reply.startswith('Error:'):
@@ -54,7 +67,8 @@ class SpecialistAgent:
                 text = decision.get('text')
                 if not isinstance(text,str) or not text.strip():
                     raise ValueError('Empty agent analysis')
-                tools.validate_citations(text)
+                if not final_report:
+                    tools.validate_citations(text)
                 return text
             if step == self.max_tool_steps:
                 raise RuntimeError(f'Agent {self.name} exceeded tool budget')

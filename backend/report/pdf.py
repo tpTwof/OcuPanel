@@ -1,61 +1,59 @@
 from __future__ import annotations
-from typing import Any
-from typing import Any
+
 import os
 import re
 import sys
-import tempfile
-from PIL import Image
+from io import BytesIO
+from typing import Any
+
 from fpdf import FPDF
+from fpdf.fonts import FontFace
+from PIL import Image
+
 from utils.paths import OUTPUT_DIR
 from .settings import LABELS, USE_CHINESE, _FONT_CANDIDATES
-def plain_text(md: str) -> str:
-    """把模型返回的 Markdown 压成纯文本，避免 PDF 里出现 ## 和 ** 符号。"""
-    text = re.sub(r"^#{1,6}\s*", "", md, flags=re.MULTILINE)
-    text = re.sub(r"^\s*[-*+]\s+", "· ", text, flags=re.MULTILINE)
-    text = text.replace("**", "").replace("__", "").replace("`", "")
-    text = re.sub(r"^\s*>\s?", "", text, flags=re.MULTILINE)
-    return text
 
-def soft_wrap(text: str, limit: int = 38) -> str:
-    """按固定字数切断超长中文行。
+_TABLE_SEPARATOR = re.compile(r":?-{3,}:?")
+_HEADING = re.compile(r"^#{1,6}[ \t]+(.+)$")
+_LIST_ITEM = re.compile(r"^([-+*]|\d+[.)])[ \t]+(.+)$")
+_CJK = re.compile(r"[\u3400-\u9fff]")
 
-    fpdf2 的 wrapmode="CHAR" 在长段中文上会陷入死循环（实测卡死 8 分钟以上），
-    这里提前把长行切成 limit 个字符，剩下的交给默认的按词换行，绕开该分支。
-    含空格的英文行交给 fpdf2 自己断词，不动。
-    """
-    out = []
-    for line in text.split("\n"):
-        if not line:
-            out.append("")
-            continue
-        if " " in line:
-            out.append(line)
-            continue
-        while len(line) > limit:
-            out.append(line[:limit])
-            line = line[limit:]
-        out.append(line)
-    return "\n".join(out)
 
-def _register_cjk_font(pdf):
-    """尝试注册中文字体，返回可用的 family 名；全部失败返回 None。"""
+def _inline_text(text: str) -> str:
+    text = re.sub(r"\[([^\]]+)\]\((?:https?://)[^)\s]+\)", r"\1", text)
+    text = re.sub(r"(\*{1,2})(?=\S)(.+?)(?<=\S)\1", r"\2", text)
+    text = re.sub(r"(?<!\w)(_{1,2})(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", text)
+    return re.sub(r"\x60([^\x60]+)\x60", r"\1", text).strip()
+
+
+def _table_cells(line: str) -> list[str]:
+    line = line.strip().removeprefix("|")
+    if not line.endswith(r"\|"):
+        line = line.removesuffix("|")
+    return [part.replace(r"\|", "|").strip()
+            for part in re.split(r"(?<!\\)\|", line)]
+
+
+class _ReportPDF(FPDF):
+    def footer(self) -> None:
+        self.set_y(-11)
+        self.set_font("Helvetica", size=9)
+        self.set_text_color(92, 105, 120)
+        self.cell(0, 5, str(self.page_no()), align="R")
+
+
+def _register_cjk_font(pdf: FPDF) -> str | None:
     for path in _FONT_CANDIDATES:
         if not path or not os.path.isfile(path):
             continue
         try:
             family = "ReportCJK"
-            pdf.add_font(family, "", path)
-            # 同一字体文件复用到粗体/斜体，避免 set_font 找不到样式而报错
-            pdf.add_font(family, "B", path)
-            pdf.add_font(family, "I", path)
+            for style in ("", "B", "I"):
+                pdf.add_font(family, style, path)
             return family
-        except Exception as exc:  # noqa: BLE001 - 换下一个候选字体
+        except Exception as exc:
             print(f"[PDF] 字体不可用，跳过 {path}: {exc}", file=sys.stderr)
     return None
-
-def sanitize_for_latin1(text: str) -> str:
-    return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
 class PDFRenderer:
@@ -66,119 +64,155 @@ class PDFRenderer:
         synthesis_text: str,
         output_path: str | None = None,
         evidence: list[dict[str, Any]] | None = None,
+        visual_findings_text: str = "",
     ) -> None:
-        """生成 PDF 报告。
-
-        有中文字体时正常输出中文；找不到字体则降级为内置 Helvetica +
-        latin-1 清洗，保证任何环境下都不会崩。
-        evidence: 检索到的证据片段，会附在报告末尾作为参考资料来源。
-        """
         output_path = output_path or str(OUTPUT_DIR / "diagnostic_report.pdf")
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-        pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf = _ReportPDF()
+        pdf.set_title(LABELS.title)
+        pdf.set_margins(16, 16)
+        pdf.set_auto_page_break(True, margin=16)
         pdf.add_page()
 
         family = _register_cjk_font(pdf)
-        fallback = family is None
-        if fallback:
-            family = "Helvetica"
-            print(
-                "[PDF] 未找到可用中文字体，PDF 将降级为拉丁字符。"
-                "可设置 REPORT_FONT_PATH 指向一个 .ttf 中文字体。",
-                file=sys.stderr,
-            )
+        if family is None:
+            print("[PDF] 未找到中文字体，可设置 REPORT_FONT_PATH。", file=sys.stderr)
 
-        def set_font(style: str, size: int) -> None:
-            pdf.set_font(family, style, size)
+        def clean(value: str) -> str:
+            return value if family else value.encode("latin-1", errors="replace").decode("latin-1")
 
-        def write_text(text: str, height: float = 10) -> None:
-            if fallback:
-                text = sanitize_for_latin1(text)
-            for line in soft_wrap(text).split("\n"):
-                if line.strip():
-                    pdf.multi_cell(0, height, line, new_x="LMARGIN", new_y="NEXT")
+        def write_text(text: str, height: float = 5.8, *, size: int = 11,
+                       style: str = "", align: str = "L", link: str = "") -> None:
+            pdf.set_font(family or "Helvetica", style, size)
+            wrapmode = "CHAR" if _CJK.search(text) else "WORD"
+            pdf.multi_cell(0, height, clean(text), align=align, link=link, wrapmode=wrapmode,
+                           new_x="LMARGIN", new_y="NEXT")
+
+        def heading(text: str, size: int = 14) -> None:
+            if pdf.will_page_break(16):
+                pdf.add_page()
+            elif pdf.y > pdf.t_margin:
+                pdf.ln(3)
+            write_text(text, 7, size=size, style="B")
+
+        def write_table(rows: list[list[str]], styles: list[str]) -> None:
+            pdf.set_font(family or "Helvetica", size=10)
+            align = ["CENTER" if cell.startswith(":") and cell.endswith(":")
+                     else "RIGHT" if cell.endswith(":") else "LEFT" for cell in styles]
+            rows = [[clean(_inline_text(cell)) for cell in cells] for cells in rows]
+            wrapmode = "CHAR" if any(_CJK.search(cell) for row in rows for cell in row) else "WORD"
+            weights = [max(18, min(64, max(map(pdf.get_string_width, column)))) for column in zip(*rows)]
+            column_widths = [pdf.epw * weight / sum(weights) for weight in weights]
+            line_height, padding = 5.2, 1.4
+
+            def cell_lines(cells: list[str]) -> list[list[str]]:
+                return [pdf.multi_cell(width, line_height, cell, align="L", padding=padding,
+                                       wrapmode=wrapmode, dry_run=True, output="LINES")
+                        for width, cell in zip(column_widths, cells)]
+
+            # Account for the repeated heading when a single row is taller than a page.
+            header_height = max(map(len, cell_lines(rows[0]))) * line_height + 2 * padding
+            max_lines = max(1, int((pdf.eph - header_height - 2 * padding - 6) / line_height))
+            with pdf.table(
+                col_widths=weights, text_align=align, line_height=line_height, padding=padding,
+                wrapmode=wrapmode,
+                borders_layout="ALL", headings_style=FontFace(emphasis="BOLD", fill_color=(233, 240, 247)),
+            ) as table:
+                table.row(rows[0])
+                for row_index, cells in enumerate(rows[1:]):
+                    wrapped = cell_lines(cells)
+                    height = max(map(len, wrapped))
+                    if height <= max_lines:
+                        table.row(cells)
+                        continue
+                    start = 0
+                    if row_index == 0:
+                        available = pdf.page_break_trigger - pdf.y - header_height - 2 * padding - 6
+                        first_lines = min(max_lines, int(available / line_height))
+                        if first_lines >= 4:
+                            table.row(["\n".join(cell[:first_lines]) for cell in wrapped])
+                            start = first_lines
+                    for offset in range(start, height, max_lines):
+                        table.row(["\n".join(cell[offset:offset + max_lines]) for cell in wrapped])
+            pdf.ln(2)
 
         def write_block(raw: str) -> None:
-            block = plain_text(raw)
-            if fallback:
-                block = sanitize_for_latin1(block)
-            for line in soft_wrap(block).split("\n"):
-                if line.strip():
-                    pdf.multi_cell(0, 10, line, new_x="LMARGIN", new_y="NEXT")
-                else:
-                    pdf.ln(4)
+            lines = raw.splitlines()
+            index = 0
+            gap = False
+            while index < len(lines):
+                line = lines[index].strip()
+                index += 1
+                if not line:
+                    gap = True
+                    continue
+                if gap:
+                    pdf.ln(2)
+                    gap = False
+                if "|" in line and index < len(lines) and "|" in lines[index]:
+                    cells = _table_cells(line)
+                    separators = _table_cells(lines[index])
+                    if len(cells) == len(separators) and all(_TABLE_SEPARATOR.fullmatch(c) for c in separators):
+                        rows = [cells]
+                        index += 1
+                        while index < len(lines) and "|" in lines[index]:
+                            cells = _table_cells(lines[index])
+                            if len(cells) != len(separators):
+                                break
+                            rows.append(cells)
+                            index += 1
+                        write_table(rows, separators)
+                        continue
+                if match := _HEADING.fullmatch(line):
+                    heading(_inline_text(match[1]), 12)
+                elif match := _LIST_ITEM.fullmatch(line):
+                    marker = "·" if match[1] in "-+*" else match[1]
+                    write_text(f"{marker} {_inline_text(match[2])}")
+                elif not re.fullmatch(r"(?:-{3,}|\*{3,}|_{3,})", line):
+                    write_text(_inline_text(line.removeprefix("> ").strip()))
 
-        set_font("B", 16)
-        pdf.cell(0, 10, LABELS.title, new_x="LMARGIN", new_y="NEXT", align="C")
-
-        im = Image.open(image_path)
-        # 临时 jpg 也必须唯一：并发时共用 temp_rgb_image.jpg 会出现
-        # 一个请求正在写、另一个请求已经删掉的竞态。
-        rgb_fd, rgb_image_path = tempfile.mkstemp(
-            prefix="pdf_img_", suffix=".jpg", dir=str(OUTPUT_DIR)
-        )
-        os.close(rgb_fd)
-        im.convert("RGB").save(rgb_image_path)
-        pdf.ln(6)
-        pdf.image(rgb_image_path, x=25, w=160)
-
-        set_font("", 12)
+        write_text(LABELS.title, height=10, size=19, style="B", align="C")
         pdf.ln(4)
-        sep = "：" if USE_CHINESE else ": "
-        if cup_to_disc_ratio is None:
-            cdr_text = "未测量" if USE_CHINESE else "not measured"
-        else:
-            cdr_text = f"{cup_to_disc_ratio:.2f}"
-        write_text(f"{LABELS.cdr}{sep}{cdr_text}")
-        write_text(LABELS.legend)
 
-        pdf.ln(4)
-        set_font("B", 14)
-        pdf.cell(0, 10, LABELS.summary, new_x="LMARGIN", new_y="NEXT")
+        if image_path:
+            with Image.open(image_path) as image, BytesIO() as jpeg:
+                image.convert("RGB").save(jpeg, format="JPEG")
+                jpeg.seek(0)
+                width = min(pdf.epw, 92 * image.width / image.height)
+                pdf.image(jpeg, x=(pdf.w - width) / 2, w=width)
+            pdf.ln(1.5)
+            write_text(LABELS.legend, height=5, size=9, align="C")
 
-        set_font("", 11)
+        if visual_findings_text:
+            write_block(visual_findings_text)
+        elif cup_to_disc_ratio is not None:
+            separator = "：" if USE_CHINESE else ": "
+            write_text(f"{LABELS.cdr}{separator}{cup_to_disc_ratio:.2f}", style="B")
+
+        heading(LABELS.summary)
         write_block(synthesis_text)
 
         if evidence:
-            pdf.ln(4)
-            set_font("B", 14)
-            pdf.cell(0, 10, LABELS.references, new_x="LMARGIN", new_y="NEXT")
-            set_font("", 10)
-            for i, item in enumerate(evidence, 1):
-                cite = (
-                    f"[{i}] {item.get('title', '')} §{item.get('section', '')}"
-                    f"（来源：{item.get('source', '')}，相关度 {item.get('score', 0)}）"
-                )
-                write_text(cite, height=8)
-                snippet = (item.get("text") or "").strip().replace("\n", " ")
-                if len(snippet) > 120:
-                    snippet = snippet[:120] + "…"
-                write_text(f"    {snippet}", height=8)
+            heading(LABELS.references)
+            for index, item in enumerate(evidence, 1):
+                section = f" · {item['section']}" if item.get("section") else ""
+                title = item.get("title") or item.get("source", "")
+                url = item.get("url") or ""
+                write_text(f"[{item.get('index', index)}] {title}{section}", size=10, style="B",
+                           link=url if url.startswith(("https://", "http://")) else "")
+                snippet = " ".join((item.get("text") or "").split())
+                if snippet:
+                    write_text(snippet[:120] + ("…" if len(snippet) > 120 else ""), height=5, size=9)
+                pdf.ln(2)
 
-        if len(self.chat_history) > 0:
-            pdf.ln(4)
-            set_font("B", 14)
-            pdf.cell(0, 10, LABELS.chat, new_x="LMARGIN", new_y="NEXT")
-
-            for message in self.chat_history:
-                pdf.ln(3)
-                set_font("B", 11)
+        history = getattr(self, "chat_history", ())
+        if history:
+            heading(LABELS.chat)
+            for message in history:
                 label = LABELS.you if message["role"] == "user" else LABELS.ai
-                pdf.cell(0, 8, label, new_x="LMARGIN", new_y="NEXT")
-                set_font("", 11)
+                write_text(label, style="B")
                 write_block(message["content"])
 
-        pdf.ln(8)
-        set_font("I", 9)
-        footer = LABELS.footer
-        if fallback:
-            footer = sanitize_for_latin1(footer)
-        pdf.multi_cell(0, 6, footer, align="C", new_x="LMARGIN", new_y="NEXT")
-
-        try:
-            pdf.output(output_path)
-        finally:
-            # 渲染失败也不留垃圾文件
-            if os.path.exists(rgb_image_path):
-                os.remove(rgb_image_path)
+        pdf.ln(3)
+        write_text(LABELS.footer, height=5, size=9, align="C")
+        pdf.output(output_path)

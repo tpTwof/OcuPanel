@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS reports (
     summary         TEXT NOT NULL DEFAULT '',
     verification    TEXT NOT NULL DEFAULT '{}',
     evidence        TEXT NOT NULL DEFAULT '[]',
+    visual_findings TEXT NOT NULL DEFAULT '{}',
     rejected        INTEGER NOT NULL DEFAULT 0,
     created_at      REAL NOT NULL
 );
@@ -141,6 +142,10 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with connect() as conn:
         conn.executescript(SCHEMA)
+        conn.execute("BEGIN IMMEDIATE")
+        report_columns = {row["name"] for row in conn.execute("PRAGMA table_info(reports)")}
+        if "visual_findings" not in report_columns:
+            conn.execute("ALTER TABLE reports ADD COLUMN visual_findings TEXT NOT NULL DEFAULT '{}'")
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(conversations)")}
         if "mode" not in columns:
             conn.execute(
@@ -465,13 +470,14 @@ def save_report(
     rejected: bool,
     cup_to_disc: float | None = None,
     glaucoma_prob: float | None = None,
+    visual_findings: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     rid = new_id()
     with connect() as conn:
         conn.execute(
             "INSERT INTO reports (id, user_id, conversation_id, img_name, cup_to_disc,"
-            " glaucoma_prob, summary, verification, evidence, rejected, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " glaucoma_prob, summary, verification, evidence, rejected, created_at, visual_findings)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 rid,
                 user_id,
@@ -484,6 +490,7 @@ def save_report(
                 json.dumps(evidence or [], ensure_ascii=False),
                 1 if rejected else 0,
                 now(),
+                json.dumps(visual_findings or {}, ensure_ascii=False),
             ),
         )
     return rid
@@ -497,6 +504,22 @@ def list_reports(user_id: str, limit: int = 20) -> list[dict]:
             (user_id, limit),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_report(user_id: str, report_id: str) -> dict | None:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT img_name, cup_to_disc, summary, evidence, rejected, visual_findings, verification"
+            " FROM reports WHERE user_id = ? AND id = ?",
+            (user_id, report_id),
+        ).fetchone()
+    if row is None:
+        return None
+    report = dict(row)
+    report["evidence"] = json.loads(report["evidence"])
+    report["visual_findings"] = json.loads(report["visual_findings"])
+    report["verification"] = json.loads(report["verification"])
+    return report
 
 
 def set_conversation_mode(user_id: str, conversation_id: str, mode: str) -> bool:

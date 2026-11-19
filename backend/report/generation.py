@@ -1,19 +1,21 @@
 from __future__ import annotations
-from typing import Any, Callable
-from pathlib import Path
-from typing import Any, BinaryIO
-from vision.models import EyeAnalysis
-from llm.models import LLMConfiguration
-from report.models import ReportResult, SpecialistReports
-from agents.roles import get_role
 import sys
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any, BinaryIO, Callable
+
+from agents import DirectorAgent, ParallelOrchestrator, SpecialistAgent
+from vision.models import EyeAnalysis
+from vision.analysis import DEFAULT_DISEASES
+from llm.models import LLMConfiguration
+from report.models import ReportResult
+from agents.roles import DISEASE_ROLES
 from utils import config
 from llm.client import LLMClient
 from knowledge.service import get_retriever, retrieve_evidence
 from .context import build_context
 from .utils.messages import reject_message
 from .pdf import PDFRenderer
-from .utils.jobs import new_job_dir
 
 def build_generator_for_user(cfg: LLMConfiguration) -> "MedicalReportGenerator":
     """用**用户自己的** LLM 配置造一个生成器。
@@ -49,106 +51,80 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
         self,
         image: str | Path | BinaryIO,
         note: str,
-        roles: list[str] | tuple[str, ...],
         job_dir: Path,
+        diseases: tuple[str, ...] = DEFAULT_DISEASES,
     ) -> ReportResult:
-        reports, ratio, path, evidence = self.generate_reports(image, note, roles, job_dir)
-        summary = self.generate_synthesis(reports, evidence)
-        summary, verification = self.verify_synthesis(
-            summary, evidence,
-            lambda issues: self.generate_synthesis(reports, evidence, avoid=issues),
-        )
-        return ReportResult(summary, verification, ratio, path, evidence)
-
-    def generate_reports(
-        self,
-        data_pth: str | Path | BinaryIO,
-        note: str,
-        roles: list[str] | tuple[str, ...] | None = None,
-        job_dir: str | Path | None = None,
-    ) -> SpecialistReports:
-        """Generate diagnostic reports from multiple medical experts
-
-        job_dir: 本次请求独占的临时目录。不传则自动新建（由调用方负责清理）。
-
-        视觉分析直接调用 vision.analyze_fundus，消费统一的 EyeAnalysis。
-        角色并发已委托给 ParallelOrchestrator（MULTI_AGENT_MODE=parallel 时等价于原有逻辑）。
-        """
-        from vision import analyze_fundus
         import imageio.v2 as imageio
-        from agents import ParallelOrchestrator, SpecialistAgent
+        from vision import analyze_fundus
 
-        if roles is None:
-            roles = ["Ophthalmologist"]
-
-        job_dir = Path(job_dir) if job_dir else new_job_dir("report")
+        job_dir = Path(job_dir)
         job_dir.mkdir(parents=True, exist_ok=True)
-
-        # 直接消费病种结果，不再转换成另一套分析数据类。
-        if hasattr(data_pth, "read"):
+        if hasattr(image, "read"):
             image_path = job_dir / "input_image"
-            image_path.write_bytes(data_pth.read())
+            image_path.write_bytes(image.read())
         else:
-            image_path = data_pth
-        analysis: EyeAnalysis = analyze_fundus(image_path)
+            image_path = image
+        analysis: EyeAnalysis = analyze_fundus(image_path, diseases=diseases)
         glaucoma = analysis.diseases.get("glaucoma")
         ratio = glaucoma.measurements.get("area_equivalent_cdr") if glaucoma else None
-        segmented_output_path = ""
+        overlay_path = ""
         overlay = analysis.overlays.get("optic_disc_cup")
         if overlay is not None:
-            segmented_output_path = str(job_dir / "segmented_image.png")
-            imageio.imwrite(segmented_output_path, overlay)
+            overlay_path = str(job_dir / "segmented_image.png")
+            imageio.imwrite(overlay_path, overlay)
 
-        core_prompt = build_context(analysis, note)
-        case_brief = core_prompt
-        agents = [SpecialistAgent(role, self.chat_with_gpt, retrieve_evidence,
-                  get_role(role).query_hint) for role in roles]
-        role_evidence: dict[str, list[dict]] = {}
-        for agent in agents:
-            role_evidence[agent.name] = agent.gather_evidence(case_brief)
+        contexts: dict[str, str] = {}
+        evidence_by_role: dict[str, list[dict[str, Any]]] = {}
+        evidence_by_id: dict[str, dict[str, Any]] = {}
+        agents = []
+        missing_evidence = []
+        for disease, finding in analysis.diseases.items():
+            role = DISEASE_ROLES[disease]
+            agents.append(SpecialistAgent(role, self.chat_with_gpt))
+            context = build_context({disease: finding}, note)
+            contexts[role.name] = context
+            role_items = evidence_by_role[role.name] = []
+            retrieved = retrieve_evidence(context)
+            if not retrieved:
+                missing_evidence.append(disease)
+            for item in retrieved:
+                item_id = item["id"]
+                if item_id not in evidence_by_id:
+                    evidence_by_id[item_id] = {**item, "index": len(evidence_by_id) + 1}
+                role_items.append(evidence_by_id[item_id])
 
-        # 全局编号
-        evidence: list[dict] = []
-        numbers: dict[str, int] = {}
-        for role in roles:
-            for item in role_evidence[role]:
-                if item["id"] not in numbers:
-                    numbers[item["id"]] = len(evidence) + 1
-                    evidence.append({**item, "index": numbers[item["id"]]})
-        evidence = evidence[: max(config.RAG_TOP_K * 2, 6)]
+        evidence = list(evidence_by_id.values())
+        numbers = {item["id"]: item["index"] for item in evidence}
+        if len(agents) == 1:
+            agent = agents[0]
 
-        if evidence:
-            print(
-                f"[RAG] 命中 {len(evidence)} 条证据：" +
-                ", ".join(f"[{e['index']}]{e['id']}({e['score']})" for e in evidence)
-            )
+            def draft(issues: list[dict[str, Any]] | None = None) -> str:
+                return agent.execute(
+                    contexts[agent.name], evidence_by_role[agent.name], numbers,
+                    final_report=True, issues=issues,
+                )
+        else:
+            if config.MULTI_AGENT_MODE != "parallel":
+                raise NotImplementedError(
+                    f"MULTI_AGENT_MODE={config.MULTI_AGENT_MODE} 尚未实现，当前仅支持 parallel。"
+                )
+            reports = ParallelOrchestrator().run(agents, contexts, evidence_by_role, numbers)
+            director = DirectorAgent(self.chat_with_gpt)
+            case_context = build_context(analysis.diseases, note)
 
-        # 只允许 Agent 引用最终保留在证据包中的条目。
-        kept = {item["id"] for item in evidence}
-        role_evidence = {role: [item for item in items if item["id"] in kept]
-                         for role, items in role_evidence.items()}
-        # ---- 角色并发（通过 ParallelOrchestrator）----
-        # 目前只实现了 parallel 模式。其它模式若被打开却静默按 parallel 跑，
-        # 会让人误以为协作模式已生效，所以这里显式拒绝。
-        mode = config.MULTI_AGENT_MODE
-        if mode != "parallel":
-            raise NotImplementedError(
-                f"MULTI_AGENT_MODE={mode} 尚未实现，当前仅支持 parallel。"
-            )
-        orchestrator = ParallelOrchestrator()
-        expert_reports = orchestrator.run(agents, core_prompt, role_evidence, numbers)
+            def draft(issues: list[dict[str, Any]] | None = None) -> str:
+                return director.execute(
+                    reports, evidence, issues, context=case_context,
+                    evidence_by_role=evidence_by_role,
+                )
 
-        return SpecialistReports(expert_reports, ratio, segmented_output_path, evidence)
-
-
-    def generate_synthesis(
-        self,
-        expert_reports: dict[str, str],
-        evidence: list[dict[str, Any]] | None = None,
-        avoid: list[dict[str, Any]] | None = None,
-    ) -> str:
-        from agents.director import DirectorAgent
-        return DirectorAgent(self.chat_with_gpt).execute(expert_reports, evidence, avoid)
+        summary, verification = self.verify_synthesis(draft(), evidence, draft)
+        if missing_evidence:
+            verification["missing_evidence_diseases"] = missing_evidence
+        visual_findings = {
+            disease: asdict(finding) for disease, finding in analysis.diseases.items()
+        }
+        return ReportResult(summary, verification, ratio, overlay_path, evidence, visual_findings)
 
     def verify_synthesis(
         self,

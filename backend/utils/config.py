@@ -105,14 +105,14 @@ FRONTEND_DIST = Path(os.getenv("FRONTEND_DIST") or (Path(__file__).resolve().par
 # 迁移检查：不再提供旧视觉管线开关，拒绝旧非默认取值以避免静默换模型。
 if os.getenv("ANALYSIS_PIPELINE", "legacy").strip().lower() not in ("", "legacy"):
     raise ValueError(
-        "ANALYSIS_PIPELINE was removed; only glaucoma analysis is implemented. "
+        "ANALYSIS_PIPELINE was removed. "
         "Remove the obsolete setting before starting the application."
     )
 
 # GraphRAG 知识引擎。0=关闭（默认，退化为纯 BM25/vector），1=开启图检索路。
 GRAPH_RAG_ENABLED = (os.getenv("GRAPH_RAG_ENABLED", "0") != "0")
 
-# 图存储后端：networkx（内存图，默认）/ neo4j / light_rag
+# 图存储后端：networkx（内存图）。
 GRAPH_STORE = (os.getenv("GRAPH_STORE") or "networkx").strip().lower()
 
 # Multi-Agent 协作模式：parallel / collaborative / adaptive

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, NotRequired
+from vision.analysis import DEFAULT_DISEASES
 
 @dataclass(frozen=True)
 class ReportSubmission:
@@ -9,6 +10,7 @@ class ReportSubmission:
     filename: str
     note: str = ""
     conversation_id: str | None = None
+    diseases: tuple[str, ...] = DEFAULT_DISEASES
 
 @dataclass(frozen=True)
 class ReportDownload:
@@ -24,6 +26,8 @@ class ReportContent(TypedDict):
     verification: dict[str, Any]
     rejected: bool
     report_id: str
+    visual_findings: NotRequired[dict[str, dict[str, Any]]]
+    visual_findings_text: NotRequired[str]
 
 @dataclass(frozen=True)
 class ReportLabels:
@@ -37,15 +41,10 @@ class ReportLabels:
     ai: str
     footer: str
 
-class SpecialistReports(NamedTuple):
-    reports: dict[str, str]
-    cup_to_disc_ratio: float | None
-    image_path: str
-    evidence: list[dict[str, Any]]
-
 class ReportResult(NamedTuple):
     summary: str | None
     verification: dict[str, Any]
     cup_to_disc_ratio: float | None
     image_path: str
     evidence: list[dict[str, Any]]
+    visual_findings: dict[str, dict[str, Any]] | None = None

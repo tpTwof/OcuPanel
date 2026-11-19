@@ -1,40 +1,77 @@
-"""知识图谱构建器（stub）。
-
-从 Markdown 指南文档中抽取实体和关系，构建知识图谱。
-套壳阶段：函数签名就位，函数体为空。
-"""
+"""Build the reviewed ophthalmology evidence graph from local source data."""
 
 from __future__ import annotations
+
+import json
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+from urllib.parse import urlsplit
+
+import networkx as nx
+
 from llm.models import LLMCall
 
-import sys
-from pathlib import Path
+SEED_NAME = "ophthalmology-graph.json"
+DEFAULT_CORPUS = Path(__file__).resolve().parents[1] / "knowledge" / "corpus"
+
+
+def load_snapshot(data: dict) -> nx.DiGraph:
+    if data["schema_version"] != 1:
+        raise ValueError("Unsupported ophthalmology graph schema")
+
+    graph = nx.DiGraph()
+    for concept_id, concept in data["concepts"].items():
+        graph.add_node(concept_id, label=concept["label"], aliases=concept["aliases"])
+    for source, relation, target in data["relations"]:
+        if source not in graph or target not in graph:
+            raise ValueError(f"Unknown concept in relation {source} → {target}")
+        graph.add_edge(source, target, relation=relation)
+
+    for row in data["evidence"]:
+        evidence_id = row["id"]
+        source_id = row["source"]
+        source = data["sources"][source_id]
+        url = urlsplit(source["url"])
+        if (evidence_id in graph or url.scheme != "https" or not url.hostname
+                or not row["section"].strip() or not row["text"].strip() or not row["anchors"]):
+            raise ValueError(f"Invalid source or evidence entry: {evidence_id}")
+        graph.add_node(
+            evidence_id,
+            label=f"{source['title']} · {row['section']}",
+            evidence=dict(
+                id=evidence_id, source=source_id, title=source["title"],
+                section=row["section"], text=row["text"], lang="zh",
+                url=source["url"], version=source["version"],
+                jurisdiction=source["jurisdiction"], scope=row["scope"],
+            ),
+        )
+        for anchor in row["anchors"]:
+            if anchor not in data["concepts"]:
+                raise ValueError(f"Unknown concept {anchor} for {evidence_id}")
+            graph.add_edge(anchor, evidence_id, relation="关联条款")
+    if not any("evidence" in attrs for _, attrs in graph.nodes(data=True)):
+        raise ValueError("The ophthalmology graph contains no evidence")
+    return nx.freeze(graph)
 
 
 def build_graph_from_corpus(
     corpus_dir: Path,
     output_path: Path | None = None,
     llm_call: LLMCall | None = None,
-) -> object:
-    """从语料目录构建知识图谱（stub）。
+) -> nx.DiGraph:
+    """Validate curated evidence and optionally persist a reloadable JSON snapshot.
 
-    Args:
-        corpus_dir: Markdown 指南文档目录（如 backend/knowledge/corpus/）
-        output_path: 图索引持久化路径（可选）
-        llm_call: LLM 调用函数，用于实体/关系抽取（可选）
-
-    Returns:
-        构建好的图对象（NetworkX DiGraph 或其他）
-
-    TODO: 选定 GraphRAG 方案后实现以下功能：
-      - 遍历 corpus_dir 下的 Markdown 文件
-      - 用 LLM 辅助抽取实体（Disease, Symptom, Sign, Treatment, Drug, Guideline）
-      - 建立关系边（causes, indicates, treats, contraindicated_in, ...）
-      - 持久化到 output_path
+    The existing llm_call parameter is retained for callers of the former stub.
     """
-    print(
-        f"[GraphRAG] build_graph_from_corpus() 尚未实现。"
-        f"corpus_dir={corpus_dir}",
-        file=sys.stderr,
-    )
-    return None
+    data = json.loads((corpus_dir / SEED_NAME).read_text(encoding="utf-8"))
+    graph = load_snapshot(data)
+    if output_path is not None:
+        with NamedTemporaryFile(dir=output_path.parent, delete=False, mode="w", encoding="utf-8") as tmp:
+            temporary_path = Path(tmp.name)
+            try:
+                json.dump(data, tmp, ensure_ascii=False, indent=2)
+                tmp.close()
+                temporary_path.replace(output_path)
+            finally:
+                temporary_path.unlink(missing_ok=True)
+    return graph
