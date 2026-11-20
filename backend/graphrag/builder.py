@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlsplit
@@ -10,7 +11,7 @@ from urllib.parse import urlsplit
 import networkx as nx
 
 from llm.models import LLMCall
-from knowledge.corpus import load_guideline
+from knowledge.corpus import evidence_chunks, load_guideline
 
 SEED_NAME = "ophthalmology-graph.json"
 DEFAULT_CORPUS = Path(__file__).resolve().parents[1] / "knowledge" / "corpus"
@@ -28,7 +29,7 @@ def load_snapshot(data: dict) -> nx.DiGraph:
             raise ValueError(f"Unknown concept in relation {source} → {target}")
         graph.add_edge(source, target, relation=relation)
 
-    for row in data["evidence"]:
+    for row, chunk in zip(data["evidence"], evidence_chunks(data)):
         evidence_id = row["id"]
         source_id = row["source"]
         source = data["sources"][source_id]
@@ -38,13 +39,8 @@ def load_snapshot(data: dict) -> nx.DiGraph:
             raise ValueError(f"Invalid source or evidence entry: {evidence_id}")
         graph.add_node(
             evidence_id,
-            label=f"{source['title']} · {row['section']}",
-            evidence=dict(
-                id=evidence_id, source=source_id, title=source["title"],
-                section=row["section"], text=row["text"], lang="zh",
-                url=source["url"], version=source["version"],
-                jurisdiction=source["jurisdiction"], scope=row["scope"],
-            ),
+            label=f"{chunk.title} · {chunk.section}",
+            evidence=asdict(chunk),
         )
         for anchor in row.get("anchors", []):
             if anchor not in data["concepts"]:
@@ -70,6 +66,8 @@ def build_graph_from_corpus(
         paths.insert(0, corpus_dir / SEED_NAME)
     for path in paths:
         guide = load_guideline(path)
+        if not isinstance(guide["concepts"], dict) or not isinstance(guide["relations"], list):
+            raise ValueError(f"Invalid graph concepts or relations in {path.name}")
         for key in ("concepts", "sources"):
             if data[key].keys() & guide[key].keys():
                 raise ValueError(f"Duplicate {key} in {path.name}")

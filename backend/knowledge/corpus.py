@@ -13,11 +13,7 @@ def load_guideline(path: Path) -> dict:
         raise ValueError(f"Unsupported guideline schema: {path}")
     data.setdefault("concepts", {})
     data.setdefault("relations", [])
-    seen = set()
     for row in data["evidence"]:
-        if row["id"] in seen:
-            raise ValueError(f"Duplicate evidence ID: {row['id']}")
-        seen.add(row["id"])
         source = data["sources"][row["source"]]
         for field in ("id", "section", "text", "scope"):
             if not isinstance(row[field], str) or not row[field].strip():

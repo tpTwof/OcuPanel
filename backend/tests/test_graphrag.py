@@ -55,7 +55,7 @@ class GraphRetrievalTests(unittest.TestCase):
                 {"id": "plain", "source": "test", "section": "1", "scope": "英国",
                  "text": "眼轴测量术前检查，基础条款"},
                 {"id": "linked", "source": "test", "section": "2", "scope": "英国",
-                 "text": "眼轴测量术前检查，关联条款", "anchors": ["axial"]},
+                 "text": "Axial length", "lang": "en", "anchors": ["axial"]},
             ],
             "concepts": {"axial": {"label": "眼轴", "aliases": ["眼轴"]}},
         }
@@ -71,11 +71,42 @@ class GraphRetrievalTests(unittest.TestCase):
             self.assertIn("plain", hits)
             self.assertNotIn("graph_path", hits["plain"])
             self.assertTrue(hits["linked"]["graph_path"])
+            self.assertEqual(hits["linked"]["lang"], "en")
+            self.assertEqual(graph._graph.search("眼轴")[0]["lang"], "en")
             data["evidence"][1]["anchors"] = ["missing"]
             path.write_text(json.dumps(data), encoding="utf-8")
             fallback = Retriever.from_corpus(root, mode="bm25", graph_enabled=True)
             self.assertFalse(fallback.graph_available)
             self.assertEqual({c.id for c in fallback.chunks}, {"plain", "linked"})
+            for concepts in ([], None):
+                data["concepts"] = concepts
+                path.write_text(json.dumps(data), encoding="utf-8")
+                fallback = Retriever.from_corpus(root, mode="bm25", graph_enabled=True)
+                self.assertFalse(fallback.graph_available)
+                self.assertIn("plain", {item["id"] for item in fallback.search("基础条款")})
+
+    def test_duplicate_ids_identify_both_files_or_the_single_file(self):
+        guide = json.loads((CORPUS_DIR / "guidelines/nice-ng77.json").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            guides = root / "guidelines"
+            guides.mkdir()
+            first = guides / "one.json"
+            first.write_text(json.dumps(guide), encoding="utf-8")
+            second = guides / "two.json"
+            second.write_text(json.dumps(guide), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, r"nice-ng77-referral.*one\.json.*two\.json"):
+                Retriever.from_corpus(root)
+            guide["evidence"].append(guide["evidence"][0])
+            first.write_text(json.dumps(guide), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, r"nice-ng77-referral.*one\.json.*one\.json"):
+                Retriever.from_corpus(root)
+
+    def test_graph_and_text_complement_each_other_on_compound_question(self):
+        retriever = Retriever.from_corpus(mode="bm25", graph_enabled=True)
+        hits = {hit["id"]: hit for hit in retriever.search("英国白内障术前眼轴和散光如何检查")}
+        self.assertTrue(hits["nice-ng77-axial-length"]["graph_path"])
+        self.assertNotIn("graph_path", hits["nice-ng77-cornea"])
 
     def test_guidelines_retrieve_with_and_without_graph(self):
         cases = [
@@ -125,7 +156,7 @@ class GraphRetrievalTests(unittest.TestCase):
         uk_results = retriever.search("英国 EYLEA 活动性眼内炎症")
         self.assertTrue(all(item.get("jurisdiction") in ("UK", "INT") for item in uk_results))
         diagnosis = retriever.search("英国慢性开角型青光眼，只看杯盘比能确诊吗？")
-        self.assertEqual([item["id"] for item in diagnosis], ["nice-ng81-1.2.1"])
+        self.assertEqual(diagnosis[0]["id"], "nice-ng81-1.2.1")
 
     def test_amd_symptom_and_referral_retrieve_scoped_evidence(self):
         with patch("utils.config.GRAPH_RAG_ENABLED", True):
@@ -138,7 +169,8 @@ class GraphRetrievalTests(unittest.TestCase):
         self.assertTrue({"nice-ng82-1.4.6", "nice-ng82-1.4.7-9"} <= {item["id"] for item in uk_hits})
         self.assertTrue(all(item["jurisdiction"] in ("UK", "INT") for item in uk_hits))
         us_hits = retriever.search("美国患者直线变弯")
-        self.assertEqual([item["id"] for item in us_hits], ["nei-amd-symptoms-and-exam"])
+        self.assertEqual(us_hits[0]["id"], "nei-amd-symptoms-and-exam")
+        self.assertTrue(all(item["jurisdiction"] in ("US", "INT") for item in us_hits))
 
     def test_chinese_amd_queries_observe_evidence_scope(self):
         with patch("utils.config.GRAPH_RAG_ENABLED", True):
@@ -149,7 +181,8 @@ class GraphRetrievalTests(unittest.TestCase):
                 self.assertIn("cn-amd-2023-neovascular-imaging", {item["id"] for item in hits})
                 self.assertTrue(all(item["jurisdiction"] in ("CN", "INT") for item in hits))
         hits = retriever.search("中国患者直线变弯，有什么检查依据？")
-        self.assertEqual([item["id"] for item in hits], ["cn-amd-2023-initial-exam"])
+        self.assertEqual(hits[0]["id"], "cn-amd-2023-initial-exam")
+        self.assertTrue(all(item["jurisdiction"] in ("CN", "INT") for item in hits))
         self.assertEqual(retriever.search("英国停车收费是否有优惠？"), [])
 
     def test_amd_summary_remains_searchable_without_graph(self):

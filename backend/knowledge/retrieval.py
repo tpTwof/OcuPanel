@@ -250,15 +250,19 @@ class Retriever:
         paths = sorted((corpus_dir / "guidelines").glob("*.json"))
         if (corpus_dir / SEED_NAME).exists():
             paths.insert(0, corpus_dir / SEED_NAME)
+        origins = {chunk.id: chunk.source for chunk in chunks}
         curated = []
         for path in paths:
             try:
-                curated.extend(evidence_chunks(load_guideline(path)))
+                entries = evidence_chunks(load_guideline(path))
             except (OSError, ValueError, KeyError, TypeError) as exc:
                 print(f"[RAG] 跳过无法加载的指南 {path.name}: {exc}", file=sys.stderr)
-        ids = [chunk.id for chunk in chunks + curated]
-        if len(ids) != len(set(ids)):
-            raise ValueError("Duplicate corpus evidence IDs")
+                continue
+            for entry in entries:
+                if entry.id in origins:
+                    raise ValueError(f"Duplicate evidence ID {entry.id} in {origins[entry.id]} and {path}")
+                origins[entry.id] = path
+            curated.extend(entries)
         if curated:
             excluded_sources = DEMO_SOURCES.copy()
             if any(chunk.id == "nei-amd-symptoms-and-exam" for chunk in curated):
@@ -551,13 +555,6 @@ class Retriever:
                     for channel, items in ranked
                 ]
             if graph_hits:
-                connected = {item["id"] for item in graph_hits}
-                anchored = self._graph.anchored_evidence_ids()
-                ranked = [
-                    (channel, [item for item in items
-                               if item["id"] not in anchored or item["id"] in connected])
-                    for channel, items in ranked
-                ]
                 ranked.append(("graph", graph_hits))
             gate = self._gate_ok(next((items for channel, items in ranked if channel == "vector"), []))
             merged = self._rrf(ranked, wide)

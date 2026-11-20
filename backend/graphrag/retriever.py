@@ -52,12 +52,6 @@ class GraphRetriever:
             return []
         return [dict(data["evidence"]) for _, data in self._graph.nodes(data=True) if "evidence" in data]
 
-    def anchored_evidence_ids(self) -> set[str]:
-        if self._graph is None:
-            return set()
-        return {node for node, data in self._graph.nodes(data=True)
-                if "evidence" in data and self._graph.in_degree(node) > 0}
-
     def search(self, query: str, k: int = 4, hop: int = 2, min_score: float = 0.0) -> list[dict]:
         graph = self._graph
         if graph is None or k <= 0 or hop <= 0:
