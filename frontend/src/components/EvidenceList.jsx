@@ -30,7 +30,8 @@ export default function EvidenceList({ items, evidencePrefix }) {
       </div>
 
       {items.map((item, index) => {
-        const isOpen = openId === item.id
+        const number = item.index ?? index + 1
+        const isOpen = openId === number
         const scores = []
         if (typeof item.vector === 'number') scores.push(`语义 ${item.vector.toFixed(2)}`)
         if (typeof item.bm25 === 'number') scores.push(`词面 ${item.bm25.toFixed(1)}`)
@@ -42,7 +43,7 @@ export default function EvidenceList({ items, evidencePrefix }) {
               type="button"
               className="evidence-row"
               aria-expanded={isOpen}
-              onClick={() => setOpenId(isOpen ? null : item.id)}
+              onClick={() => setOpenId(isOpen ? null : number)}
             >
               <span className="evidence-index">[{item.index ?? index + 1}]</span>
               {item.lang && (
@@ -72,7 +73,7 @@ export default function EvidenceList({ items, evidencePrefix }) {
                   来源：{item.source}
                   {scores.length > 0 && <span className="evidence-scores"> · {scores.join(' · ')}</span>}
                 </div>
-                {item.scope && (
+                {(item.scope || item.version || item.jurisdiction || item.url?.startsWith('https://')) && (
                   <div className="evidence-source">
                     {[item.jurisdiction, item.version, item.scope].filter(Boolean).join(' · ')}
                     {item.url?.startsWith('https://') && (

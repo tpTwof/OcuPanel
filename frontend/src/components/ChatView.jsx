@@ -102,6 +102,15 @@ function MessageItem({ m, imageUrls, onDownloadPdf, busy }) {
             {meta.kind === 'report' && meta.visual_findings_text && (
               <Markdown text={meta.visual_findings_text} />
             )}
+            {meta.kind === 'report' && imgUrl && (
+              <details className="report-measurement">
+                <summary>查看视盘与视杯分割图</summary>
+                {meta.visual_findings_text && (
+                  <p>粉红色为视盘环，绿色为视杯。面积等效杯盘比为视杯面积占整个视盘面积比例的平方根。</p>
+                )}
+                <img src={imgUrl} alt="眼底图上的视盘环与视杯分割叠加结果" />
+              </details>
+            )}
             <Markdown text={m.content} evidence={meta.evidence} evidencePrefix={evidencePrefix} />
             {meta.kind === 'report' && (
               <div className="msg-report-meta">
@@ -117,11 +126,6 @@ function MessageItem({ m, imageUrls, onDownloadPdf, busy }) {
                   >
                     下载 PDF
                   </button>
-                )}
-                {imgUrl && (
-                  <div className="msg-report-image">
-                    <img className="ai-image" src={imgUrl} alt="视盘分割结果" />
-                  </div>
                 )}
               </div>
             )}

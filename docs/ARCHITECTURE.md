@@ -13,7 +13,8 @@ backend/
   chat/prompts.py         眼科助手会话指令，仅眼科形态注入
   report/api.py           上传参数绑定、报告/图片 HTTP 响应
   report/service.py       生成任务、记录保存和文件交付
-  report/generation.py    影像分析、专科、综合与校验的生成流程
+  report/generation.py    影像分析、证据编号和报告结果组装
+  report/drafting.py      缺证拒答、专科撰稿、综合与校验
   report/context.py       组织病例事实
   report/pdf.py           PDF 渲染
   report/settings.py      有类型的展示标签与字体配置

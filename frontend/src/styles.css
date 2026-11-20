@@ -881,14 +881,18 @@ button:disabled {
   margin-top: 10px;
 }
 
-/* 分割图单独占一行：和 chip 挤在同一行会被垂直居中，图上下一大片空白 */
-.msg-report-image {
-  flex: 0 0 100%;
+.report-measurement {
+  margin: 10px 0;
 }
 
-.ai-image {
+.report-measurement summary {
+  cursor: pointer;
+}
+
+.report-measurement img {
   display: block;
-  max-width: 260px;
+  max-width: 100%;
+  height: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fff;

@@ -39,7 +39,9 @@ flowchart TD
   G --> V[vision.analyze_fundus：EyeAnalysis]
   V --> C[report/context.py：病例事实]
   C --> K[knowledge：按病种检索，去重并编号]
-  K --> S[按病种分析，使用各自证据]
+  K --> Gd{按证据和病种数选择撰稿路径}
+  Gd -->|开启校验且完全缺证| Result
+  Gd -->|进入撰稿| S[按病种分析，使用各自证据]
   S -->|多病种| D[Director 综合]
   S -->|单病种| Q
   D --> Q[Verifier：核查、修订、复核]

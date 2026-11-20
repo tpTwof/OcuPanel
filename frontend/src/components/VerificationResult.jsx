@@ -11,7 +11,7 @@ import { useState } from 'react'
  * 哪句话没能改成功——这比给一个绿色通过标更诚实。
  */
 const STATUS = {
-  pass: { tone: 'ok', label: '引用校验通过', hint: '所有引用均能被参考资料支持' },
+  pass: { tone: 'ok', label: '引用校验通过', hint: '自动核查未发现正文引用问题' },
   rewritten: { tone: 'ok', label: '已修正', hint: '无依据的句子已删除或改写' },
   rejected: { tone: 'bad', label: '校验未通过，报告已中止', hint: '存在无法被资料支持的结论，未生成报告' },
   error: { tone: 'bad', label: '校验故障，报告已中止', hint: '无法确认内容可靠性，未生成报告' },

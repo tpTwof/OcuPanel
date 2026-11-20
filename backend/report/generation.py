@@ -4,7 +4,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, BinaryIO, Callable
 
-from agents import DirectorAgent, ParallelOrchestrator, SpecialistAgent
+from agents import DirectorAgent, SpecialistAgent
 from vision.models import EyeAnalysis
 from vision.analysis import DEFAULT_DISEASES
 from llm.models import LLMConfiguration
@@ -14,6 +14,7 @@ from utils import config
 from llm.client import LLMClient
 from knowledge.service import get_retriever, retrieve_evidence
 from .context import build_context
+from .drafting import generate_verified_draft
 from .pdf import PDFRenderer
 from .utils.messages import reject_message
 from agents.tools.text_revision import content_len
@@ -99,36 +100,11 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
         visual_findings = {
             disease: asdict(finding) for disease, finding in analysis.diseases.items()
         }
-        if config.VERIFY_ENABLED and not evidence:
-            verification = CitationVerifier.no_evidence_result()
-            verification["missing_evidence_diseases"] = missing_evidence
-            return ReportResult(None, verification, ratio, overlay_path, evidence, visual_findings)
-
-        numbers = {item["id"]: item["index"] for item in evidence}
-        if len(agents) == 1:
-            agent = agents[0]
-
-            def draft(issues: list[dict[str, Any]] | None = None) -> str:
-                return agent.execute(
-                    contexts[agent.name], evidence_by_role[agent.name], numbers,
-                    final_report=True, issues=issues,
-                )
-        else:
-            if config.MULTI_AGENT_MODE != "parallel":
-                raise NotImplementedError(
-                    f"MULTI_AGENT_MODE={config.MULTI_AGENT_MODE} 尚未实现，当前仅支持 parallel。"
-                )
-            reports = ParallelOrchestrator().run(agents, contexts, evidence_by_role, numbers)
-            director = DirectorAgent(self.chat_with_gpt)
-            case_context = build_context(analysis.diseases, note)
-
-            def draft(issues: list[dict[str, Any]] | None = None) -> str:
-                return director.execute(
-                    reports, evidence, issues, context=case_context,
-                    evidence_by_role=evidence_by_role,
-                )
-
-        summary, verification = self.verify_synthesis(draft(), evidence, draft)
+        summary, verification = generate_verified_draft(
+            agents, DirectorAgent(self.chat_with_gpt), contexts,
+            build_context(analysis.diseases, note), evidence_by_role, evidence,
+            self.verify_synthesis,
+        )
         if missing_evidence:
             verification["missing_evidence_diseases"] = missing_evidence
         return ReportResult(summary, verification, ratio, overlay_path, evidence, visual_findings)

@@ -100,6 +100,36 @@ class ReportTests(unittest.TestCase):
         self.assertTrue(all("As a Glaucoma Specialist" in call.args[0] for call in llm.call_args_list))
         self.assertIn("Unknown citation numbers", llm.call_args.args[0])
 
+    def test_multi_disease_revision_reuses_specialists_and_can_still_reject(self):
+        diseases = ("glaucoma", "diabetic_retinopathy")
+        analysis = EyeAnalysis(diseases={key: DiseaseResult() for key in diseases})
+        generator = MedicalReportGenerator(api_key="test")
+        def llm(prompt, **kwargs):
+            return "Specialist opinion [1]" if "As a " in prompt else "Draft [99]"
+
+        generator.chat_with_gpt = Mock(side_effect=llm)
+
+        def verify(draft, evidence, regenerate):
+            self.assertEqual(draft, "Draft [99]")
+            self.assertEqual(evidence[0]["index"], 1)
+            issues = [{"quote": draft, "reason": "Unknown citation [99]"}]
+            self.assertEqual(regenerate(issues), draft)
+            return None, {"status": "rejected", "remaining_issues": issues}
+
+        with tempfile.TemporaryDirectory() as folder, \
+             patch("vision.analyze_fundus", return_value=analysis), \
+             patch("report.generation.retrieve_evidence", return_value=[{"id": "guide", "text": "Evidence"}]), \
+             patch.object(generator, "verify_synthesis", side_effect=verify):
+            result = generator.generate(io.BytesIO(b"image"), "", folder, diseases)
+
+        prompts = [call.args[0] for call in generator.chat_with_gpt.call_args_list]
+        self.assertEqual(len(prompts), 4)
+        self.assertIn("Glaucoma Specialist Report:", prompts[2])
+        self.assertIn("Diabetic Retinopathy Specialist Report:", prompts[3])
+        self.assertIn("Unknown citation [99]", prompts[3])
+        self.assertIsNone(result.summary)
+        self.assertEqual(result.verification["status"], "rejected")
+
     def test_retinal_findings_remain_in_report_and_pdf_without_an_overlay(self):
         disease = 'diabetic_retinopathy'
         analysis = EyeAnalysis(diseases={disease: DiseaseResult(prompt_similarity_margin=-2.5)})

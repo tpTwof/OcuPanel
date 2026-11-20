@@ -4,7 +4,8 @@
 
 入口为 generation.MedicalReportGenerator.generate(image, note, job_dir, diseases=...)。支持图片路径或上传的二进制文件流。
 
-- generation.py：保存上传文件、调用 vision、按病种检索和运行专科，单病种草稿直接进入 Verifier，多病种先经过 Director。返回正文、校验状态、CDR、图片路径、证据和结构化视觉结果。
+- generation.py 保存上传文件、调用 vision，按病种检索并统一分配证据编号，然后从撰稿结果组装 ReportResult。
+- drafting.py 在当前请求内按证据和病种数量选择撰稿路径。开启校验且完全缺少证据时直接拒答。单病种由专科成稿，多病种由专科并行分析后交给 Director 综合。两条成稿路径均进入校验节点。Verifier 如需重新生成，单病种由原专科重写，多病种由 Director 复用本轮专科意见重写。
 - context.py：把各病种视觉结果和共同备注转成病例上下文，并为页面和 PDF 从结构化结果生成影像指标区。
 - pdf.py：PDF 输出；settings.py 存放输出标签和字体配置。
 - utils/jobs.py：请求独占目录及清理；utils/messages.py：拒答原因展示。
