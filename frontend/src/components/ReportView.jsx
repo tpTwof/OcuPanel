@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import LoadingOverlay from './LoadingOverlay.jsx'
 
 const diseaseOptions = [
@@ -11,24 +11,24 @@ const diseaseOptions = [
  * 按所选病种分析眼底图，结合临床记录生成并校验报告。
  * 结果追加到当前对话里，所以生成完能直接接着追问（报告正文本身就是上下文）。
  */
-export default function ReportView({ onGenerate, busy, notConfigured, onOpenSettings }) {
+export default function ReportView({ hasConversation, onGenerate, busy, notConfigured, onOpenSettings }) {
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [note, setNote] = useState('')
   const [diseases, setDiseases] = useState(['glaucoma'])
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
-  const previewRef = useRef(null)
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
 
   const acceptFile = (f) => {
     if (!f) return
-    if (!f.type.startsWith('image/')) {
+    if (!/\.(jpe?g|png)$/i.test(f.name)) {
       alert('请选择图片文件（jpg / png）')
       return
     }
-    if (previewRef.current) URL.revokeObjectURL(previewRef.current)
     const url = URL.createObjectURL(f)
-    previewRef.current = url
     setFile(f)
     setPreviewUrl(url)
   }
@@ -54,7 +54,7 @@ export default function ReportView({ onGenerate, busy, notConfigured, onOpenSett
       </div>
 
       <div className="report-scroll">
-        <p>提交后会进入眼科助手会话，分析结果将作为回复呈现，可以继续追问。</p>
+        <p>{hasConversation ? '报告将追加到当前会话，之后可以继续追问。' : '提交后将新建眼科会话，在其中查看报告并继续追问。'}</p>
         <fieldset className="field report-diseases" disabled={busy}>
           <legend className="field-label">分析病种</legend>
           {diseaseOptions.map(([id, label]) => (
@@ -115,7 +115,7 @@ export default function ReportView({ onGenerate, busy, notConfigured, onOpenSett
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept=".jpg,.jpeg,.png"
           hidden
           onChange={(e) => acceptFile(e.target.files[0])}
         />
@@ -124,7 +124,7 @@ export default function ReportView({ onGenerate, busy, notConfigured, onOpenSett
 
         <div className="report-actions">
           <button type="button" className="btn-primary" onClick={run} disabled={busy || !diseases.length}>
-            {busy ? '正在生成…' : '生成报告'}
+            {busy ? '正在生成…' : hasConversation ? '生成报告并添加到当前会话' : '生成报告并创建会话'}
           </button>
         </div>
 

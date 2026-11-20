@@ -108,7 +108,7 @@ function MessageItem({ m, imageUrls, onDownloadPdf, busy }) {
                 {!meta.visual_findings_text && meta.cup_to_disc_ratio != null && (
                   <span className="chip">杯盘比 {Number(meta.cup_to_disc_ratio).toFixed(2)}</span>
                 )}
-                {meta.report_id && !meta.rejected && (
+                {meta.report_id && !meta.rejected && ['pass', 'rewritten'].includes(meta.verification?.status) && (
                   <button
                     type="button"
                     className="chip-btn"
@@ -147,7 +147,7 @@ function MessageItem({ m, imageUrls, onDownloadPdf, busy }) {
 }
 
 export default function ChatView({
-  mode, onModeChange, onOpenAnalysis,
+  mode, onModeChange, onOpenAnalysis, graphEnabled, ragEnabled, onGraphChange,
   messages,
   imageUrls,
   onSend,
@@ -160,6 +160,7 @@ export default function ChatView({
   const [input, setInput] = useState('')
   const listRef = useRef(null)
   const inputRef = useRef(null)
+  const toolsRef = useRef(null)
   const pinnedRef = useRef(true)
 
   // 报告生成和普通提问都会让 busy=true，按钮文案要能区分，否则都是"思考中…"
@@ -226,7 +227,6 @@ export default function ChatView({
           mode={mode}
           onChange={onModeChange}
           busy={busy}
-          onOpenAnalysis={onOpenAnalysis}
         />
       </div>
 
@@ -236,8 +236,8 @@ export default function ChatView({
             <div className="chat-empty-title">有什么可以帮你？</div>
             <div className="chat-empty-sub">
               {mode === 'ophthalmic'
-                ? '可以询问眼科问题，或选择「影像与报告分析」上传图片和临床记录。'
-                : '在下方输入问题开始对话；需要分析眼底影像时，可切换为眼科助手。'}
+                ? '可以询问眼科问题，或通过下方「+」选择「眼科影像分析」上传图片和临床记录。'
+                : '在下方输入问题，或通过「+」上传眼底影像进行分析。'}
             </div>
           </div>
         )}
@@ -278,6 +278,30 @@ export default function ChatView({
             }}
           />
           <div className="composer-bar">
+            <details className="composer-tools" ref={toolsRef}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  toolsRef.current.open = false
+                  toolsRef.current.querySelector('summary').focus()
+                }
+              }}
+            >
+              <summary aria-label="高级选项" title="高级选项">+</summary>
+              <div className="composer-tools-panel">
+                <button type="button" disabled={busy} onClick={onOpenAnalysis}>眼科影像分析</button>
+                {mode === 'ophthalmic' && (
+                  <label>
+                    问答图谱检索
+                    <input type="checkbox" checked={Boolean(ragEnabled && graphEnabled)}
+                      disabled={busy || !ragEnabled} onChange={(e) => onGraphChange(e.target.checked)} />
+                  </label>
+                )}
+                {mode === 'ophthalmic' && ragEnabled === false && <small>服务端已关闭知识检索</small>}
+              </div>
+            </details>
             <span className="composer-hint">
               {mode === 'ophthalmic' ? '眼科助手' : '普通聊天'} · Enter 发送 · Shift+Enter 换行
             </span>

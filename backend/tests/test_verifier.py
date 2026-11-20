@@ -33,6 +33,25 @@ class VerificationTests(unittest.TestCase):
         self.assertIsNone(text)
         self.assertEqual(record['status'],'rejected')
 
+    def test_malformed_claims_fail_verification(self):
+        for item in (None, {}, {"quote": "Bad claim.", "verdict": "unknown"},
+                     {"quote": "Bad claim.", "verdict": "unsupported", "citations": "1"}):
+            with self.subTest(item=item):
+                llm = Mock(return_value=json.dumps({"claims": [item]}))
+                text, record = CitationVerifier(llm).execute("Bad claim.", self.evidence)
+                self.assertIsNone(text)
+                self.assertEqual(record["status"], "error")
+
+    def test_empty_draft_and_deleted_last_claim_are_rejected(self):
+        llm = Mock(side_effect=[json.dumps(self.issue),
+                               json.dumps({"replacements": [{"quote": "Bad claim.", "new": ""}]})])
+        verifier = CitationVerifier(llm)
+        for draft in ("## [1]", "Bad claim."):
+            text, record = verifier.execute(draft, self.evidence)
+            self.assertIsNone(text)
+            self.assertEqual(record["reason"], "empty_text")
+        self.assertEqual(llm.call_count, 2)
+
     def test_text_tools(self):
         self.assertEqual(locate('A B\nC','ABC'),(0,5))
         text,applied,deleted=apply_replacements('First. Second.',[{'quote':'First.','new':''}])

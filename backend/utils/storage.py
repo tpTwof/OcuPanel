@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from utils import config
+from utils.errors import ApplicationError
 DB_PATH = Path(__file__).resolve().parents[1] / "ocupanel.db"
 
 # PBKDF2 迭代次数：600k 是 OWASP 2023 对 SHA256 的建议值。
@@ -93,27 +94,7 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 CREATE INDEX IF NOT EXISTS idx_report_user ON reports(user_id, created_at DESC);
 
--- Agent 协作轨迹：记录每个 Agent 的执行过程，供调试和审计。
--- AGENT_TRACE_ENABLED=0 时不写入，表存在但为空。
-CREATE TABLE IF NOT EXISTS agent_traces (
-    id              TEXT PRIMARY KEY,
-    report_id       TEXT REFERENCES reports(id) ON DELETE CASCADE,
-    user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    agent_name      TEXT NOT NULL,
-    phase           TEXT NOT NULL,     -- 'plan', 'execute', 'message', 'verify'
-    input_summary   TEXT,
-    output_summary  TEXT,
-    duration_ms     INTEGER,
-    created_at      REAL NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_trace_report ON agent_traces(report_id, created_at);
-
--- 知识图谱元数据：记录图索引的构建状态和版本信息。
-CREATE TABLE IF NOT EXISTS graph_metadata (
-    key        TEXT PRIMARY KEY,
-    value      TEXT NOT NULL,
-    updated_at REAL NOT NULL
-);
+CREATE INDEX IF NOT EXISTS idx_report_image ON reports(user_id, img_name);
 """
 
 
@@ -147,6 +128,8 @@ def init_db() -> None:
         if "visual_findings" not in report_columns:
             conn.execute("ALTER TABLE reports ADD COLUMN visual_findings TEXT NOT NULL DEFAULT '{}'")
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(conversations)")}
+        if "graph_enabled" not in columns:
+            conn.execute("ALTER TABLE conversations ADD COLUMN graph_enabled INTEGER")
         if "mode" not in columns:
             conn.execute(
                 "ALTER TABLE conversations ADD COLUMN mode TEXT NOT NULL DEFAULT 'general' "
@@ -367,25 +350,26 @@ def delete_llm_config(user_id: str) -> None:
 # ---------------------------------------------------------------------------
 # 会话与消息
 # ---------------------------------------------------------------------------
-def create_conversation(user_id: str, title: str = "新对话", mode: str = "general") -> dict:
+def create_conversation(user_id: str, title: str = "新对话", mode: str = "general",
+                        graph_enabled: bool | None = None) -> dict:
     if mode not in ("general", "ophthalmic"):
         raise ValueError("Invalid conversation mode")
     cid = new_id()
     ts = now()
     with connect() as conn:
         conn.execute(
-            "INSERT INTO conversations (id, user_id, title, mode, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (cid, user_id, title, mode, ts, ts),
+            "INSERT INTO conversations (id, user_id, title, mode, graph_enabled, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (cid, user_id, title, mode, graph_enabled, ts, ts),
         )
-    return {"id": cid, "title": title, "mode": mode, "created_at": ts, "updated_at": ts}
+    return {"id": cid, "title": title, "mode": mode, "graph_enabled": graph_enabled, "created_at": ts, "updated_at": ts}
 
 
 def list_conversations(user_id: str, limit: int = 50) -> list[dict]:
     """只返回该用户自己的会话——user_id 是函数必填参数，避免漏加过滤条件。"""
     with connect() as conn:
         rows = conn.execute(
-            "SELECT id, title, mode, created_at, updated_at FROM conversations"
+            "SELECT id, title, mode, graph_enabled, created_at, updated_at FROM conversations"
             " WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?",
             (user_id, limit),
         ).fetchall()
@@ -395,11 +379,20 @@ def list_conversations(user_id: str, limit: int = 50) -> list[dict]:
 def get_conversation(user_id: str, conversation_id: str) -> dict | None:
     with connect() as conn:
         row = conn.execute(
-            "SELECT id, title, mode, created_at, updated_at FROM conversations"
+            "SELECT id, title, mode, graph_enabled, created_at, updated_at FROM conversations"
             " WHERE id = ? AND user_id = ?",
             (conversation_id, user_id),
         ).fetchone()
     return dict(row) if row else None
+
+
+def set_graph_enabled(user_id: str, conversation_id: str, enabled: bool) -> bool:
+    with connect() as conn:
+        cursor = conn.execute(
+            "UPDATE conversations SET graph_enabled=? WHERE id=? AND user_id=?",
+            (enabled, conversation_id, user_id),
+        )
+        return cursor.rowcount > 0
 
 
 def rename_conversation(user_id: str, conversation_id: str, title: str) -> None:
@@ -428,7 +421,7 @@ def list_messages(user_id: str, conversation_id: str) -> list[dict]:
     with connect() as conn:
         rows = conn.execute(
             "SELECT id, role, content, meta, created_at FROM messages"
-            " WHERE conversation_id = ? AND user_id = ? ORDER BY created_at ASC",
+            " WHERE conversation_id = ? AND user_id = ? ORDER BY created_at ASC, rowid ASC",
             (conversation_id, user_id),
         ).fetchall()
     out = []
@@ -471,6 +464,8 @@ def save_report(
     cup_to_disc: float | None = None,
     glaucoma_prob: float | None = None,
     visual_findings: dict[str, dict[str, Any]] | None = None,
+    *,
+    chat_turn: tuple[str, dict[str, Any], str] | None = None,
 ) -> str:
     rid = new_id()
     with connect() as conn:
@@ -493,6 +488,27 @@ def save_report(
                 json.dumps(visual_findings or {}, ensure_ascii=False),
             ),
         )
+        if chat_turn:
+            request_text, reply_meta, title = chat_turn
+            timestamp = now()
+            cursor = conn.execute(
+                "UPDATE conversations SET updated_at=?, "
+                "title=CASE WHEN title IN ('新对话', '') THEN ? ELSE title END "
+                "WHERE id=? AND user_id=?",
+                (timestamp, title, conversation_id, user_id),
+            )
+            if not cursor.rowcount:
+                raise ApplicationError(404, "会话不存在")
+            for role, content, meta in (
+                ("user", request_text, {"kind": "analysis_request"}),
+                ("assistant", summary, {**reply_meta, "report_id": rid}),
+            ):
+                conn.execute(
+                    "INSERT INTO messages (id, conversation_id, user_id, role, content, meta, created_at)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (new_id(), conversation_id, user_id, role, content,
+                     json.dumps(meta, ensure_ascii=False), timestamp),
+                )
     return rid
 
 
@@ -504,6 +520,13 @@ def list_reports(user_id: str, limit: int = 20) -> list[dict]:
             (user_id, limit),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def owns_report_image(user_id: str, img_name: str) -> bool:
+    with connect() as conn:
+        return conn.execute(
+            "SELECT 1 FROM reports WHERE user_id=? AND img_name=? LIMIT 1", (user_id, img_name),
+        ).fetchone() is not None
 
 
 def get_report(user_id: str, report_id: str) -> dict | None:

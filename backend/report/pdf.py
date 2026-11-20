@@ -65,6 +65,7 @@ class PDFRenderer:
         output_path: str | None = None,
         evidence: list[dict[str, Any]] | None = None,
         visual_findings_text: str = "",
+        verification_status: str | None = None,
     ) -> None:
         output_path = output_path or str(OUTPUT_DIR / "diagnostic_report.pdf")
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
@@ -189,6 +190,10 @@ class PDFRenderer:
             separator = "：" if USE_CHINESE else ": "
             write_text(f"{LABELS.cdr}{separator}{cup_to_disc_ratio:.2f}", style="B")
 
+        if verification_status == "pass":
+            write_text("正文引用校验通过" if USE_CHINESE else "Report citations verified")
+        elif verification_status == "rewritten":
+            write_text("正文引用经修订后通过校验" if USE_CHINESE else "Report citations verified after revision")
         heading(LABELS.summary)
         write_block(synthesis_text)
 

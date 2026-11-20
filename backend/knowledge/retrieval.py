@@ -1,23 +1,18 @@
-"""最小可用的证据检索（知识检索增强的第一步）。
-
-刻意不引入向量库与图数据库：先用「中文 2-gram + IDF 加权」把整条链路跑通
-——语料 → 检索 → 证据包（带出处）→ 注入提示词 → 接口返回 → 前端展示。
-
-后续把 `Retriever.search()` 换成向量检索或图谱多跳即可，**接口与数据结构不变**，
-上层的报告流程与前端都不用改。
-
-语料目录：backend/knowledge/corpus/*.md（示例语料，正式使用需替换为权威指南原文）
-"""
+"""为本地文章和指南条款建立 BM25 与向量索引，融合启用的检索通道并返回证据。"""
 
 from __future__ import annotations
 
+import sqlite3
 import math
 import re
 import sys
 import threading
 from dataclasses import asdict
+from collections import Counter
 from graphrag import GraphRetriever
 from graphrag.builder import SEED_NAME
+from knowledge.corpus import load_guideline, evidence_chunks
+from knowledge.vector_cache import VectorCache
 from graphrag.retriever import query_regions
 from knowledge.models import Chunk, SourcedChunk
 from pathlib import Path
@@ -125,8 +120,8 @@ class VectorIndex:
     def _load(self):
         from transformers import AutoModel, AutoTokenizer
 
-        self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self._model = AutoModel.from_pretrained(self.model_name)
+        self._tokenizer = AutoTokenizer.from_pretrained(self.model_name, revision=config.RAG_VECTOR_REVISION)
+        self._model = AutoModel.from_pretrained(self.model_name, revision=config.RAG_VECTOR_REVISION)
         self._model.eval()
 
     def _encode(self, texts: list[str]) -> np.ndarray:
@@ -149,21 +144,54 @@ class VectorIndex:
             if self._matrix is not None:
                 return
             self._load()
-            texts = [
-                f"{self.PASSAGE_PREFIX}{c.title}\n{c.section}\n{c.text}" for c in self.chunks
-            ]
-            self._matrix = self._encode(texts)
+            revision = getattr(getattr(self._model, "config", None), "_commit_hash", None)
+            revision = revision or config.RAG_VECTOR_REVISION
+            cache = None
+            if config.RAG_VECTOR_CACHE_PATH:
+                try:
+                    cache = VectorCache(Path(config.RAG_VECTOR_CACHE_PATH))
+                except (OSError, sqlite3.Error) as exc:
+                    print(f"[RAG] 向量缓存不可用: {exc}", file=sys.stderr)
+            texts = [f"{self.PASSAGE_PREFIX}{c.title}\n{c.section}\n{c.text}" for c in self.chunks]
+            keys = [VectorCache.key(self.model_name, revision, text) for text in texts]
+            vectors = [None] * len(texts)
+            if cache is not None:
+                try:
+                    vectors = [cache.get(key) for key in keys]
+                except (OSError, sqlite3.Error, ValueError) as exc:
+                    print(f"[RAG] 读取向量缓存失败: {exc}", file=sys.stderr)
+                    cache = None
+            missing = [i for i, vector in enumerate(vectors) if vector is None]
+            batch_size = 32
+            for start in range(0, len(missing), batch_size):
+                indices = missing[start:start + batch_size]
+                encoded = self._encode([texts[i] for i in indices])
+                for i, vector in zip(indices, encoded):
+                    vectors[i] = vector
+                if cache is not None:
+                    try:
+                        cache.put([(keys[i], vectors[i]) for i in indices])
+                    except (OSError, sqlite3.Error) as exc:
+                        print(f"[RAG] 写入向量缓存失败: {exc}", file=sys.stderr)
+                        cache = None
+            self._matrix = np.stack(vectors) if vectors else np.empty((0, 0), dtype=np.float32)
 
     def search(self, query: str, k: int, min_score: float = 0.0) -> list[dict]:
+        if not self.chunks or k <= 0:
+            return []
         self.ensure()
         vector = self._encode([f"{self.QUERY_PREFIX}{query}"])[0]
         sims = self._matrix @ vector
+        regions = query_regions(query)
         results: list[dict] = []
         for idx in sims.argsort()[::-1]:
             score = float(sims[idx])
             if score < min_score:
                 break
-            item = asdict(self.chunks[idx])
+            chunk = self.chunks[idx]
+            if regions and isinstance(chunk, SourcedChunk) and chunk.jurisdiction not in regions | {"INT"}:
+                continue
+            item = asdict(chunk)
             item["score"] = round(score, 3)
             item["vector"] = round(score, 3)
             results.append(item)
@@ -192,27 +220,19 @@ class Retriever:
                  graph: GraphRetriever | None = None) -> None:
         self.chunks = chunks
         self._graph = graph
-        self._tokens = [_tokenize(f"{c.title} {c.section} {c.text}") for c in chunks]
-
-        self._tfs: list[dict[str, int]] = []
-        for tokens in self._tokens:
-            tf: dict[str, int] = {}
-            for token in tokens:
-                tf[token] = tf.get(token, 0) + 1
-            self._tfs.append(tf)
-
-        self._lens = [len(tokens) for tokens in self._tokens]
+        self._postings: dict[str, list[tuple[int, int]]] = {}
+        self._lens = []
+        for idx, chunk in enumerate(chunks):
+            tokens = _tokenize(f"{chunk.title} {chunk.section} {chunk.text}")
+            self._lens.append(len(tokens))
+            for token, freq in Counter(tokens).items():
+                self._postings.setdefault(token, []).append((idx, freq))
         self._avgdl = (sum(self._lens) / len(self._lens)) if self._lens else 0.0
-
-        df: dict[str, int] = {}
-        for tokens in self._tokens:
-            for token in set(tokens):
-                df[token] = df.get(token, 0) + 1
 
         total = max(len(chunks), 1)
         # 平滑 IDF：出现在越少块里的词越有区分度
-        self._idf = {t: math.log((total + 1) / (n + 1)) + 1.0 for t, n in df.items()}
-        self._default_idf = math.log(total + 1) + 1.0
+        self._idf = {t: math.log((total + 1) / (len(hits) + 1)) + 1.0
+                     for t, hits in self._postings.items()}
 
         self.mode = (mode or config.RAG_MODE).lower()
         self._vector_index: VectorIndex | None = None
@@ -224,18 +244,34 @@ class Retriever:
         cls,
         corpus_dir: Path = CORPUS_DIR,
         mode: str | None = None,
+        graph_enabled: bool | None = None,
     ) -> 'Retriever':
         chunks = load_chunks(corpus_dir)
+        paths = sorted((corpus_dir / "guidelines").glob("*.json"))
+        if (corpus_dir / SEED_NAME).exists():
+            paths.insert(0, corpus_dir / SEED_NAME)
+        curated = []
+        for path in paths:
+            try:
+                curated.extend(evidence_chunks(load_guideline(path)))
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                print(f"[RAG] 跳过无法加载的指南 {path.name}: {exc}", file=sys.stderr)
+        ids = [chunk.id for chunk in chunks + curated]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Duplicate corpus evidence IDs")
+        if curated:
+            excluded_sources = DEMO_SOURCES.copy()
+            if any(chunk.id == "nei-amd-symptoms-and-exam" for chunk in curated):
+                excluded_sources.add("macular-degeneration-nei.md")
+            chunks = [chunk for chunk in chunks if chunk.source not in excluded_sources]
+        chunks += curated
         graph = None
-        if config.GRAPH_RAG_ENABLED:
+        if graph_enabled is None:
+            graph_enabled = config.GRAPH_RAG_ENABLED
+        if graph_enabled:
             graph = GraphRetriever(config.GRAPH_STORE)
             try:
-                graph.load_graph(corpus_dir / SEED_NAME)
-                curated = [SourcedChunk(**item) for item in graph.evidence()]
-                excluded_sources = DEMO_SOURCES.copy()
-                if any(chunk.id == "nei-amd-symptoms-and-exam" for chunk in curated):
-                    excluded_sources.add("macular-degeneration-nei.md")
-                chunks = [chunk for chunk in chunks if chunk.source not in excluded_sources] + curated
+                graph.load_graph(corpus_dir=corpus_dir)
             except (OSError, ValueError, KeyError, TypeError) as exc:
                 print(f"[GraphRAG] 图谱无法加载，使用原检索：{exc}", file=sys.stderr)
                 graph = None
@@ -283,20 +319,23 @@ class Retriever:
         if not query_tokens or not self.chunks:
             return []
 
-        scored: list[tuple[float, int]] = []
-        for idx, tf in enumerate(self._tfs):
-            total = 0.0
-            norm = 1 - self.B + self.B * self._lens[idx] / (self._avgdl or 1.0)
-            for token in query_tokens | boost_tokens:
-                freq = tf.get(token, 0)
-                if not freq:
-                    continue
-                idf = self._idf.get(token, self._default_idf)
-                if token in boost_tokens:
-                    idf *= boost_weight
-                total += idf * freq * (self.K1 + 1) / (freq + self.K1 * norm)
-            if total > 0:
-                scored.append((total, idx))
+        totals: dict[int, float] = {}
+        for token in query_tokens | boost_tokens:
+            if token not in self._postings:
+                continue
+            idf = self._idf[token] * (boost_weight if token in boost_tokens else 1.0)
+            for idx, freq in self._postings[token]:
+                norm = 1 - self.B + self.B * self._lens[idx] / self._avgdl
+                score = idf * freq * (self.K1 + 1) / (freq + self.K1 * norm)
+                totals[idx] = totals.get(idx, 0.0) + score
+        regions = query_regions(query)
+        scored = []
+        for idx, score in totals.items():
+            chunk = self.chunks[idx]
+            if regions and isinstance(chunk, SourcedChunk) and chunk.jurisdiction not in regions | {"INT"}:
+                continue
+            if score > 0:
+                scored.append((score, idx))
 
         if not scored:
             return []
@@ -513,11 +552,10 @@ class Retriever:
                 ]
             if graph_hits:
                 connected = {item["id"] for item in graph_hits}
-                # Every curated clause is also in the graph. With a resolved
-                # query, exclude disconnected clauses with merely lexical matches.
+                anchored = self._graph.anchored_evidence_ids()
                 ranked = [
                     (channel, [item for item in items
-                               if item["id"] in connected or not item.get("jurisdiction")])
+                               if item["id"] not in anchored or item["id"] in connected])
                     for channel, items in ranked
                 ]
                 ranked.append(("graph", graph_hits))

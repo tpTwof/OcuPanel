@@ -1,18 +1,11 @@
 export default function ChatModeSwitcher({ mode, onChange, busy, onOpenAnalysis }) {
-  const ophthalmic = mode === 'ophthalmic'
-
   return (
     <div className="chat-mode-controls">
-      <button
-        type="button"
-        className={`btn-secondary chat-mode-analysis${ophthalmic ? '' : ' is-hidden'}`}
-        disabled={busy || !ophthalmic}
-        aria-hidden={!ophthalmic}
-        tabIndex={ophthalmic ? 0 : -1}
-        onClick={onOpenAnalysis}
-      >
-        影像与报告分析
-      </button>
+      {onOpenAnalysis && (
+        <button type="button" className="btn-secondary" disabled={busy} onClick={onOpenAnalysis}>
+          眼科影像分析
+        </button>
+      )}
       <div className="chat-mode-switcher" role="group" aria-label="会话形态">
         {[
           { value: 'ophthalmic', label: '眼科助手' },

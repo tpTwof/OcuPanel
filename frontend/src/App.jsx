@@ -10,6 +10,7 @@ import { canChoosePdfLocation, choosePdfFile, getPdfDownloadMode, savePdf } from
 import {
   AuthError,
   changeConversationMode,
+  changeGraphPreference,
   createConversation,
   deleteConversation,
   downloadReportPdf,
@@ -41,6 +42,8 @@ export default function App() {
 
   const [conversations, setConversations] = useState([])
   const [activeId, setActiveId] = useState(null)
+  const [graphPreference, setGraphPreference] = useState(null)
+  const [retrievalDefaults, setRetrievalDefaults] = useState(null)
   const [messages, setMessages] = useState([])
   const [chatMode, setChatMode] = useState('general')
 
@@ -53,12 +56,16 @@ export default function App() {
   imageUrlsRef.current = imageUrls
 
   const resetToLogin = () => {
+    Object.values(imageUrlsRef.current).forEach((url) => URL.revokeObjectURL(url))
+    setImageUrls({})
     setToken('')
     setUser(null)
     setLlm(null)
+    setRetrievalDefaults(null)
     setConversations([])
     setMessages([])
     setActiveId(null)
+    setGraphPreference(null)
     setChatMode('general')
     setView('welcome')
   }
@@ -94,6 +101,7 @@ export default function App() {
     try {
       const data = await listConversations()
       setConversations(data.items || [])
+      setRetrievalDefaults({ enabled: data.rag_enabled, graph: data.graph_default })
     } catch (err) {
       guard(err)
     }
@@ -148,6 +156,7 @@ export default function App() {
       setImageUrls(nextImages)
       setMessages(msgs.map((m) => ({ ...m, id: m.id || nextId() })))
       setActiveId(id)
+      setGraphPreference(data.conversation?.graph_enabled ?? null)
       setChatMode(data.conversation?.mode || 'general')
       setView('chat')
     } catch (err) {
@@ -160,6 +169,7 @@ export default function App() {
   const newChat = () => {
     if (busy) return
     setActiveId(null)
+    setGraphPreference(null)
     setChatMode('general')
     setMessages([])
     // 直接进对话界面，不要回欢迎页。
@@ -171,7 +181,7 @@ export default function App() {
   /** 确保有会话 id：首次发消息时懒创建，避免点一次"新建"就留一条空记录。 */
   const ensureConversation = async (mode = chatMode) => {
     if (activeId) return activeId
-    const conv = await createConversation('新对话', mode)
+    const conv = await createConversation('新对话', mode, graphPreference)
     setActiveId(conv.id)
     setConversations((prev) => [conv, ...prev])
     return conv.id
@@ -188,6 +198,23 @@ export default function App() {
       await changeConversationMode(activeId, mode)
       setChatMode(mode)
       setConversations((prev) => prev.map((c) => c.id === activeId ? { ...c, mode } : c))
+    } catch (err) {
+      if (!guard(err)) alert(describeError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleGraphChange = async (enabled) => {
+    if (busy) return
+    if (!activeId) {
+      setGraphPreference(enabled)
+      return
+    }
+    setBusy(true)
+    try {
+      await changeGraphPreference(activeId, enabled)
+      setGraphPreference(enabled)
     } catch (err) {
       if (!guard(err)) alert(describeError(err))
     } finally {
@@ -356,6 +383,7 @@ export default function App() {
       setConversations((prev) => prev.filter((c) => c.id !== id))
       if (id === activeId) {
         setActiveId(null)
+        setGraphPreference(null)
         setChatMode('general')
         setMessages([])
         // 同理：删完直接给一个空白可输入的对话页，别弹回没有输入框的欢迎页
@@ -398,7 +426,6 @@ export default function App() {
         activeId={activeId}
         view={view}
         onNewChat={newChat}
-        onOpenReport={openAnalysis}
         onSelectConversation={openConversation}
         onDeleteConversation={handleDeleteConversation}
         onOpenSettings={() => setView('settings')}
@@ -415,6 +442,9 @@ export default function App() {
             mode={chatMode}
             onModeChange={handleModeChange}
             onOpenAnalysis={openAnalysis}
+            graphEnabled={Boolean(graphPreference ?? retrievalDefaults?.graph)}
+            ragEnabled={retrievalDefaults?.enabled}
+            onGraphChange={handleGraphChange}
             messages={messages}
             imageUrls={imageUrls}
             onSend={handleSend}
@@ -427,6 +457,7 @@ export default function App() {
         )}
         {view === 'report' && (
           <ReportView
+            hasConversation={Boolean(activeId)}
             onGenerate={handleGenerate}
             busy={busy}
             notConfigured={notConfigured}

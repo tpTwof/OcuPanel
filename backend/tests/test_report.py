@@ -144,6 +144,21 @@ class ReportTests(unittest.TestCase):
             self.assertTrue(content.startswith(b"%PDF"))
             self.assertGreater(content.count(b"/Type /Page\n"), 1)
 
+    def test_no_evidence_keeps_findings_and_skips_all_llm_calls(self):
+        diseases = ("glaucoma", "diabetic_retinopathy")
+        analysis = EyeAnalysis(diseases={key: DiseaseResult() for key in diseases})
+        generator = MedicalReportGenerator(api_key="test")
+        with tempfile.TemporaryDirectory() as folder, \
+             patch("vision.analyze_fundus", return_value=analysis), \
+             patch("report.generation.retrieve_evidence", return_value=[]), \
+             patch("utils.config.VERIFY_ENABLED", True), patch.object(generator, "chat_with_gpt") as llm:
+            result = generator.generate(io.BytesIO(b"image"), "", folder, diseases)
+        llm.assert_not_called()
+        self.assertIsNone(result.summary)
+        self.assertEqual(result.verification["reason"], "no_evidence")
+        self.assertEqual(result.verification["missing_evidence_diseases"], list(diseases))
+        self.assertEqual(set(result.visual_findings), set(diseases))
+
     def test_specialist_failure_is_not_a_report(self):
         agent = SpecialistAgent(SpecialistRole('Eye', 'Review the case.'), lambda *a,**k:'Error: timeout')
         with self.assertRaises(RuntimeError):

@@ -12,9 +12,11 @@
 | [示例数据](../samples/README.md) | 眼底照片、临床记录、叠加图和报告样式 |
 | [开发工具](../tools/README.md) | 账号隔离自检与截图 |
 
-`diagrams/` 保存架构文档引用的 SVG 和 Draw.io 源文件。
+`diagrams/` 保存历次设计的 SVG 和 Draw.io 源文件。其中的固定六角色流程属于上游设计；当前报告流程见[架构说明](ARCHITECTURE.md)。
 
 ## 历史方案与研究
+
+- 11 月 19 日的[业务模块盘点](research/业务模块说明.md)与[项目改进建议](research/项目改进建议.md)保留审阅时的现状，已落地的修改见[更新记录](../update/README.md)。
 
 - [眼科 Copilot 方案](SPEC-Ophthalmology-Copilot.md)记录早期计划，顶部列有当前实现对照。
 - [ADR-0001](adr/0001-analysis-pipeline-seam.md)记录旧视觉管线接口及其后续调整。

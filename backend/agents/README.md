@@ -8,6 +8,6 @@
 | DirectorAgent | 多病种时综合专科分析、病例事实和证据，依据校验反馈修订 | 一份报告草稿 |
 | CitationVerifier | 检查外部知识的引用编号和证据支持，必要时修订、复核或请求一次重生成 | 正文及校验记录，或拒答原因 |
 
-ParallelOrchestrator 是普通执行器，多病种时用线程池运行专科。校验要求整篇重生成时，单病种交回该专科，多病种交回 Director。
+ParallelOrchestrator 是普通执行器，多病种时用线程池运行专科。校验响应中的问题条目必须能解析出原句和有效判定；无效条目触发校验错误。修订删空正文时拒绝交付。校验要求整篇重生成时，单病种交回该专科，多病种交回 Director。
 
 专科工具支持 `search_evidence`、`read_evidence`，默认最多执行三次。视觉模型负责测量及预测，Verifier 只检查知识引用。校验配置与交付行为见[报告流程](../report/README.md)。

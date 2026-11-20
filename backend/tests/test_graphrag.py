@@ -1,13 +1,101 @@
 import tempfile
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+import numpy as np
 
 from graphrag import GraphRetriever, build_graph_from_corpus
-from knowledge.retrieval import CORPUS_DIR, DEMO_SOURCES, Retriever
+from knowledge.models import Chunk
+from knowledge.retrieval import CORPUS_DIR, DEMO_SOURCES, Retriever, VectorIndex
 
 
 class GraphRetrievalTests(unittest.TestCase):
+    def test_vector_batches_preserve_chunk_order_across_boundaries(self):
+        chunks = [Chunk(str(i), "test", "title", "section", str(i)) for i in range(65)]
+        index = VectorIndex(chunks)
+        def encode(texts):
+            return np.array([[int(text.splitlines()[-1])] for text in texts])
+        with patch("utils.config.RAG_VECTOR_CACHE_PATH", ""), patch.object(index, "_load"), patch.object(index, "_encode", side_effect=encode) as encoder:
+            index.ensure()
+            index.ensure()
+        self.assertEqual([len(call.args[0]) for call in encoder.call_args_list], [32, 32, 1])
+        self.assertEqual(index._matrix[:, 0].tolist(), list(range(65)))
+
+    def test_vector_cache_reuses_unchanged_passages_and_invalidates_revision(self):
+        chunks = [Chunk(str(i), "test", "title", "section", str(i)) for i in range(3)]
+        with tempfile.TemporaryDirectory() as directory, patch(
+            "utils.config.RAG_VECTOR_CACHE_PATH", str(Path(directory) / "cache.db"),
+        ), patch.object(VectorIndex, "_load"):
+            def encode(texts):
+                return np.array([[float(text.splitlines()[-1]), 1.0] for text in texts])
+            with patch.object(VectorIndex, "_encode", side_effect=encode) as encoder:
+                VectorIndex(chunks).ensure()
+                self.assertEqual(len(encoder.call_args.args[0]), 3)
+                encoder.reset_mock()
+                restored = VectorIndex(chunks)
+                restored.ensure()
+                encoder.assert_not_called()
+                changed = chunks[:2] + [Chunk("2", "test", "title", "section", "9")]
+                updated = VectorIndex(changed)
+                updated.ensure()
+                self.assertEqual(len(encoder.call_args.args[0]), 1)
+                self.assertEqual(updated._matrix[:, 0].tolist(), [0, 1, 9])
+                encoder.reset_mock()
+                with patch("utils.config.RAG_VECTOR_REVISION", "changed"):
+                    VectorIndex(chunks).ensure()
+                self.assertEqual(len(encoder.call_args.args[0]), 3)
+
+    def test_unanchored_clause_survives_graph_fusion_and_bad_graph(self):
+        data = {
+            "schema_version": 1,
+            "sources": {"test": {"title": "眼轴检查", "version": "1", "jurisdiction": "UK",
+                                 "url": "https://example.org/guide"}},
+            "evidence": [
+                {"id": "plain", "source": "test", "section": "1", "scope": "英国",
+                 "text": "眼轴测量术前检查，基础条款"},
+                {"id": "linked", "source": "test", "section": "2", "scope": "英国",
+                 "text": "眼轴测量术前检查，关联条款", "anchors": ["axial"]},
+            ],
+            "concepts": {"axial": {"label": "眼轴", "aliases": ["眼轴"]}},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "guidelines").mkdir()
+            path = root / "guidelines" / "test.json"
+            path.write_text(json.dumps(data), encoding="utf-8")
+            flat = Retriever.from_corpus(root, mode="bm25", graph_enabled=False)
+            graph = Retriever.from_corpus(root, mode="bm25", graph_enabled=True)
+            self.assertEqual({c.id for c in flat.chunks}, {c.id for c in graph.chunks})
+            hits = {item["id"]: item for item in graph.search("英国眼轴检查")}
+            self.assertIn("plain", hits)
+            self.assertNotIn("graph_path", hits["plain"])
+            self.assertTrue(hits["linked"]["graph_path"])
+            data["evidence"][1]["anchors"] = ["missing"]
+            path.write_text(json.dumps(data), encoding="utf-8")
+            fallback = Retriever.from_corpus(root, mode="bm25", graph_enabled=True)
+            self.assertFalse(fallback.graph_available)
+            self.assertEqual({c.id for c in fallback.chunks}, {"plain", "linked"})
+
+    def test_guidelines_retrieve_with_and_without_graph(self):
+        cases = [
+            ("中国白内障术后首次随访", "nhc-cataract-2026-followup"),
+            ("英国白内障术前眼轴生物测量", "nice-ng77-axial-length"),
+            ("英国孕前已有糖尿病，孕期眼底检查如何安排", "nice-ng3-retina"),
+            ("美国无症状成人青光眼筛查", "uspstf-poag-population"),
+        ]
+        for graph_enabled in (False, True):
+            retriever = Retriever.from_corpus(mode="bm25", graph_enabled=graph_enabled)
+            for query, expected in cases:
+                with self.subTest(graph=graph_enabled, query=query):
+                    hits = retriever.search(query)
+                    hit = next(item for item in hits if item["id"] == expected)
+                    self.assertTrue(hit["url"].startswith("https://"))
+                    self.assertTrue(all(hit[key] for key in ("version", "scope", "section")))
+                    self.assertEqual(bool(hit.get("graph_path")), graph_enabled)
+                    self.assertTrue(all(not item.get("jurisdiction") or item["jurisdiction"] == hit["jurisdiction"]
+                                        or item["jurisdiction"] == "INT" for item in hits))
+
     def test_snapshot_roundtrip_preserves_multihop_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             snapshot = Path(directory) / "graph.json"
@@ -68,7 +156,18 @@ class GraphRetrievalTests(unittest.TestCase):
         with patch("utils.config.GRAPH_RAG_ENABLED", False):
             retriever = Retriever.from_corpus(mode="bm25")
         results = retriever.search("年龄相关性黄斑变性 AMD 直线变弯 检查")
-        self.assertEqual(results[0]["source"], "macular-degeneration-nei.md")
+        self.assertEqual(results[0]["source"], "nei-amd")
+
+    def test_chat_preference_uses_separate_indexes(self):
+        from knowledge.service import get_retriever
+
+        with patch("knowledge.service._RETRIEVERS", {}), patch("utils.config.RAG_MODE", "bm25"):
+            graph = get_retriever(True)
+            flat = get_retriever(False)
+            self.assertTrue(graph.graph_available)
+            self.assertFalse(flat.graph_available)
+            self.assertIs(graph, get_retriever(True))
+            self.assertIs(flat, get_retriever(False))
 
     def test_missing_graph_preserves_flat_retrieval(self):
         from knowledge.service import retrieve_with_status

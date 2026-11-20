@@ -21,7 +21,7 @@ SQLite 启动迁移增加 conversations.mode，已有报告消息的旧会话初
 
 ## 眼科检索与引用
 
-启用 `RAG_ENABLED` 时，眼科助手使用 `RAG_MODE` 检索证据。启用 `GRAPH_RAG_ENABLED` 可融合图检索。眼科回复保存本轮的检索状态、证据与引用校验结果。启用 `VERIFY_ENABLED` 时系统使用当前账号配置的模型核查具体建议的引用。 [后端配置](../README.md#graphrag)
+启用 `RAG_ENABLED` 时，眼科助手使用 `RAG_MODE` 检索证据。会话默认跟随 `GRAPH_RAG_ENABLED`。创建时可传入布尔字段 `graph_enabled`，已有会话通过 `PATCH /api/chat/conversations/{id}/graph` 传入同一字段调整眼科问答检索。设置按会话保存，`RAG_ENABLED` 控制总开关。眼科回复保存本轮的检索状态、证据与引用校验结果。启用 `VERIFY_ENABLED` 时系统使用当前账号配置的模型核查具体建议的引用。 [后端配置](../README.md#graphrag)
 
 ## 聊天上下文与回复预算
 

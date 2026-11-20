@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "cataract_followup": {
+      "label": "白内障术后随访",
+      "aliases": [
+        "白内障术后",
+        "白内障手术后",
+        "白内障复查",
+        "cataract follow-up"
+      ]
+    }
+  },
+  "relations": [],
+  "sources": {
+    "nhc-cataract-2026": {
+      "title": "成人白内障手术操作规范",
+      "jurisdiction": "CN",
+      "version": "2026 年版",
+      "url": "https://www.nhc.gov.cn/yzygj/c100067/202604/5ba49ac3bf3148d8baab72c7547cc1bb/files/%E6%88%90%E4%BA%BA%E7%99%BD%E5%86%85%E9%9A%9C%E6%89%8B%E6%9C%AF%E6%93%8D%E4%BD%9C%E8%A7%84%E8%8C%83%EF%BC%882026%E5%B9%B4%E7%89%88%EF%BC%89-20260410182029693.pdf"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nhc-cataract-2026-followup",
+      "source": "nhc-cataract-2026",
+      "section": "第五部分（二）术后随访，随访时点",
+      "scope": "中国成人白内障术后，首次随访按风险分层",
+      "text": "对于手术风险低且术后无并发症者，首次随访可安排在术后 48 小时内；单眼患者或早期并发症高风险者需在 24 小时内随访。后续频率由恢复情况及并发症决定。",
+      "anchors": [
+        "cataract_followup"
+      ]
+    },
+    {
+      "id": "nhc-cataract-2026-examination",
+      "source": "nhc-cataract-2026",
+      "section": "第五部分（二）术后随访，复查内容",
+      "scope": "中国成人白内障手术后的随访评估",
+      "text": "复查询问新出现的症状及用药情况，评估视功能、眼压和裂隙灯所见。若视力恢复低于预期，可结合情况进一步检查眼底、OCT 或视野等以寻找原因。",
+      "anchors": [
+        "cataract_followup"
+      ]
+    }
+  ]
+}

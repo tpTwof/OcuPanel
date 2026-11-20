@@ -1053,6 +1053,49 @@ button:disabled {
   margin-top: 8px;
 }
 
+.composer-tools { position: relative; flex: none; }
+.composer-tools summary {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 22px;
+}
+.composer-tools summary::-webkit-details-marker { display: none; }
+.composer-tools-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 2;
+  min-width: 170px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: var(--shadow-sm);
+}
+.composer-tools-panel button, .composer-tools-panel label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 12px;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.composer-tools-panel small { display: block; padding: 0 12px 6px; }
+.composer-tools-panel button:hover, .composer-tools-panel label:hover { background: #eff6ff; }
+.composer-tools-panel input { width: auto; }
+
 .composer-hint {
   flex: 1;
   color: var(--text-4);
@@ -2084,10 +2127,6 @@ button:disabled {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-}
-.chat-mode-analysis.is-hidden {
-  visibility: hidden;
-  pointer-events: none;
 }
 .welcome .chat-mode-controls {
   margin: 12px 0;

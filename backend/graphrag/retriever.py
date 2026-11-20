@@ -31,13 +31,13 @@ class GraphRetriever:
     def is_available(self) -> bool:
         return self._graph is not None
 
-    def load_graph(self, graph_path: Path | None = None) -> None:
+    def load_graph(self, graph_path: Path | None = None, *, corpus_dir: Path = DEFAULT_CORPUS) -> None:
         if self.graph_store != "networkx":
             raise ValueError(f"Unsupported GRAPH_STORE: {self.graph_store}")
-        graph = (
-            build_graph_from_corpus(DEFAULT_CORPUS)
-            if graph_path is None else load_snapshot(json.loads(graph_path.read_text(encoding="utf-8")))
-        )
+        if graph_path is None:
+            graph = build_graph_from_corpus(corpus_dir)
+        else:
+            graph = load_snapshot(json.loads(graph_path.read_text(encoding="utf-8")))
         self._aliases = {
             node: re.compile(
                 r"(?<![a-z0-9非])(?:" + "|".join(map(re.escape, data["aliases"])) + r")(?![a-z0-9])",
@@ -51,6 +51,12 @@ class GraphRetriever:
         if self._graph is None:
             return []
         return [dict(data["evidence"]) for _, data in self._graph.nodes(data=True) if "evidence" in data]
+
+    def anchored_evidence_ids(self) -> set[str]:
+        if self._graph is None:
+            return set()
+        return {node for node, data in self._graph.nodes(data=True)
+                if "evidence" in data and self._graph.in_degree(node) > 0}
 
     def search(self, query: str, k: int = 4, hop: int = 2, min_score: float = 0.0) -> list[dict]:
         graph = self._graph

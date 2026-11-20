@@ -57,6 +57,10 @@ RAG_MODE = (os.getenv("RAG_MODE") or "hybrid").strip().lower()
 # 多语言向量模型。用 transformers 直接加载（AutoModel + mean pooling），
 # 不引入 sentence-transformers。换模型只改这里。
 RAG_VECTOR_MODEL = (os.getenv("RAG_VECTOR_MODEL") or "intfloat/multilingual-e5-small").strip()
+RAG_VECTOR_REVISION = os.getenv("RAG_VECTOR_REVISION", "main")
+RAG_VECTOR_CACHE_PATH = os.getenv(
+    "RAG_VECTOR_CACHE_PATH", str(Path(__file__).resolve().parents[1] / "knowledge" / ".cache" / "vectors.db"),
+)
 # 向量相似度的绝对阈值（cosine）。e5 系列的分数整体偏高，0.78 相当于"确实相关"。
 RAG_VECTOR_MIN_SCORE = float(os.getenv("RAG_VECTOR_MIN_SCORE", "0.78"))
 # RRF 融合常数：score = Σ 1/(k + rank)，k 越大越平缓
@@ -115,18 +119,8 @@ GRAPH_RAG_ENABLED = (os.getenv("GRAPH_RAG_ENABLED", "0") != "0")
 # 图存储后端：networkx（内存图）。
 GRAPH_STORE = (os.getenv("GRAPH_STORE") or "networkx").strip().lower()
 
-# Multi-Agent 协作模式：parallel / collaborative / adaptive
-# parallel = 现有六角色并发（默认，行为不变）
-# collaborative = Agent 间消息传递（TODO）
-# adaptive = 根据初步诊断动态选择角色（TODO）
+# 多病种专科并行撰稿。
 MULTI_AGENT_MODE = (os.getenv("MULTI_AGENT_MODE") or "parallel").strip().lower()
-
-# Agent 协作轨迹记录。1=写入 agent_traces 表，0=不记录（默认）。
-AGENT_TRACE_ENABLED = (os.getenv("AGENT_TRACE_ENABLED", "0") != "0")
-
-# 报告生成器缓存
-EXPIRY_SECONDS = int(os.getenv("EXPIRY_SECONDS", "300"))
-CLEANUP_INTERVAL = int(os.getenv("CLEANUP_INTERVAL", "300"))
 
 
 def apply_hf_endpoint() -> None:

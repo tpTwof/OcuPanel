@@ -5,18 +5,19 @@ if TYPE_CHECKING:
 import threading
 import sys
 from utils import config
-_RETRIEVER = None
+_RETRIEVERS: dict[bool, Retriever] = {}
 _RETRIEVER_LOCK = threading.Lock()
-def get_retriever() -> Retriever:
-    global _RETRIEVER
-    if _RETRIEVER is None:
-        with _RETRIEVER_LOCK:
-            if _RETRIEVER is None:
-                from knowledge.retrieval import Retriever
 
-                _RETRIEVER = Retriever.from_corpus()
-                print(f"[RAG] 语料已加载：{_RETRIEVER.size} 个片段", file=sys.stderr)
-    return _RETRIEVER
+
+def get_retriever(graph_enabled: bool | None = None) -> Retriever:
+    from .retrieval import Retriever
+
+    enabled = config.GRAPH_RAG_ENABLED if graph_enabled is None else graph_enabled
+    with _RETRIEVER_LOCK:
+        if enabled not in _RETRIEVERS:
+            _RETRIEVERS[enabled] = Retriever.from_corpus(graph_enabled=enabled)
+        return _RETRIEVERS[enabled]
+
 
 def retrieve_evidence(query: str, boost: str = '') -> list[dict[str, Any]]:
     """检索带出处的证据片段；任何异常都退化为「不注入」，不影响报告生成。"""
@@ -24,12 +25,13 @@ def retrieve_evidence(query: str, boost: str = '') -> list[dict[str, Any]]:
     return evidence
 
 
-def retrieve_with_status(query: str, boost: str = '') -> tuple[list[dict[str, Any]], dict[str, str]]:
+def retrieve_with_status(query: str, boost: str = '', *, graph_enabled: bool | None = None) -> tuple[list[dict[str, Any]], dict[str, str]]:
     if not config.RAG_ENABLED:
         return [], {"result": "disabled", "graph": "disabled"}
-    graph = "unavailable" if config.GRAPH_RAG_ENABLED else "disabled"
+    enabled = config.GRAPH_RAG_ENABLED if graph_enabled is None else graph_enabled
+    graph = "unavailable" if enabled else "disabled"
     try:
-        retriever = get_retriever()
+        retriever = get_retriever(enabled)
         if retriever.graph_available:
             graph = "ready"
         evidence = retriever.search(

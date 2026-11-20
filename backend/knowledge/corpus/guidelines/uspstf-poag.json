@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "poag_screen": {
+      "label": "无症状成人青光眼筛查",
+      "aliases": [
+        "无症状成人青光眼筛查",
+        "青光眼筛查",
+        "筛查青光眼",
+        "glaucoma screening"
+      ]
+    },
+    "tonometry_screen": {
+      "label": "眼压筛查",
+      "aliases": [
+        "眼压筛查",
+        "单测眼压",
+        "tonometry alone"
+      ]
+    }
+  },
+  "relations": [],
+  "sources": {
+    "uspstf-poag": {
+      "title": "USPSTF 原发性开角型青光眼筛查建议",
+      "jurisdiction": "US",
+      "version": "2022-05-24",
+      "url": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/primary-open-angle-glaucoma-screening"
+    }
+  },
+  "evidence": [
+    {
+      "id": "uspstf-poag-population",
+      "source": "uspstf-poag",
+      "section": "Recommendation Summary / Clinician Summary",
+      "scope": "美国基层医疗，40 岁及以上、没有青光眼相关症状的成人",
+      "text": "对于无症状成人常规筛查原发性开角型青光眼，现有证据不足以判断获益与伤害的平衡（I 声明）。有视力丧失表现者应按其临床问题评估，超出这项人群筛查建议的范围。",
+      "anchors": [
+        "poag_screen"
+      ]
+    },
+    {
+      "id": "uspstf-poag-tonometry",
+      "source": "uspstf-poag",
+      "section": "Practice Considerations / Screening Tests",
+      "scope": "美国基层医疗讨论原发性开角型青光眼筛查方法",
+      "text": "开角型青光眼可发生于眼压未升高者，部分高眼压者也没有青光眼。单测眼压会漏检，不能独立完成开角型青光眼的筛查评估。",
+      "anchors": [
+        "tonometry_screen"
+      ]
+    }
+  ]
+}

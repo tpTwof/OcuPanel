@@ -21,9 +21,8 @@ from utils.paths import IMG_STORE_DIR
 from report.generation import MedicalReportGenerator, build_generator_for_user
 from report.context import format_visual_findings
 from report.pdf import PDFRenderer
+from report.utils.messages import reject_message
 from report.utils.jobs import cleanup_job_dir, new_job_dir
-
-
 
 
 async def _load_generator(user: User) -> MedicalReportGenerator:
@@ -79,140 +78,69 @@ async def _activate_analysis_mode(user: User, conversation_id: str | None) -> No
 
 
 async def generate_report(user: User, request: ReportSubmission) -> ReportDownload:
-    """生成 PDF。校验未通过时返回 422，不产出任何文件。"""
-    _validate_upload(request)
-    await _activate_analysis_mode(user, request.conversation_id)
-    generator = await _load_generator(user)
-
-    job_dir = new_job_dir("report")
-    try:
-        summary, verification, ratio, seg_path, evidence, findings = await _run_report_pipeline(
-            generator, request.image_bytes, request.note, job_dir, request.diseases,
-        )
-
-        await run_in_threadpool(
-            storage.save_report,
-            user["id"],
-            request.conversation_id,
-            "",
-            summary or "",
-            verification,
-            evidence,
-            summary is None,
-            ratio,
-            None,
-            findings,
-        )
-
-        if summary is None:
-            raise ApplicationError(status_code=422, detail=generator.reject_message(verification))
-
-        pdf_path = job_dir / "diagnostic_report.pdf"
-        await run_in_threadpool(
-            generator.generate_pdf_report,
-            image_path=seg_path,
-            cup_to_disc_ratio=ratio,
-            synthesis_text=summary,
-            output_path=str(pdf_path),
-            evidence=evidence,
-            visual_findings_text=format_visual_findings(
-                findings, verification.get("missing_evidence_diseases"),
-            ),
-        )
-    except Exception:
-        cleanup_job_dir(job_dir)
-        raise
-
-    # 目录要等响应体发完才能删，否则 FileResponse 会读不到文件
-    return ReportDownload(path=pdf_path, job_dir=job_dir)
-
+    content = await _generate_and_store(user, request, append_to_chat=False)
+    if content["rejected"]:
+        raise ApplicationError(status_code=422, detail=content["summary"])
+    return await export_report(user, content["report_id"])
 
 
 async def generate_content(user: User, request: ReportSubmission) -> ReportContent:
-    """生成报告正文（不产出 PDF），并把这一轮对话写进数据库。"""
+    return await _generate_and_store(user, request, append_to_chat=True)
+
+
+def _archive_result(
+    user_id: str, request: ReportSubmission, result: ReportResult, append_to_chat: bool,
+) -> ReportContent:
+    summary, verification, ratio, seg_path, evidence, findings = result
+    rejected = summary is None
+    display_text = reject_message(verification) if summary is None else summary
+    findings_text = format_visual_findings(findings, verification.get("missing_evidence_diseases"))
+    img_name = uuid.uuid4().hex if seg_path else ""
+    archive_image = IMG_STORE_DIR / f"{img_name}.jpg" if img_name else None
+    meta = {
+        "kind": "report", "img_name": img_name, "evidence": evidence,
+        "verification": verification, "rejected": rejected, "cup_to_disc_ratio": ratio,
+        "visual_findings_text": findings_text,
+    }
+    chat_turn = None
+    if append_to_chat and request.conversation_id:
+        chat_turn = (f"眼科分析：{request.filename}\n{request.note}", meta, f"眼科分析 · {request.filename}"[:60])
+    try:
+        if archive_image:
+            with Image.open(seg_path) as image:
+                image.convert("RGB").save(archive_image)
+        report_id = storage.save_report(
+            user_id, request.conversation_id, img_name, display_text, verification,
+            evidence, rejected, cup_to_disc=ratio, visual_findings=findings, chat_turn=chat_turn,
+        )
+    except Exception:
+        if archive_image:
+            archive_image.unlink(missing_ok=True)
+        raise
+
+    return {
+        "summary": display_text, "cup_to_disc_ratio": ratio, "img_name": img_name,
+        "evidence": evidence, "verification": verification, "rejected": rejected,
+        "report_id": report_id, "visual_findings": findings or {},
+        "visual_findings_text": findings_text,
+    }
+
+
+async def _generate_and_store(
+    user: User, request: ReportSubmission, *, append_to_chat: bool,
+) -> ReportContent:
     _validate_upload(request)
     await _activate_analysis_mode(user, request.conversation_id)
     generator = await _load_generator(user)
 
     job_dir = new_job_dir("content")
     try:
-        summary, verification, ratio, seg_path, evidence, findings = await _run_report_pipeline(
+        result = await _run_report_pipeline(
             generator, request.image_bytes, request.note, job_dir, request.diseases,
         )
-        rejected = summary is None
-        display_text = generator.reject_message(verification) if rejected else summary
-        findings_text = format_visual_findings(findings, verification.get("missing_evidence_diseases"))
-
-        # 分割图要长期可访问（前端按 img_name 取回），存进 img_store。
-        # 分析结果没有叠加图时仍可展示文字，img_name 保持为空。
-        if seg_path and Path(seg_path).is_file():
-            im = Image.open(seg_path)
-            img_name = uuid.uuid4().hex
-            im.convert("RGB").save(str(IMG_STORE_DIR / f"{img_name}.jpg"))
-        else:
-            img_name = ""
-
-        report_id = await run_in_threadpool(
-            storage.save_report,
-            user["id"],
-            request.conversation_id,
-            img_name,
-            display_text or "",
-            verification,
-            evidence,
-            rejected,
-            ratio,
-            None,
-            findings,
-        )
-
-        # 落一条 assistant 消息，这样刷新页面后这段报告还在对话里
-        if request.conversation_id:
-            await run_in_threadpool(
-                storage.add_message, user["id"], request.conversation_id, "user",
-                f"眼科分析：{request.filename}\n{request.note}",
-                {"kind": "analysis_request"},
-            )
-            conversation = await run_in_threadpool(
-                storage.get_conversation, user["id"], request.conversation_id,
-            )
-            if conversation and conversation["title"] in ("新对话", "", None):
-                await run_in_threadpool(
-                    storage.rename_conversation, user["id"], request.conversation_id,
-                    f"眼科分析 · {request.filename}"[:60],
-                )
-            meta = {
-                "kind": "report",
-                "img_name": img_name,
-                "evidence": evidence,
-                "verification": verification,
-                "rejected": rejected,
-                "cup_to_disc_ratio": ratio,
-                "report_id": report_id,
-                "visual_findings_text": findings_text,
-            }
-            await run_in_threadpool(
-                storage.add_message,
-                user["id"],
-                request.conversation_id,
-                "assistant",
-                display_text,
-                meta,
-            )
+        return await run_in_threadpool(_archive_result, user["id"], request, result, append_to_chat)
     finally:
         cleanup_job_dir(job_dir)
-
-    return {
-        "summary": display_text,
-        "cup_to_disc_ratio": ratio,
-        "img_name": img_name,
-        "evidence": evidence,
-        "verification": verification,
-        "rejected": rejected,
-        "report_id": report_id,
-        "visual_findings": findings or {},
-        "visual_findings_text": findings_text,
-    }
 
 
 async def get_report_image(img_name: str, user: User) -> Path:
@@ -220,7 +148,7 @@ async def get_report_image(img_name: str, user: User) -> Path:
     if not img_name.replace("-", "").replace("_", "").isalnum():
         raise ApplicationError(status_code=400, detail="非法的图片名")
     path = IMG_STORE_DIR / f"{img_name}.jpg"
-    if not path.is_file():
+    if not await run_in_threadpool(storage.owns_report_image, user["id"], img_name) or not path.is_file():
         raise ApplicationError(status_code=404, detail="图片不存在")
     return path
 
@@ -231,6 +159,10 @@ async def export_report(user: User, report_id: str) -> ReportDownload:
         raise ApplicationError(status_code=404, detail="报告不存在")
     if report["rejected"] or not report["summary"].strip():
         raise ApplicationError(status_code=422, detail="当前报告没有可导出的正文")
+
+    status = report["verification"].get("status")
+    if status not in ("pass", "rewritten"):
+        raise ApplicationError(status_code=422, detail="此报告没有通过引用校验的记录，无法导出 PDF")
 
     image_path = ""
     img_name = report["img_name"]
@@ -249,6 +181,7 @@ async def export_report(user: User, report_id: str) -> ReportDownload:
             synthesis_text=report["summary"],
             output_path=str(download.path),
             evidence=report["evidence"],
+            verification_status=status,
             visual_findings_text=format_visual_findings(
                 report["visual_findings"], report["verification"].get("missing_evidence_diseases"),
             ),

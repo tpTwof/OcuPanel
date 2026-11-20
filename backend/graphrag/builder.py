@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 import networkx as nx
 
 from llm.models import LLMCall
+from knowledge.corpus import load_guideline
 
 SEED_NAME = "ophthalmology-graph.json"
 DEFAULT_CORPUS = Path(__file__).resolve().parents[1] / "knowledge" / "corpus"
@@ -33,7 +34,7 @@ def load_snapshot(data: dict) -> nx.DiGraph:
         source = data["sources"][source_id]
         url = urlsplit(source["url"])
         if (evidence_id in graph or url.scheme != "https" or not url.hostname
-                or not row["section"].strip() or not row["text"].strip() or not row["anchors"]):
+                or not row["section"].strip() or not row["text"].strip()):
             raise ValueError(f"Invalid source or evidence entry: {evidence_id}")
         graph.add_node(
             evidence_id,
@@ -45,7 +46,7 @@ def load_snapshot(data: dict) -> nx.DiGraph:
                 jurisdiction=source["jurisdiction"], scope=row["scope"],
             ),
         )
-        for anchor in row["anchors"]:
+        for anchor in row.get("anchors", []):
             if anchor not in data["concepts"]:
                 raise ValueError(f"Unknown concept {anchor} for {evidence_id}")
             graph.add_edge(anchor, evidence_id, relation="关联条款")
@@ -63,7 +64,18 @@ def build_graph_from_corpus(
 
     The existing llm_call parameter is retained for callers of the former stub.
     """
-    data = json.loads((corpus_dir / SEED_NAME).read_text(encoding="utf-8"))
+    data = dict(schema_version=1, concepts={}, relations=[], sources={}, evidence=[])
+    paths = sorted((corpus_dir / "guidelines").glob("*.json"))
+    if (corpus_dir / SEED_NAME).exists():
+        paths.insert(0, corpus_dir / SEED_NAME)
+    for path in paths:
+        guide = load_guideline(path)
+        for key in ("concepts", "sources"):
+            if data[key].keys() & guide[key].keys():
+                raise ValueError(f"Duplicate {key} in {path.name}")
+            data[key].update(guide[key])
+        data["relations"].extend(guide["relations"])
+        data["evidence"].extend(guide["evidence"])
     graph = load_snapshot(data)
     if output_path is not None:
         with NamedTemporaryFile(dir=output_path.parent, delete=False, mode="w", encoding="utf-8") as tmp:

@@ -26,6 +26,7 @@ backend/img_store/
 data/
 
 # ---- 本地数据库（含账户与加密后的 API Key，绝不提交）----
+backend/knowledge/.cache/
 backend/ocupanel.db
 backend/ocupanel.db-wal
 backend/ocupanel.db-shm
@@ -42,6 +43,7 @@ tmp/
 
 # ---- 本地工具工作区 ----
 .workbuddy/
+/local-graphrag-guide/
 
 # ---- 编辑器 / 系统 ----
 .vscode/

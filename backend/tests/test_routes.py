@@ -72,7 +72,7 @@ class RouteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch.object(storage, "DB_PATH", Path(directory) / "test.db"):
             storage.init_db()
             owner = storage.create_user("owner", "example-password")
-            report_id = storage.save_report(owner["id"], None, "", "Saved report", {}, [], False)
+            report_id = storage.save_report(owner["id"], None, "", "Saved report", {"status": "rewritten"}, [], False)
             rejected_id = storage.save_report(owner["id"], None, "", "Rejected", {}, [], True)
             with storage.connect() as connection:
                 connection.execute("ALTER TABLE reports DROP COLUMN visual_findings")
@@ -101,6 +101,58 @@ class RouteTests(unittest.TestCase):
             self.assertEqual(render.call_args.kwargs["synthesis_text"], "Case interpretation")
             self.assertIn("-2.500", render.call_args.kwargs["visual_findings_text"])
             self.assertIn("FLAIR@test", render.call_args.kwargs["visual_findings_text"])
+
+    def test_direct_pdf_archives_overlay_for_owner_and_history(self):
+        from PIL import Image
+        from report.models import ReportResult
+        from utils import storage
+
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            overlay = folder / "segmented.png"
+            Image.new("RGB", (64, 64), "green").save(overlay)
+            result = ReportResult("Findings", {"status": "pass"}, .5, str(overlay), [])
+            with patch.object(storage, "DB_PATH", folder / "test.db"), \
+                 patch("report.service.IMG_STORE_DIR", folder), \
+                 patch("report.service._load_generator", new_callable=AsyncMock), \
+                 patch("report.service._run_report_pipeline", new_callable=AsyncMock, return_value=result) as pipeline:
+                storage.init_db()
+                owner = storage.create_user("owner", "example-password")
+                app.dependency_overrides[current_user] = lambda: owner
+                response = self.client.post("/api/generate-report/", files={"file": ("eye.png", b"test")})
+                self.assertEqual(response.status_code, 200)
+                report, = storage.list_reports(owner["id"])
+                image_url = f"/api/get-report-image/{report['img_name']}"
+                image = self.client.get(image_url)
+                self.assertEqual(image.status_code, 200)
+                self.assertEqual(image.headers["cache-control"], "no-store")
+                pdf = self.client.get(f"/api/reports/{report['id']}/pdf")
+                self.assertEqual(pdf.status_code, 200)
+                self.assertIn(b"/Subtype /Image", pdf.content)
+                pipeline.assert_awaited_once()
+                app.dependency_overrides[current_user] = lambda: self.user
+                self.assertEqual(self.client.get(image_url).status_code, 404)
+                app.dependency_overrides[current_user] = lambda: owner
+                (folder / f"{report['img_name']}.jpg").unlink()
+                self.assertEqual(self.client.get(image_url).status_code, 404)
+
+    def test_pdf_requires_saved_verification_on_both_routes(self):
+        from report.models import ReportResult
+        from utils import storage
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(storage, "DB_PATH", Path(directory) / "db"):
+            storage.init_db()
+            owner = storage.create_user("owner", "example-password")
+            app.dependency_overrides[current_user] = lambda: owner
+            for verification in ({"status": "disabled"}, {}):
+                result = ReportResult("Research draft", verification, None, "", [])
+                with self.subTest(verification=verification), \
+                     patch("report.service._load_generator", new_callable=AsyncMock), \
+                     patch("report.service._run_report_pipeline", new_callable=AsyncMock, return_value=result):
+                    response = self.client.post("/api/generate-report/", files={"file": ("eye.png", b"test")})
+                    self.assertEqual(response.status_code, 422)
+                    report = storage.list_reports(owner["id"])[0]
+                    self.assertEqual(self.client.get(f"/api/reports/{report['id']}/pdf").status_code, 422)
 
     def test_user_request_model_and_authentication(self):
         self.assertEqual(self.client.post('/api/account/register',json={'username':'a','password':'1'}).status_code,422)
@@ -136,7 +188,7 @@ class RouteTests(unittest.TestCase):
 
         cases = (
             (True, "英国医院眼科发现硬性渗出", "nice-ng242-1.6.11", "1.6.11", "graph"),
-            (False, "年龄相关性黄斑变性 AMD 直线变弯 检查", "macular-degeneration-nei#1-1", "National Eye Institute", "text"),
+            (False, "年龄相关性黄斑变性 AMD 直线变弯 检查", "nei-amd-symptoms-and-exam", "美国国家眼科研究所", "text"),
             (True, "英国停车收费是否有优惠？", None, None, "empty"),
         )
         for graph_enabled, question, evidence_id, source_text, retrieval_result in cases:

@@ -151,11 +151,19 @@ export const fetchUsage = () =>
 export const listConversations = () =>
   callApi({ name: '会话列表', url: `${API_BASE_URL}/api/chat/conversations`, read: json })
 
-export const createConversation = (title = '新对话', mode = 'general') =>
+export const createConversation = (title = '新对话', mode = 'general', graphEnabled = null) =>
   callApi({
     name: '新建会话',
     url: `${API_BASE_URL}/api/chat/conversations`,
-    init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, mode }) },
+    init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, mode, graph_enabled: graphEnabled }) },
+    read: json
+  })
+
+export const changeGraphPreference = (id, enabled) =>
+  callApi({
+    name: '会话图谱设置',
+    url: `${API_BASE_URL}/api/chat/conversations/${id}/graph`,
+    init: { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ graph_enabled: enabled }) },
     read: json
   })
 

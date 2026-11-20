@@ -7,6 +7,13 @@ def reject_message(verification: dict[str, Any]) -> str:
     remaining = verification.get("remaining_issues") or []
     is_error = verification.get("status") == "error"
 
+    reason = verification.get("reason")
+    if reason == "no_evidence":
+        return ("本次分析未取得可用于校验的参考资料，无法生成有依据的报告。" if USE_CHINESE
+                else "No references were available to verify this report.")
+    if reason == "empty_text":
+        return ("缺少可交付的报告正文。" if USE_CHINESE else "No report text remains for delivery.")
+
     if USE_CHINESE:
         lines = ["## 无法生成有依据的诊断报告", ""]
         if is_error:

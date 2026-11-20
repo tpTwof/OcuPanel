@@ -4,7 +4,6 @@
 病例数据无需外部文献引用，其真实性需要与原始病例核对，不由本模块保证。
 """
 from __future__ import annotations
-from typing import Any, Callable
 import sys
 from typing import Any, Callable
 from llm.models import LLMCall
@@ -72,12 +71,15 @@ class CitationVerifier:
 
         issues: list[dict] = []
         for item in data.get("claims") or []:
-            if not isinstance(item, dict):
-                continue
+            if not isinstance(item, dict) or not isinstance(item.get("quote"), str):
+                return None
             quote = str(item.get("quote") or "").strip()
             verdict = str(item.get("verdict") or "").strip().lower()
-            if not quote or verdict not in _VERDICTS:
-                continue
+            citations = item.get("citations", [])
+            if not quote or verdict not in _VERDICTS or not isinstance(citations, list):
+                return None
+            if any(type(number) is not int for number in citations):
+                return None
             issues.append({
                 "quote": quote[:200],
                 "verdict": verdict,
@@ -113,6 +115,11 @@ class CitationVerifier:
         return [r for r in (data.get("replacements") or []) if isinstance(r, dict)]
 
     # -- 主流程 -------------------------------------------------------------
+    @staticmethod
+    def no_evidence_result() -> dict[str, Any]:
+        return {"status": "rejected", "reason": "no_evidence", "rounds": 0,
+                "initial_issues": 0, "remaining_issues": [], "fixed": [], "deleted": 0}
+
     def verify_and_rewrite(
         self,
         text: str,
@@ -134,15 +141,13 @@ class CitationVerifier:
             "fixed": [],
             "deleted": 0,
         }
-        if not text or not text.strip():
+        if not content_len(text):
             report["status"] = "rejected"
             report["reason"] = "empty_text"
             return None, report
         if not evidence:
             # 没有证据包就无法校验，返回拒答，不能把未校验正文当作成功结果
-            report["reason"] = "no_evidence"
-            report["status"] = "rejected"
-            return None, report
+            return None, self.no_evidence_result()
 
         ev_text = "\n".join(item.get("text", "") for item in evidence)
         ev_map = {
@@ -180,6 +185,9 @@ class CitationVerifier:
                     file=sys.stderr,
                 )
 
+            if not content_len(current):
+                report.update(status="rejected", reason="empty_text")
+                return None, report
             issues = self.verify(current, evidence)
             report["rounds"] = round_no + 1
             if issues is None:
@@ -199,7 +207,7 @@ class CitationVerifier:
                     file=sys.stderr,
                 )
                 regenerated = regenerate(issues)
-                if regenerated and not str(regenerated).startswith("Error:"):
+                if regenerated and content_len(regenerated) and not regenerated.lstrip().startswith("Error:"):
                     current = regenerated
                     report["regenerated"] = True
                     issues = self.verify(current, evidence)

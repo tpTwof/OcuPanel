@@ -6,6 +6,7 @@ from chat.models import (
     SendMessageRequest,
     RenameConversationRequest,
     ChangeModeRequest,
+    GraphPreference,
 )
 
 from utils.errors import ApplicationError
@@ -66,14 +67,14 @@ def _verify_ophthalmic_reply(
 
 async def list_conversations(user: User) -> dict[str, Any]:
     items = await run_in_threadpool(storage.list_conversations, user["id"])
-    return {"items": items}
+    return {"items": items, "rag_enabled": config.RAG_ENABLED, "graph_default": config.GRAPH_RAG_ENABLED}
 
 
 async def create_conversation(
     user: User,
     body: CreateConversationRequest,
 ) -> dict[str, Any]:
-    return await run_in_threadpool(storage.create_conversation, user["id"], body.title or "新对话", body.mode)
+    return await run_in_threadpool(storage.create_conversation, user["id"], body.title or "新对话", body.mode, body.graph_enabled)
 
 
 async def conversation_detail(user: User, conversation_id: str) -> dict[str, Any]:
@@ -152,7 +153,9 @@ async def send_message(
         from knowledge.retrieval import format_evidence_block
         from knowledge.service import retrieve_with_status
 
-        candidates, retrieval = await run_in_threadpool(retrieve_with_status, text)
+        candidates, retrieval = await run_in_threadpool(
+            retrieve_with_status, text, graph_enabled=conv.get("graph_enabled"),
+        )
         for count in range(len(candidates), 0, -1):
             grounded_system = (
                 system
@@ -209,6 +212,13 @@ async def send_message(
     if meta:
         result.update(meta)
     return result
+
+
+async def change_graph(user: User, conversation_id: str, body: GraphPreference) -> dict[str, bool]:
+    changed = await run_in_threadpool(storage.set_graph_enabled, user["id"], conversation_id, body.graph_enabled)
+    if not changed:
+        raise ApplicationError(status_code=404, detail="会话不存在")
+    return {"graph_enabled": body.graph_enabled}
 
 
 async def change_mode(

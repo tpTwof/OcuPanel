@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "pregnancy_retina": {
+      "label": "孕期视网膜评估",
+      "aliases": [
+        "孕期视网膜评估",
+        "孕前已有糖尿病",
+        "孕期眼底检查",
+        "孕期视网膜",
+        "妊娠眼底",
+        "diabetes in pregnancy"
+      ]
+    },
+    "dr_birth": {
+      "label": "糖网与分娩",
+      "aliases": [
+        "糖网与分娩",
+        "阴道分娩",
+        "vaginal birth"
+      ]
+    }
+  },
+  "relations": [],
+  "sources": {
+    "nice-ng3": {
+      "title": "NICE NG3 糖尿病与妊娠",
+      "jurisdiction": "UK",
+      "version": "NG3，条款 1.3.25 于 2015 年修订，1.3.27 为 2008 年建议",
+      "url": "https://www.nice.org.uk/guidance/ng3/chapter/Recommendations#retinal-assessment-during-pregnancy"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nice-ng3-retina",
+      "source": "nice-ng3",
+      "section": "1.3.25 孕期视网膜评估",
+      "scope": "怀孕前已有糖尿病的孕妇",
+      "text": "首次产检后安排散瞳数字视网膜成像，过去 3 个月内已评估者可免此次检查。孕 28 周再评估；若已有糖尿病视网膜病变，孕 16 至 20 周加查一次。",
+      "anchors": [
+        "pregnancy_retina"
+      ]
+    },
+    {
+      "id": "nice-ng3-birth",
+      "source": "nice-ng3",
+      "section": "1.3.27 分娩方式",
+      "scope": "合并糖尿病视网膜病变的孕妇",
+      "text": "糖尿病视网膜病变本身不构成阴道分娩的禁忌。",
+      "anchors": [
+        "dr_birth"
+      ]
+    }
+  ]
+}

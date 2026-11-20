@@ -66,14 +66,17 @@ flowchart TD
 | GET | `/api/account/usage` | 会话、报告、拒答统计 |
 | GET / POST | `/api/chat/conversations` | 会话列表 / 创建，默认 general |
 | GET / PATCH / DELETE | `/api/chat/conversations/{id}` | 详情与完整消息 / 改名 / 删除 |
+| PATCH | `/api/chat/conversations/{id}/graph` | `{"graph_enabled":true}` 或 `false`，保存当前会话的眼科问答图谱偏好 |
 | PATCH | `/api/chat/conversations/{id}/mode` | `{"mode":"general"}` 或 `{"mode":"ophthalmic"}` |
 | POST | `/api/chat/conversations/{id}/messages` | `{"message":"..."}`，返回回复 |
 | POST | `/api/generate-report-content/` | 返回分析 JSON，并在指定会话追加临床记录与报告 |
 | POST | `/api/generate-report/` | 重新分析并返回 PDF；拒答时 422 |
 | GET | `/api/reports/{report_id}/pdf` | 按当前账号导出已保存的报告，页面下载使用此接口 |
-| GET | `/api/get-report-image/{img_name}` | 获取保存的分割叠加图 |
+| GET | `/api/get-report-image/{img_name}` | 按当前账号读取已保存报告的分割叠加图 |
 
 两个报告接口都接受 `multipart/form-data`。`file` 为 JPG/JPEG/PNG 彩色眼底图，`note` 为可选临床记录，`conversation_id` 为可选会话 ID。通过多个同名 `diseases` 字段选择病种，可用值为 `glaucoma`、`diabetic_retinopathy` 和 `age_related_macular_degeneration`。省略该字段时分析青光眼，未知或重复值返回 422。选了 DR 或 AMD 而 FLAIR 依赖或权重无法加载时返回 503。[启用 FLAIR](vision/README.md#糖网与年龄相关性黄斑变性)
+
+PDF 只接受引用校验状态为 pass 或 rewritten 的存档。关闭校验或旧记录缺少校验状态时，正文仍可在原会话查看，PDF 接口返回 422。
 
 正文响应字段为 `summary`、`cup_to_disc_ratio`、`img_name`、`evidence`、`verification`、`rejected`、`report_id`。影像指标通过 `visual_findings` 和 `visual_findings_text` 单独交付。FLAIR 差值由指标区展示，正文中的外部知识经引用校验。仅分析 DR 或 AMD 时 `cup_to_disc_ratio` 为空，`img_name` 为空字符串。拒答时 `summary` 展示拒答原因。
 
@@ -109,6 +112,8 @@ Verifier 对外部知识核查引用语义，代码另行检测未知编号，�
 | `RAG_ENABLED` / `RAG_MODE` | `1` / `hybrid` | 证据检索开关与模式 |
 | `RAG_TOP_K` / `RAG_MIN_SCORE` | `4` / `0.35` | 角色召回数量与相对得分阈值 |
 | `RAG_VECTOR_MODEL` / `RAG_VECTOR_MIN_SCORE` | `intfloat/multilingual-e5-small` / `0.78` | 向量模型与绝对阈值 |
+| `RAG_VECTOR_REVISION` | `main` | 模型版本，可固定为提交哈希 |
+| `RAG_VECTOR_CACHE_PATH` | `knowledge/.cache/vectors.db`（相对 backend 的默认绝对路径） | 本地 SQLite 向量缓存，空字符串禁用 |
 | `RAG_RRF_K` | `60` | 排名融合常数 |
 | `RAG_LANG_QUOTA` / `RAG_LANG_GATE` | `1` / `0.89` | 语言配额与查询门控 |
 | `RAG_MAX_PER_SOURCE` | `2` | 每源条数，0 不限 |
@@ -119,15 +124,15 @@ Verifier 对外部知识核查引用语义，代码另行检测未知编号，�
 | `FRONTEND_DIST` | 项目 `frontend/dist` | 前端构建目录 |
 | `MULTI_AGENT_MODE` | `parallel` | 唯一已实现模式；其他值在报告生成时报错 |
 
-`AGENT_TRACE_ENABLED` 为占位配置。`EXPIRY_SECONDS`、`CLEANUP_INTERVAL` 是遗留未使用配置，不控制当前任务清理。旧 `ANALYSIS_PIPELINE`、`VLM_MODEL`、`VLM_BACKEND` 已移除；非默认旧管线值会使启动失败。
+旧 `ANALYSIS_PIPELINE`、`VLM_MODEL`、`VLM_BACKEND` 已移除；非默认旧管线值会使启动失败。
 
 ### GraphRAG
 
-`RAG_ENABLED` 控制报告和眼科问答是否查知识库。`GRAPH_RAG_ENABLED` 控制是否加入图检索。关闭图检索时，眼科问答仍可使用 `RAG_MODE` 指定的词面或向量检索。眼科聊天保存本轮 `retrieval`、`verification` 和命中的 `evidence`，可在页面看到图谱命中、文本命中、无证据或图谱加载失败。点击正文中的引用编号可打开对应证据。开启 `VERIFY_ENABLED` 时，眼科聊天也会核查具体建议的引用，校验失败时显示补充信息提示。自动核查使用当前用户配置的 LLM，结果只反映系统已执行的引用校验。
+`RAG_ENABLED` 控制报告和眼科问答是否查知识库。`GRAPH_RAG_ENABLED` 决定报告和眼科问答的默认图谱设置，用户可在当前会话的「+」菜单中切换问答图谱检索。关闭图检索时，眼科问答仍可使用 `RAG_MODE` 指定的词面或向量检索。眼科聊天保存本轮 `retrieval`、`verification` 和命中的 `evidence`，可在页面看到图谱命中、文本命中、无证据或图谱加载失败。点击正文中的引用编号可打开对应证据。开启 `VERIFY_ENABLED` 时，眼科聊天也会核查具体建议的引用，校验失败时显示补充信息提示。自动核查使用当前用户配置的 LLM，结果只反映系统已执行的引用校验。
 
-图谱来源为 [ophthalmology-graph.json](knowledge/corpus/ophthalmology-graph.json)。其中维护概念及中英文别名、定向关系、来源和人工整理的条款摘要。新增条款使用稳定 ID，填写章节、版本、适用范围和原文链接，并连接至对应概念。条款同时进入启用的词面和向量索引。现有 `POST /api/generate-report-content/` 和眼科模式的 `POST /api/chat/conversations/{id}/messages` 通过 `evidence` 返回出处字段；图检索命中还包含 `graph_path`。图谱加载失败时使用基础检索。
+基础条款由 [ophthalmology-graph.json](knowledge/corpus/ophthalmology-graph.json) 和独立指南 `knowledge/corpus/guidelines/*.json` 提供，两种图谱设置共用同一语料集合。新增指南填写稳定 ID、标题、章节、版本、适用范围、地区和原文链接，即可进入 BM25 和启用的 E5 索引。概念、别名、定向关系和锚点可选，填写后可额外参与图谱召回。现有 `POST /api/generate-report-content/` 和眼科模式的 `POST /api/chat/conversations/{id}/messages` 通过 `evidence` 返回出处字段；图检索命中还包含 `graph_path`。图谱加载失败时保留基础条款。格式和缓存生命周期见 [知识检索](knowledge/README.md)。
 
-成功加载内置图谱后，四份旧青光眼演示文档退出检索。AMD 的 NEI 摘要也由带出处的图谱条目替代，Markdown 留作关闭图谱或加载失败时的检索语料。新版图谱包含 AMD 症状评估与在英国疑似活动性湿性晚期 AMD 时适用的转诊、OCT 和血管造影条款。 [NICE NG82](https://www.nice.org.uk/guidance/ng82/chapter/recommendations#diagnosis-and-referral) · [NEI AMD 资料](https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/age-related-macular-degeneration)
+加载带出处的条款后，旧青光眼演示材料退出检索；存在 NEI AMD 条款时，旧 Markdown 摘要由该条款替代。该规则同时适用于图谱开启和关闭。图谱包含 AMD 症状评估与在英国疑似活动性湿性晚期 AMD 时适用的转诊、OCT 和血管造影条款。 [NICE NG82](https://www.nice.org.uk/guidance/ng82/chapter/recommendations#diagnosis-and-referral) · [NEI AMD 资料](https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/age-related-macular-degeneration)
 
 中国 AMD 场景增加了初诊眼底检查与疑似新生血管性 AMD 的 OCT/OCTA 条款。试查「国内怀疑新生血管性 AMD，能用 OCTA 吗？」应命中中国指南。以「英国医院怀疑湿性黄斑变性，需要转诊和 OCT 吗？」做地区对照。用「英国停车收费是否有优惠？」验证 BM25 与图检索模式的无证据显示。 [中国 AMD 临床诊疗指南原文](https://www.ddzxhospital.com/library/up_f/file/20230802/202308020837477207.pdf)
 

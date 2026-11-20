@@ -1,7 +1,6 @@
 function Icon({ name }) {
   const paths = {
     chat: 'M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7a2.5 2.5 0 0 1-2.5 2.5H9l-4 3v-3.2A2.5 2.5 0 0 1 4 12.5z',
-    report: 'M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5',
     plus: 'M12 5v14M5 12h14',
     user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-3.3 3.6-6 8-6s8 2.7 8 6'
   }
@@ -24,7 +23,6 @@ export default function Sidebar({
   activeId,
   view,
   onNewChat,
-  onOpenReport,
   onSelectConversation,
   onDeleteConversation,
   onOpenSettings,
@@ -51,15 +49,6 @@ export default function Sidebar({
       >
         <Icon name="plus" />
         新建对话
-      </button>
-
-      <button
-        type="button"
-        className={`nav-action${view === 'report' ? ' active' : ''}`}
-        onClick={onOpenReport}
-      >
-        <Icon name="report" />
-        眼科分析
       </button>
 
       <div className="nav-divider" />

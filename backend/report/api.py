@@ -33,6 +33,7 @@ async def generate_report(
 ) -> FileResponse:
     download = await service.generate_report(user, request)
     return FileResponse(str(download.path), media_type="application/pdf", filename=download.filename,
+                        headers={"Cache-Control": "no-store"},
                         background=BackgroundTask(cleanup_job_dir, download.job_dir))
 
 @report_router.post("/generate-report-content/")
@@ -53,4 +54,4 @@ async def export_report(report_id: str, user: auth.CurrentUser) -> FileResponse:
 @report_router.get("/get-report-image/{img_name}")
 async def get_report_image(img_name: str, user: auth.CurrentUser) -> FileResponse:
     path = await service.get_report_image(img_name, user)
-    return FileResponse(str(path), media_type="image/jpeg")
+    return FileResponse(str(path), media_type="image/jpeg", headers={"Cache-Control": "no-store"})

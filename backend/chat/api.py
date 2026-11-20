@@ -6,6 +6,7 @@ from chat.models import (
     SendMessageRequest,
     RenameConversationRequest,
     ChangeModeRequest,
+    GraphPreference,
 )
 from . import service
 
@@ -51,6 +52,13 @@ async def send_message(
     body: SendMessageRequest,
 ) -> dict[str, Any]:
     return await service.send_message(user, conversation_id, body)
+
+
+@chat_router.patch('/chat/conversations/{conversation_id}/graph')
+async def change_graph(
+    user: auth.CurrentUser, conversation_id: str, body: GraphPreference,
+) -> dict[str, bool]:
+    return await service.change_graph(user, conversation_id, body)
 
 
 @chat_router.patch('/chat/conversations/{conversation_id}/mode')

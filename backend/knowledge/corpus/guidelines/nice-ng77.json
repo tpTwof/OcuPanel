@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "cataract_referral": {
+      "label": "白内障手术转诊",
+      "aliases": [
+        "白内障手术转诊",
+        "白内障手术",
+        "白内障转诊",
+        "cataract surgery"
+      ]
+    },
+    "ocular_biometry": {
+      "label": "术前生物测量",
+      "aliases": [
+        "术前生物测量",
+        "眼轴",
+        "生物测量",
+        "biometry"
+      ]
+    },
+    "keratometry": {
+      "label": "角膜曲率测量",
+      "aliases": [
+        "角膜曲率测量",
+        "角膜曲率",
+        "角膜地形图",
+        "keratometry"
+      ]
+    }
+  },
+  "relations": [],
+  "sources": {
+    "nice-ng77": {
+      "title": "NICE NG77 成人白内障管理",
+      "jurisdiction": "UK",
+      "version": "NG77（2017）",
+      "url": "https://www.nice.org.uk/guidance/ng77/chapter/Recommendations"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nice-ng77-referral",
+      "source": "nice-ng77",
+      "section": "1.2.1–1.2.2 手术转诊",
+      "scope": "成人白内障手术转诊决策",
+      "text": "白内障手术转诊应与患者讨论视觉困难对生活的影响、单眼或双眼受累、手术利弊、暂缓手术的影响及个人意愿。单一视力数值不足以决定手术准入。",
+      "anchors": [
+        "cataract_referral"
+      ]
+    },
+    {
+      "id": "nice-ng77-axial-length",
+      "source": "nice-ng77",
+      "section": "1.3.1–1.3.2 眼轴测量",
+      "scope": "拟接受白内障手术的成人",
+      "text": "术前优先用光学生物测量获取眼轴长度。如果无法测量或结果欠准确，使用超声生物测量。",
+      "anchors": [
+        "ocular_biometry"
+      ]
+    },
+    {
+      "id": "nice-ng77-cornea",
+      "source": "nice-ng77",
+      "section": "1.3.3–1.3.4 角膜测量",
+      "scope": "拟接受白内障手术的成人",
+      "text": "术前用角膜曲率计测量角膜曲率。角膜异常平坦、陡峭或不规则，散光明显，有角膜屈光手术史，或曲率难以准确测量时，可考虑角膜地形图。",
+      "anchors": [
+        "keratometry"
+      ]
+    }
+  ]
+}

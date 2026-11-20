@@ -40,6 +40,19 @@ class ConversationModeStorageTests(unittest.TestCase):
         self.assertEqual(storage.list_conversations('u1')[0]['mode'], 'ophthalmic')
         self.assertEqual(storage.list_conversations('u2'), [])
 
+    def test_graph_preference_is_scoped_to_conversation_and_owner(self):
+        storage.init_db()
+        self.add_user('u1')
+        self.add_user('u2')
+        first = storage.create_conversation('u1', graph_enabled=True)
+        second = storage.create_conversation('u1')
+        self.assertFalse(storage.set_graph_enabled('u2', first['id'], False))
+        self.assertTrue(storage.get_conversation('u1', first['id'])['graph_enabled'])
+        self.assertTrue(storage.set_graph_enabled('u1', first['id'], False))
+        storage.init_db()
+        self.assertFalse(storage.get_conversation('u1', first['id'])['graph_enabled'])
+        self.assertIsNone(storage.get_conversation('u1', second['id'])['graph_enabled'])
+
     def test_old_database_migration_is_idempotent(self):
         legacy = storage.SCHEMA.replace(
             "    mode       TEXT NOT NULL DEFAULT 'general' CHECK (mode IN ('general', 'ophthalmic')),\n", ''
@@ -86,6 +99,33 @@ class TransportPromptTests(unittest.TestCase):
             self.assertEqual(sdk.return_value.chat.completions.create.call_args.kwargs['messages'][0], {'role':'system','content':'Eye role'})
 
 class AnalysisConversationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_failed_chat_archive_rolls_back_report_messages_and_overlay(self):
+        from PIL import Image
+        from report import service as reports
+        from report.models import ReportSubmission, ReportResult
+
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            with patch.object(storage, "DB_PATH", folder / "db"), patch.object(reports, "IMG_STORE_DIR", folder):
+                storage.init_db()
+                owner = storage.create_user("owner", "test-password")
+                conv = storage.create_conversation(owner["id"])
+                with storage.connect() as conn:
+                    conn.execute("CREATE TRIGGER fail_reply BEFORE INSERT ON messages "
+                                 "WHEN NEW.role='assistant' BEGIN SELECT RAISE(ABORT, 'write failed'); END")
+                overlay = folder / "segmented.png"
+                Image.new("RGB", (32, 32)).save(overlay)
+                result = ReportResult("Case", {"status": "pass"}, .5, str(overlay), [])
+                request = ReportSubmission(b"image", "eye.png", "", conv["id"])
+                with patch.object(reports, "_load_generator", new_callable=AsyncMock), \
+                     patch.object(reports, "_run_report_pipeline", new_callable=AsyncMock, return_value=result):
+                    with self.assertRaises(sqlite3.IntegrityError):
+                        await reports.generate_content(owner, request)
+                self.assertEqual(storage.list_reports(owner["id"]), [])
+                self.assertEqual(storage.list_messages(owner["id"], conv["id"]), [])
+                self.assertEqual(list(folder.glob("*.jpg")), [])
+                self.assertEqual(storage.get_conversation(owner["id"], conv["id"])["title"], "新对话")
+
     async def test_analysis_activates_mode_and_saves_case_and_reply(self):
         from report import service as reports
         from report.models import ReportSubmission, ReportResult

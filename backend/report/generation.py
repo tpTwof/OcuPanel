@@ -14,8 +14,10 @@ from utils import config
 from llm.client import LLMClient
 from knowledge.service import get_retriever, retrieve_evidence
 from .context import build_context
-from .utils.messages import reject_message
 from .pdf import PDFRenderer
+from .utils.messages import reject_message
+from agents.tools.text_revision import content_len
+from agents.verifier import CitationVerifier
 
 def build_generator_for_user(cfg: LLMConfiguration) -> "MedicalReportGenerator":
     """用**用户自己的** LLM 配置造一个生成器。
@@ -94,6 +96,14 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
                 role_items.append(evidence_by_id[item_id])
 
         evidence = list(evidence_by_id.values())
+        visual_findings = {
+            disease: asdict(finding) for disease, finding in analysis.diseases.items()
+        }
+        if config.VERIFY_ENABLED and not evidence:
+            verification = CitationVerifier.no_evidence_result()
+            verification["missing_evidence_diseases"] = missing_evidence
+            return ReportResult(None, verification, ratio, overlay_path, evidence, visual_findings)
+
         numbers = {item["id"]: item["index"] for item in evidence}
         if len(agents) == 1:
             agent = agents[0]
@@ -121,9 +131,6 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
         summary, verification = self.verify_synthesis(draft(), evidence, draft)
         if missing_evidence:
             verification["missing_evidence_diseases"] = missing_evidence
-        visual_findings = {
-            disease: asdict(finding) for disease, finding in analysis.diseases.items()
-        }
         return ReportResult(summary, verification, ratio, overlay_path, evidence, visual_findings)
 
     def verify_synthesis(
@@ -137,6 +144,8 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
         返回 (文本, 校验报告)。**文本为 None 表示不交报告**（拒答或校验故障），
         调用方必须据此走拒答路径，不能把原文返回给用户。
         """
+        if not content_len(text) or text.lstrip().startswith("Error:"):
+            return None, {"status": "rejected", "reason": "empty_text"}
         if not config.VERIFY_ENABLED:
             from agents.tools.evidence import unknown_citation_issues
             issues = unknown_citation_issues(text, evidence)
@@ -146,12 +155,7 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
                     "remaining_issues": issues,
                 }
             return text, {"status": "disabled"}
-        if not text or text.startswith("Error:"):
-            return None, {"status": "rejected", "reason": "empty_text"}
-
         try:
-            from agents.verifier import CitationVerifier
-
             verifier = CitationVerifier(
                 lambda prompt, system=None, temperature=None: self.chat_with_gpt(
                     prompt, reset=True, system=system, temperature=temperature
