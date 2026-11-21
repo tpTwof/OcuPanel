@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "vitreous_detachment": {
+      "label": "玻璃体后脱离",
+      "aliases": [
+        "玻璃体后脱离",
+        "玻璃体脱离",
+        "PVD",
+        "posterior vitreous detachment",
+        "Vitreous Detachment"
+      ]
+    },
+    "peripheral_flashes": {
+      "label": "周边闪光",
+      "aliases": [
+        "周边闪光",
+        "眼角闪光"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "peripheral_flashes",
+      "相关表现见于",
+      "vitreous_detachment"
+    ],
+    [
+      "vitreous_detachment",
+      "可能并发",
+      "retinal_detachment"
+    ]
+  ],
+  "sources": {
+    "nei-vitreous-detachment": {
+      "title": "美国国家眼科研究所（NEI）玻璃体后脱离公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/vitreous-detachment"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-vitreous-detachment-features",
+      "source": "nei-vitreous-detachment",
+      "section": "At a glance: Vitreous Detachment / What is vitreous detachment? / What are the symptoms of vitreous detachment?",
+      "scope": "美国 NEI 面向公众的玻璃体后脱离健康教育",
+      "anchors": [
+        "vitreous_detachment",
+        "peripheral_flashes"
+      ],
+      "text": "玻璃体脱离时，眼前可出现新的漂浮物，视野边缘可见闪光；伴有视网膜裂孔或脱离时有失明风险，出现新症状应立即就诊。"
+    },
+    {
+      "id": "nei-vitreous-detachment-assessment",
+      "source": "nei-vitreous-detachment",
+      "section": "How will my eye doctor check for vitreous detachment?",
+      "scope": "美国 NEI 面向公众的玻璃体后脱离健康教育",
+      "anchors": [
+        "vitreous_detachment"
+      ],
+      "text": "玻璃体脱离需要散瞳检查，尤其要寻找同时发生的视网膜损伤，症状本身无法区分是否已有并发症。"
+    },
+    {
+      "id": "nei-vitreous-detachment-care",
+      "source": "nei-vitreous-detachment",
+      "section": "What’s the treatment for vitreous detachment?",
+      "scope": "美国 NEI 面向公众的玻璃体后脱离健康教育",
+      "anchors": [
+        "vitreous_detachment"
+      ],
+      "text": "散瞳检查确认没有视网膜裂孔等并发症的玻璃体脱离多可观察；若发现裂孔，则需针对裂孔处理。"
+    }
+  ]
+}

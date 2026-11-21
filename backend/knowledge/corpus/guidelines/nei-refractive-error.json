@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "refractive_error": {
+      "label": "屈光不正",
+      "aliases": [
+        "屈光不正",
+        "屈光异常",
+        "refractive error",
+        "Refractive Errors"
+      ]
+    },
+    "optical_focus": {
+      "label": "屈光焦点",
+      "aliases": [
+        "屈光焦点",
+        "光线聚焦异常"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "refractive_error",
+      "涉及机制",
+      "optical_focus"
+    ]
+  ],
+  "sources": {
+    "nei-refractive-error": {
+      "title": "美国国家眼科研究所（NEI）屈光不正公众教育",
+      "jurisdiction": "US",
+      "version": "2025-12-19",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/refractive-errors"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-refractive-error-features",
+      "source": "nei-refractive-error",
+      "section": "At a glance: Refractive Errors / What are refractive errors? / What are the types of refractive errors? / What are the symptoms of refractive errors? / What causes refractive errors?",
+      "scope": "美国 NEI 面向公众的屈光不正健康教育",
+      "anchors": [
+        "refractive_error",
+        "optical_focus"
+      ],
+      "text": "屈光不正是眼的光学系统无法将光准确聚焦在视网膜上，常见类型包括近视、远视、散光和老视。"
+    },
+    {
+      "id": "nei-refractive-error-assessment",
+      "source": "nei-refractive-error",
+      "section": "How will my eye doctor check for refractive errors? / What’s the treatment for refractive errors?",
+      "scope": "美国 NEI 面向公众的屈光不正健康教育",
+      "anchors": [
+        "refractive_error"
+      ],
+      "text": "眼科检查可发现屈光不正。矫正可选眼镜或隐形眼镜，部分人经评估可考虑屈光手术。"
+    }
+  ]
+}

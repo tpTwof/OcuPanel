@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "amblyopia": {
+      "label": "弱视",
+      "aliases": [
+        "弱视",
+        "lazy eye",
+        "Amblyopia (Lazy Eye)"
+      ]
+    },
+    "poor_depth": {
+      "label": "立体视觉差",
+      "aliases": [
+        "立体视觉差",
+        "深度知觉差"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "poor_depth",
+      "相关表现见于",
+      "amblyopia"
+    ]
+  ],
+  "sources": {
+    "nei-amblyopia": {
+      "title": "美国国家眼科研究所（NEI）弱视公众教育",
+      "jurisdiction": "US",
+      "version": "2024-11-26",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/amblyopia-lazy-eye"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-amblyopia-features",
+      "source": "nei-amblyopia",
+      "section": "At a glance: Amblyopia / What is amblyopia? / What are the symptoms of amblyopia? / What causes amblyopia?",
+      "scope": "美国 NEI 面向公众的弱视健康教育",
+      "anchors": [
+        "amblyopia",
+        "poor_depth"
+      ],
+      "text": "弱视多在儿童视觉发育期发生，常有一眼视力较差或深度知觉受影响。孩子可能没有察觉，需通过视力筛查发现。"
+    },
+    {
+      "id": "nei-amblyopia-assessment",
+      "source": "nei-amblyopia",
+      "section": "How will my child’s doctor check for amblyopia?",
+      "scope": "美国 NEI 面向公众的弱视健康教育",
+      "anchors": [
+        "amblyopia"
+      ],
+      "text": "NEI 在美国儿童健康教育中指出，3 至 5 岁儿童应至少做一次视力检查，以发现可能的弱视。"
+    },
+    {
+      "id": "nei-amblyopia-care",
+      "source": "nei-amblyopia",
+      "section": "What’s the treatment for amblyopia?",
+      "scope": "美国 NEI 面向公众的弱视健康教育",
+      "anchors": [
+        "amblyopia"
+      ],
+      "text": "弱视治疗先处理可矫正的原因，例如屈光不正；医生可进一步安排遮盖较强眼或使用处方滴眼液，以促进较弱眼的使用。"
+    }
+  ]
+}

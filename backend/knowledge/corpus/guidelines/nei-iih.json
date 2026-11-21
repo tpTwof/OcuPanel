@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "iih": {
+      "label": "特发性颅内高压",
+      "aliases": [
+        "特发性颅内高压",
+        "IIH",
+        "Idiopathic Intracranial Hypertension"
+      ]
+    },
+    "enlarged_blind_spot": {
+      "label": "视野盲点",
+      "aliases": [
+        "视野盲点",
+        "视野出现盲区"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "enlarged_blind_spot",
+      "相关表现见于",
+      "iih"
+    ],
+    [
+      "iih",
+      "功能评估",
+      "visual_field"
+    ]
+  ],
+  "sources": {
+    "nei-iih": {
+      "title": "美国国家眼科研究所（NEI）特发性颅内高压公众教育",
+      "jurisdiction": "US",
+      "version": "2024-11-27",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/idiopathic-intracranial-hypertension"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-iih-features",
+      "source": "nei-iih",
+      "section": "At a glance: Idiopathic Intracranial Hypertension / What is idiopathic intracranial hypertension? / What are the symptoms of IIH? / What causes IIH?",
+      "scope": "美国 NEI 面向公众的特发性颅内高压健康教育",
+      "anchors": [
+        "iih",
+        "enlarged_blind_spot"
+      ],
+      "text": "特发性颅内高压可影响视神经，引起头痛、盲点或周边视野缺失，需评估视觉功能。"
+    },
+    {
+      "id": "nei-iih-assessment",
+      "source": "nei-iih",
+      "section": "How will my eye doctor check for IIH?",
+      "scope": "美国 NEI 面向公众的特发性颅内高压健康教育",
+      "anchors": [
+        "iih"
+      ],
+      "text": "眼科评估包括散瞳检查眼底和视野检查。必要时神经科还会做脑影像和腰椎穿刺，排查其他病因并评估脑脊液。"
+    },
+    {
+      "id": "nei-iih-care",
+      "source": "nei-iih",
+      "section": "What's the treatment for IIH?",
+      "scope": "美国 NEI 面向公众的特发性颅内高压健康教育",
+      "anchors": [
+        "iih"
+      ],
+      "text": "对伴超重或肥胖的特发性颅内高压患者，医生可能将体重管理纳入治疗，并结合视觉功能变化决定后续干预。"
+    }
+  ]
+}

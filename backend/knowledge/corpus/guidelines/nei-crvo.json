@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "crvo": {
+      "label": "视网膜中央静脉阻塞",
+      "aliases": [
+        "视网膜中央静脉阻塞",
+        "CRVO",
+        "Central Retinal Vein Occlusion (CRVO)"
+      ]
+    },
+    "sudden_blur": {
+      "label": "突然视力模糊",
+      "aliases": [
+        "突然视力模糊",
+        "突然看不清"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "sudden_blur",
+      "相关表现见于",
+      "crvo"
+    ],
+    [
+      "crvo",
+      "可能并发",
+      "macular_edema"
+    ],
+    [
+      "crvo",
+      "评估检查",
+      "oct"
+    ]
+  ],
+  "sources": {
+    "nei-crvo": {
+      "title": "美国国家眼科研究所（NEI）视网膜中央静脉阻塞公众教育",
+      "jurisdiction": "US",
+      "version": "2024-11-27",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/central-retinal-vein-occlusion-crvo"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-crvo-features",
+      "source": "nei-crvo",
+      "section": "At a glance: CRVO / What is CRVO? / What are the types of CRVO? / What are the symptoms of CRVO? / What causes CRVO?",
+      "scope": "美国 NEI 面向公众的视网膜中央静脉阻塞健康教育",
+      "anchors": [
+        "crvo",
+        "sudden_blur"
+      ],
+      "text": "视网膜中央静脉阻塞可导致视物模糊或突然视力丧失，部分轻症几乎没有症状。突然发生视觉变化应尽快就医。"
+    },
+    {
+      "id": "nei-crvo-assessment",
+      "source": "nei-crvo",
+      "section": "How will my eye doctor check for CRVO?",
+      "scope": "美国 NEI 面向公众的视网膜中央静脉阻塞健康教育",
+      "anchors": [
+        "crvo"
+      ],
+      "text": "评估视网膜中央静脉阻塞时，散瞳眼底检查可结合荧光素血管造影观察血流，OCT 可评估视网膜水肿及随访变化。"
+    },
+    {
+      "id": "nei-crvo-care",
+      "source": "nei-crvo",
+      "section": "What’s the treatment for CRVO?",
+      "scope": "美国 NEI 面向公众的视网膜中央静脉阻塞健康教育",
+      "anchors": [
+        "crvo"
+      ],
+      "text": "视网膜中央静脉阻塞合并黄斑水肿时，眼科医生可采用眼内抗 VEGF 注射减轻水肿，后续是否重复治疗取决于病情。"
+    }
+  ]
+}

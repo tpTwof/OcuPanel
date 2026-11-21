@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "stargardt": {
+      "label": "Stargardt病",
+      "aliases": [
+        "Stargardt病",
+        "Stargardt",
+        "斯特格病",
+        "少年型黄斑变性",
+        "Stargardt Disease"
+      ]
+    },
+    "macular_flecks": {
+      "label": "黄斑黄色斑点",
+      "aliases": [
+        "黄斑黄色斑点",
+        "黄斑黄白色斑点"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "stargardt",
+      "检查可见",
+      "macular_flecks"
+    ],
+    [
+      "stargardt",
+      "康复支持",
+      "vision_rehab"
+    ]
+  ],
+  "sources": {
+    "nei-stargardt": {
+      "title": "美国国家眼科研究所（NEI）Stargardt病公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/stargardt-disease"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-stargardt-features",
+      "source": "nei-stargardt",
+      "section": "At a glance: Stargardt Disease / What is Stargardt disease? / What are the symptoms of Stargardt disease? / What causes Stargardt disease?",
+      "scope": "美国 NEI 面向公众的Stargardt病健康教育",
+      "anchors": [
+        "stargardt"
+      ],
+      "text": "Stargardt 病常出现渐进性中心视力下降，也可伴畏光，症状可能在儿童或青少年时期开始。"
+    },
+    {
+      "id": "nei-stargardt-assessment",
+      "source": "nei-stargardt",
+      "section": "How will my eye doctor check for Stargardt disease?",
+      "scope": "美国 NEI 面向公众的Stargardt病健康教育",
+      "anchors": [
+        "stargardt",
+        "macular_flecks"
+      ],
+      "text": "散瞳检查和眼底照相可寻找黄斑黄色斑点。医生还可结合视网膜电图和基因检测评估 Stargardt 病。"
+    },
+    {
+      "id": "nei-stargardt-care",
+      "source": "nei-stargardt",
+      "section": "What's the treatment for Stargardt disease?",
+      "scope": "美国 NEI 面向公众的Stargardt病健康教育",
+      "anchors": [
+        "stargardt"
+      ],
+      "text": "Stargardt 病患者可通过助视设备和康复适应中心视力损失。NEI 提醒避免补充超过每日推荐量的维生素 A。"
+    }
+  ]
+}

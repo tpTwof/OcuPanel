@@ -11,6 +11,25 @@ from knowledge.retrieval import CORPUS_DIR, DEMO_SOURCES, Retriever, VectorIndex
 
 
 class GraphRetrievalTests(unittest.TestCase):
+    def test_nei_patient_descriptions_retrieve_specific_source_sections(self):
+        cases = {
+            "像有帘子挡住视线": "nei-retinal-detachment-features",
+            "孩子拍照瞳孔发白": "nei-retinoblastoma-features",
+            "睫毛根部结痂": "nei-blepharitis-features",
+            "干眼怎么检查泪膜稳定性": "nei-dry-eye-assessment",
+        }
+        for enabled in (False, True):
+            retriever = Retriever.from_corpus(mode="bm25", graph_enabled=enabled)
+            for query, expected in cases.items():
+                with self.subTest(graph=enabled, query=query):
+                    hits = {item["id"]: item for item in retriever.search(query)}
+                    self.assertIn(expected, hits)
+                    hit = hits[expected]
+                    self.assertEqual(hit["jurisdiction"], "US")
+                    self.assertTrue(hit["url"].startswith("https://www.nei.nih.gov/"))
+                    self.assertTrue(all(hit[key] for key in ("section", "version", "scope")))
+                    self.assertEqual(bool(hit.get("graph_path")), enabled)
+
     def test_vector_batches_preserve_chunk_order_across_boundaries(self):
         chunks = [Chunk(str(i), "test", "title", "section", str(i)) for i in range(65)]
         index = VectorIndex(chunks)

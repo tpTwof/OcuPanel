@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "presbyopia": {
+      "label": "老视",
+      "aliases": [
+        "老视",
+        "老花眼",
+        "老花",
+        "presbyopia",
+        "Presbyopia"
+      ]
+    },
+    "reading_distance": {
+      "label": "看书要拿远",
+      "aliases": [
+        "看书要拿远",
+        "阅读距离变远"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "reading_distance",
+      "相关表现见于",
+      "presbyopia"
+    ],
+    [
+      "presbyopia",
+      "分型属于",
+      "refractive_error"
+    ]
+  ],
+  "sources": {
+    "nei-presbyopia": {
+      "title": "美国国家眼科研究所（NEI）老视公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/presbyopia"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-presbyopia-features",
+      "source": "nei-presbyopia",
+      "section": "At a glance: Presbyopia / What is presbyopia? / What are the symptoms of presbyopia? / What causes presbyopia?",
+      "scope": "美国 NEI 面向公众的老视健康教育",
+      "anchors": [
+        "presbyopia",
+        "reading_distance"
+      ],
+      "text": "随年龄增长，晶状体逐渐变硬，近距离调焦能力下降。阅读时需要把材料拿远是常见表现。"
+    },
+    {
+      "id": "nei-presbyopia-assessment",
+      "source": "nei-presbyopia",
+      "section": "How will my eye doctor check for presbyopia? / What’s the treatment for presbyopia?",
+      "scope": "美国 NEI 面向公众的老视健康教育",
+      "anchors": [
+        "presbyopia"
+      ],
+      "text": "眼科检查可评估老视，阅读镜、其他眼镜或隐形眼镜可帮助改善近距离视物。"
+    }
+  ]
+}

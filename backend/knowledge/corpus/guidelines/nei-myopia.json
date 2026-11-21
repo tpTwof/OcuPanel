@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "myopia": {
+      "label": "近视",
+      "aliases": [
+        "近视",
+        "myopia",
+        "Nearsightedness (Myopia)"
+      ]
+    },
+    "distance_blur": {
+      "label": "看远模糊",
+      "aliases": [
+        "看远模糊",
+        "远处看不清"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "distance_blur",
+      "相关表现见于",
+      "myopia"
+    ],
+    [
+      "myopia",
+      "分型属于",
+      "refractive_error"
+    ]
+  ],
+  "sources": {
+    "nei-myopia": {
+      "title": "美国国家眼科研究所（NEI）近视公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/nearsightedness-myopia"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-myopia-features",
+      "source": "nei-myopia",
+      "section": "At a glance: Nearsightedness / What is nearsightedness? / What are the symptoms of nearsightedness? / What causes nearsightedness?",
+      "scope": "美国 NEI 面向公众的近视健康教育",
+      "anchors": [
+        "myopia",
+        "distance_blur"
+      ],
+      "text": "近视使远处物体模糊，可能伴眯眼或眼疲劳。眼球偏长或角膜、晶状体形态可使光聚焦在视网膜前方。"
+    },
+    {
+      "id": "nei-myopia-assessment",
+      "source": "nei-myopia",
+      "section": "How will my eye doctor check for nearsightedness? / What's the treatment for nearsightedness?",
+      "scope": "美国 NEI 面向公众的近视健康教育",
+      "anchors": [
+        "myopia"
+      ],
+      "text": "眼科检查可确定是否近视。眼镜或隐形眼镜可使光线正确聚焦，部分成年人可考虑手术矫正。"
+    }
+  ]
+}

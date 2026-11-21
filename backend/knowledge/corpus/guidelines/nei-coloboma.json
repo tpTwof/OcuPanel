@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "coloboma": {
+      "label": "先天性眼组织缺损",
+      "aliases": [
+        "先天性眼组织缺损",
+        "虹膜缺损",
+        "coloboma",
+        "Coloboma"
+      ]
+    },
+    "keyhole_pupil": {
+      "label": "钥匙孔样瞳孔",
+      "aliases": [
+        "钥匙孔样瞳孔",
+        "钥匙孔瞳孔"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "keyhole_pupil",
+      "相关表现见于",
+      "coloboma"
+    ]
+  ],
+  "sources": {
+    "nei-coloboma": {
+      "title": "美国国家眼科研究所（NEI）先天性眼组织缺损公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-06",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/coloboma"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-coloboma-features",
+      "source": "nei-coloboma",
+      "section": "At a glance: Coloboma / What is coloboma? / What are the types of coloboma? / What are the symptoms of coloboma? / What causes coloboma?",
+      "scope": "美国 NEI 面向公众的先天性眼组织缺损健康教育",
+      "anchors": [
+        "coloboma",
+        "keyhole_pupil"
+      ],
+      "text": "先天性眼组织缺损可累及不同部位，虹膜缺损可使瞳孔呈钥匙孔样。对视力的影响取决于缺损部位和范围。"
+    },
+    {
+      "id": "nei-coloboma-assessment",
+      "source": "nei-coloboma",
+      "section": "How will my child’s doctor check for coloboma?",
+      "scope": "美国 NEI 面向公众的先天性眼组织缺损健康教育",
+      "anchors": [
+        "coloboma"
+      ],
+      "text": "部分缺损在出生时即可从眼外观察；对于眼内无法直接看到的缺损，医生可通过全面散瞳检查评估。"
+    },
+    {
+      "id": "nei-coloboma-care",
+      "source": "nei-coloboma",
+      "section": "What’s the treatment for coloboma?",
+      "scope": "美国 NEI 面向公众的先天性眼组织缺损健康教育",
+      "anchors": [
+        "coloboma"
+      ],
+      "text": "先天性眼组织缺损伴屈光不正时可配镜矫正；视力受限的儿童还可能受益于助视设备及早期干预。"
+    }
+  ]
+}

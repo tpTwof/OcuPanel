@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "macular_pucker": {
+      "label": "黄斑前膜",
+      "aliases": [
+        "黄斑前膜",
+        "视网膜前膜",
+        "黄斑皱褶",
+        "epiretinal membrane",
+        "Macular Pucker"
+      ]
+    },
+    "macular_wrinkle": {
+      "label": "黄斑表面皱褶",
+      "aliases": [
+        "黄斑表面皱褶",
+        "黄斑起皱"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "macular_wrinkle",
+      "相关表现见于",
+      "macular_pucker"
+    ],
+    [
+      "macular_pucker",
+      "评估检查",
+      "oct"
+    ]
+  ],
+  "sources": {
+    "nei-macular-pucker": {
+      "title": "美国国家眼科研究所（NEI）黄斑前膜公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/macular-pucker"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-macular-pucker-features",
+      "source": "nei-macular-pucker",
+      "section": "At a glance: Macular Pucker / What is a macular pucker? / What are the symptoms of a macular pucker? / What causes a macular pucker?",
+      "scope": "美国 NEI 面向公众的黄斑前膜健康教育",
+      "anchors": [
+        "macular_pucker",
+        "macular_wrinkle"
+      ],
+      "text": "黄斑表面形成的膜可牵拉视网膜而产生皱褶，出现中心视力模糊或变形，轻者可能没有明显症状。"
+    },
+    {
+      "id": "nei-macular-pucker-assessment",
+      "source": "nei-macular-pucker",
+      "section": "How will an eye doctor check for a macular pucker?",
+      "scope": "美国 NEI 面向公众的黄斑前膜健康教育",
+      "anchors": [
+        "macular_pucker"
+      ],
+      "text": "黄斑前膜的评估包括散瞳检查；需要判断牵拉和皱褶的程度时可用 OCT 观察黄斑结构。"
+    },
+    {
+      "id": "nei-macular-pucker-care",
+      "source": "nei-macular-pucker",
+      "section": "What's the treatment for a macular pucker?",
+      "scope": "美国 NEI 面向公众的黄斑前膜健康教育",
+      "anchors": [
+        "macular_pucker"
+      ],
+      "text": "症状轻的黄斑前膜可定期随访。阅读或其他日常活动明显受影响时，眼科医生可评估手术去除前膜的收益与风险。"
+    }
+  ]
+}

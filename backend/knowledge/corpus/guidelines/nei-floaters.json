@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "floaters": {
+      "label": "飞蚊症",
+      "aliases": [
+        "飞蚊症",
+        "飞蚊",
+        "眼前漂浮物",
+        "Floaters"
+      ]
+    },
+    "moving_spots": {
+      "label": "飘动的黑点",
+      "aliases": [
+        "飘动的黑点",
+        "眼前有小黑点飘动"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "moving_spots",
+      "相关表现见于",
+      "floaters"
+    ],
+    [
+      "floaters",
+      "新发需排查",
+      "retinal_detachment"
+    ]
+  ],
+  "sources": {
+    "nei-floaters": {
+      "title": "美国国家眼科研究所（NEI）飞蚊症公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/floaters"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-floaters-features",
+      "source": "nei-floaters",
+      "section": "At a glance: Floaters / What are floaters? / What are the symptoms of floaters? / What causes floaters? / When to get help right away",
+      "scope": "美国 NEI 面向公众的飞蚊症健康教育",
+      "anchors": [
+        "floaters",
+        "moving_spots"
+      ],
+      "text": "飞蚊可表现为随眼球运动而移动的点、线或蛛网状阴影，在明亮背景下更容易察觉。突然大量出现，尤其伴闪光或幕帘样遮挡，应立即就医。"
+    },
+    {
+      "id": "nei-floaters-assessment",
+      "source": "nei-floaters",
+      "section": "How will my eye doctor check for floaters?",
+      "scope": "美国 NEI 面向公众的飞蚊症健康教育",
+      "anchors": [
+        "floaters"
+      ],
+      "text": "眼科医生通过散瞳观察玻璃体和视网膜，判断飞蚊与一般年龄变化还是需要处理的眼底问题有关。"
+    },
+    {
+      "id": "nei-floaters-care",
+      "source": "nei-floaters",
+      "section": "What’s the treatment for floaters?",
+      "scope": "美国 NEI 面向公众的飞蚊症健康教育",
+      "anchors": [
+        "floaters"
+      ],
+      "text": "已检查并确认与年龄相关、对日常生活影响轻的飞蚊通常无需治疗。持续严重妨碍视物时，可与眼科医生讨论玻璃体切除术的风险和收益。"
+    }
+  ]
+}

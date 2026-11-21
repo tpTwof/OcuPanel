@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "low_vision": {
+      "label": "低视力",
+      "aliases": [
+        "低视力",
+        "low vision",
+        "Low Vision"
+      ]
+    },
+    "vision_rehab": {
+      "label": "视觉康复",
+      "aliases": [
+        "视觉康复",
+        "低视力康复",
+        "vision rehabilitation"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "low_vision",
+      "康复支持",
+      "vision_rehab"
+    ]
+  ],
+  "sources": {
+    "nei-low-vision": {
+      "title": "美国国家眼科研究所（NEI）低视力公众教育",
+      "jurisdiction": "US",
+      "version": "2025-11-25",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/low-vision"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-low-vision-features",
+      "source": "nei-low-vision",
+      "section": "At a glance: Low Vision / What is low vision? / What are the types of low vision? / What causes low vision?",
+      "scope": "美国 NEI 面向公众的低视力健康教育",
+      "anchors": [
+        "low_vision"
+      ],
+      "text": "低视力可影响阅读、辨认面孔等日常活动，常规眼镜、药物或手术仍难以充分改善。"
+    },
+    {
+      "id": "nei-low-vision-assessment",
+      "source": "nei-low-vision",
+      "section": "How will my eye doctor check for low vision? / What’s the treatment for low vision? / How can I make the most of my remaining sight?",
+      "scope": "美国 NEI 面向公众的低视力健康教育",
+      "anchors": [
+        "low_vision",
+        "vision_rehab"
+      ],
+      "text": "视觉康复可针对具体生活目标训练剩余视力的使用，并结合放大、照明等辅助方式。"
+    }
+  ]
+}

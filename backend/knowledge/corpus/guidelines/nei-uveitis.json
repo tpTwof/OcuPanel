@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "uveitis": {
+      "label": "葡萄膜炎",
+      "aliases": [
+        "葡萄膜炎",
+        "uveitis",
+        "Uveitis"
+      ]
+    },
+    "pain_photophobia": {
+      "label": "眼痛畏光",
+      "aliases": [
+        "眼痛畏光",
+        "眼红怕光"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "pain_photophobia",
+      "相关表现见于",
+      "uveitis"
+    ]
+  ],
+  "sources": {
+    "nei-uveitis": {
+      "title": "美国国家眼科研究所（NEI）葡萄膜炎公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/uveitis"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-uveitis-features",
+      "source": "nei-uveitis",
+      "section": "At a glance: Uveitis / What is uveitis? / What are the types of uveitis? / What are the symptoms of uveitis? / What causes uveitis?",
+      "scope": "美国 NEI 面向公众的葡萄膜炎健康教育",
+      "anchors": [
+        "uveitis",
+        "pain_photophobia"
+      ],
+      "text": "葡萄膜炎可有视物模糊、飞蚊、眼痛、眼红和畏光。出现这些症状应尽快接受眼科评估，以免延误治疗。"
+    },
+    {
+      "id": "nei-uveitis-assessment",
+      "source": "nei-uveitis",
+      "section": "How will my eye doctor check for uveitis?",
+      "scope": "美国 NEI 面向公众的葡萄膜炎健康教育",
+      "anchors": [
+        "uveitis"
+      ],
+      "text": "评估葡萄膜炎需散瞳检查并询问病史，医生可按情况进一步检查感染或伴随的全身疾病。"
+    }
+  ]
+}

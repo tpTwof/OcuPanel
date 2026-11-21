@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "dry_eye": {
+      "label": "干眼症",
+      "aliases": [
+        "干眼症",
+        "干眼",
+        "眼干",
+        "Dry Eye"
+      ]
+    },
+    "tear_breakup": {
+      "label": "泪膜破裂时间",
+      "aliases": [
+        "泪膜破裂时间",
+        "泪膜稳定性",
+        "tear breakup time"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "dry_eye",
+      "评估检查",
+      "tear_breakup"
+    ]
+  ],
+  "sources": {
+    "nei-dry-eye": {
+      "title": "美国国家眼科研究所（NEI）干眼症公众教育",
+      "jurisdiction": "US",
+      "version": "2025-08-06",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/dry-eye"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-dry-eye-features",
+      "source": "nei-dry-eye",
+      "section": "At a glance: Dry Eye / What is dry eye? / What are the symptoms of dry eye? / What causes dry eye?",
+      "scope": "美国 NEI 面向公众的干眼症健康教育",
+      "anchors": [
+        "dry_eye"
+      ],
+      "text": "干眼可出现干涩、灼热、异物感或间歇视物模糊。泪液分泌不足、蒸发过快或泪膜成分异常均可能参与。"
+    },
+    {
+      "id": "nei-dry-eye-assessment",
+      "source": "nei-dry-eye",
+      "section": "How will my eye doctor check for dry eye?",
+      "scope": "美国 NEI 面向公众的干眼症健康教育",
+      "anchors": [
+        "dry_eye",
+        "tear_breakup"
+      ],
+      "text": "评估干眼时，医生可检查泪液分泌量、泪膜保持的时间及眼睑结构，并结合症状解释结果。"
+    },
+    {
+      "id": "nei-dry-eye-care",
+      "source": "nei-dry-eye",
+      "section": "What’s the treatment for dry eye?",
+      "scope": "美国 NEI 面向公众的干眼症健康教育",
+      "anchors": [
+        "dry_eye"
+      ],
+      "text": "轻度干眼常可用人工泪液缓解，后续处理需结合导致泪液不足或泪膜异常的原因。"
+    }
+  ]
+}

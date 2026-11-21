@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "hyperopia": {
+      "label": "远视",
+      "aliases": [
+        "远视",
+        "hyperopia",
+        "Farsightedness (Hyperopia)"
+      ]
+    },
+    "near_blur": {
+      "label": "看近模糊",
+      "aliases": [
+        "看近模糊",
+        "近处看不清"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "near_blur",
+      "相关表现见于",
+      "hyperopia"
+    ],
+    [
+      "hyperopia",
+      "分型属于",
+      "refractive_error"
+    ]
+  ],
+  "sources": {
+    "nei-hyperopia": {
+      "title": "美国国家眼科研究所（NEI）远视公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/farsightedness-hyperopia"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-hyperopia-features",
+      "source": "nei-hyperopia",
+      "section": "At a glance: Farsightedness / What is farsightedness? / What are the symptoms of farsightedness? / What causes farsightedness?",
+      "scope": "美国 NEI 面向公众的远视健康教育",
+      "anchors": [
+        "hyperopia",
+        "near_blur"
+      ],
+      "text": "远视者看近可能困难或容易眼疲劳，有些轻度远视者没有明显症状。光的焦点落在视网膜后方。"
+    },
+    {
+      "id": "nei-hyperopia-assessment",
+      "source": "nei-hyperopia",
+      "section": "How will my eye doctor check for farsightedness? / What’s the treatment for farsightedness?",
+      "scope": "美国 NEI 面向公众的远视健康教育",
+      "anchors": [
+        "hyperopia"
+      ],
+      "text": "眼科检查可识别远视；是否需要眼镜、隐形眼镜或其他矫正要结合检查结果。"
+    }
+  ]
+}

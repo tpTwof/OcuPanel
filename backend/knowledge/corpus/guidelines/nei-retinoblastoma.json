@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "retinoblastoma": {
+      "label": "视网膜母细胞瘤",
+      "aliases": [
+        "视网膜母细胞瘤",
+        "Retinoblastoma"
+      ]
+    },
+    "leukocoria": {
+      "label": "白瞳",
+      "aliases": [
+        "白瞳",
+        "白瞳症",
+        "拍照瞳孔发白",
+        "leukocoria"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "leukocoria",
+      "相关表现见于",
+      "retinoblastoma"
+    ]
+  ],
+  "sources": {
+    "nei-retinoblastoma": {
+      "title": "美国国家眼科研究所（NEI）视网膜母细胞瘤公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/retinoblastoma"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-retinoblastoma-features",
+      "source": "nei-retinoblastoma",
+      "section": "At a glance: Retinoblastoma / What is retinoblastoma? / What are the signs of retinoblastoma? / What causes retinoblastoma?",
+      "scope": "美国 NEI 面向公众的视网膜母细胞瘤健康教育",
+      "anchors": [
+        "retinoblastoma",
+        "leukocoria"
+      ],
+      "text": "闪光照片中一侧瞳孔发白、眼位偏斜等可见于儿童视网膜母细胞瘤。家长发现这些表现应立即联系孩子的医生。"
+    },
+    {
+      "id": "nei-retinoblastoma-assessment",
+      "source": "nei-retinoblastoma",
+      "section": "How will the eye doctor check for retinoblastoma?",
+      "scope": "美国 NEI 面向公众的视网膜母细胞瘤健康教育",
+      "anchors": [
+        "retinoblastoma"
+      ],
+      "text": "怀疑视网膜母细胞瘤时，眼科医生可散瞳检查并使用眼部超声进一步评估。"
+    },
+    {
+      "id": "nei-retinoblastoma-care",
+      "source": "nei-retinoblastoma",
+      "section": "What's the treatment for retinoblastoma?",
+      "scope": "美国 NEI 面向公众的视网膜母细胞瘤健康教育",
+      "anchors": [
+        "retinoblastoma"
+      ],
+      "text": "视网膜母细胞瘤的治疗取决于肿瘤大小和是否向眼外扩散，需由儿童肿瘤与眼科专科团队评估。"
+    }
+  ]
+}

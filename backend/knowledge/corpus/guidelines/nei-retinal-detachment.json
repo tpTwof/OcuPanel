@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "retinal_detachment": {
+      "label": "视网膜脱离",
+      "aliases": [
+        "视网膜脱离",
+        "视网膜脱落",
+        "网脱",
+        "Retinal Detachment"
+      ]
+    },
+    "curtain_shadow": {
+      "label": "幕帘样阴影",
+      "aliases": [
+        "幕帘样阴影",
+        "像有帘子挡住视线",
+        "幕帘遮挡",
+        "黑幕遮挡"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "curtain_shadow",
+      "相关表现见于",
+      "retinal_detachment"
+    ],
+    [
+      "retinal_detachment",
+      "评估检查",
+      "oct"
+    ]
+  ],
+  "sources": {
+    "nei-retinal-detachment": {
+      "title": "美国国家眼科研究所（NEI）视网膜脱离公众教育",
+      "jurisdiction": "US",
+      "version": "2025-11-05",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/retinal-detachment"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-retinal-detachment-features",
+      "source": "nei-retinal-detachment",
+      "section": "At a glance: Retinal Detachment / What is retinal detachment? / What are the symptoms of retinal detachment? / What causes retinal detachment?",
+      "scope": "美国 NEI 面向公众的视网膜脱离健康教育",
+      "anchors": [
+        "retinal_detachment",
+        "curtain_shadow"
+      ],
+      "text": "突然出现大量飞蚊、闪光或视野被黑影像帘子一样遮住，是视网膜脱离的警讯，应立即到眼科或急诊就医。"
+    },
+    {
+      "id": "nei-retinal-detachment-assessment",
+      "source": "nei-retinal-detachment",
+      "section": "How will my eye doctor check for retinal detachment?",
+      "scope": "美国 NEI 面向公众的视网膜脱离健康教育",
+      "anchors": [
+        "retinal_detachment"
+      ],
+      "text": "怀疑视网膜脱离时应散瞳检查周边视网膜及有无裂孔；若还需定位，可进一步做眼部超声或 OCT。"
+    },
+    {
+      "id": "nei-retinal-detachment-care",
+      "source": "nei-retinal-detachment",
+      "section": "What’s the treatment for retinal detachment?",
+      "scope": "美国 NEI 面向公众的视网膜脱离健康教育",
+      "anchors": [
+        "retinal_detachment"
+      ],
+      "text": "视网膜裂孔可由眼科医生采用激光或冷冻封闭；已发生脱离时，需按类型和范围选择使视网膜复位的手术。"
+    }
+  ]
+}

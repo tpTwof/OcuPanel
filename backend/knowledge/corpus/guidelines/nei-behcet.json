@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "behcet": {
+      "label": "白塞病",
+      "aliases": [
+        "白塞病",
+        "贝赫切特病",
+        "Behçet",
+        "Behcet",
+        "Behçet's Disease"
+      ]
+    },
+    "oral_genital_ulcers": {
+      "label": "口腔和生殖器溃疡",
+      "aliases": [
+        "口腔和生殖器溃疡",
+        "反复口腔和外阴溃疡"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "oral_genital_ulcers",
+      "相关表现见于",
+      "behcet"
+    ],
+    [
+      "behcet",
+      "眼部表现",
+      "uveitis"
+    ]
+  ],
+  "sources": {
+    "nei-behcet": {
+      "title": "美国国家眼科研究所（NEI）白塞病公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/behcets-disease"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-behcet-features",
+      "source": "nei-behcet",
+      "section": "At a glance: Behçet's Disease / What is Behçet's disease? / What are the symptoms of Behçet’s disease? / What causes Behçet’s disease?",
+      "scope": "美国 NEI 面向公众的白塞病健康教育",
+      "anchors": [
+        "behcet",
+        "oral_genital_ulcers"
+      ],
+      "text": "白塞病可能同时或先后出现口腔溃疡、生殖器溃疡和眼部炎症，眼部受累时可有眼痛、眼红或视物模糊。"
+    },
+    {
+      "id": "nei-behcet-assessment",
+      "source": "nei-behcet",
+      "section": "How will my doctor check for Behçet’s disease?",
+      "scope": "美国 NEI 面向公众的白塞病健康教育",
+      "anchors": [
+        "behcet"
+      ],
+      "text": "白塞病需要综合不同时期的症状及病史判断。记录症状发生时间有助于医生评估，目前没有单一检查可独立确诊。"
+    },
+    {
+      "id": "nei-behcet-care",
+      "source": "nei-behcet",
+      "section": "What's the treatment for Behçet's disease?",
+      "scope": "美国 NEI 面向公众的白塞病健康教育",
+      "anchors": [
+        "behcet"
+      ],
+      "text": "白塞病伴眼部炎症时，医生可按器官受累情况选择抗炎或调节免疫的药物，目的是降低炎症造成的损害。"
+    }
+  ]
+}

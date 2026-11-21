@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "rop": {
+      "label": "早产儿视网膜病变",
+      "aliases": [
+        "早产儿视网膜病变",
+        "早产儿眼底病",
+        "ROP",
+        "Retinopathy of Prematurity"
+      ]
+    },
+    "premature_infant": {
+      "label": "早产儿",
+      "aliases": [
+        "早产儿",
+        "早产宝宝",
+        "preterm infant"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "premature_infant",
+      "需评估筛查",
+      "rop"
+    ]
+  ],
+  "sources": {
+    "nei-rop": {
+      "title": "美国国家眼科研究所（NEI）早产儿视网膜病变公众教育",
+      "jurisdiction": "US",
+      "version": "2025-08-06",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/retinopathy-prematurity"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-rop-features",
+      "source": "nei-rop",
+      "section": "At a glance: Retinopathy of Prematurity / What is retinopathy of prematurity? / What are the stages of ROP? / What are the symptoms of ROP? / What causes ROP?",
+      "scope": "美国 NEI 面向公众的早产儿视网膜病变健康教育",
+      "anchors": [
+        "rop",
+        "premature_infant"
+      ],
+      "text": "早产儿视网膜病变早期通常没有外观或行为上的提示。早产、低出生体重婴儿需由新生儿及眼科团队安排筛查。"
+    },
+    {
+      "id": "nei-rop-assessment",
+      "source": "nei-rop",
+      "section": "How will my baby’s doctor check for ROP?",
+      "scope": "美国 NEI 面向公众的早产儿视网膜病变健康教育",
+      "anchors": [
+        "rop"
+      ],
+      "text": "眼科医生通过散瞳检查早产儿的视网膜血管发育情况，根据检查结果安排复查或治疗。"
+    },
+    {
+      "id": "nei-rop-care",
+      "source": "nei-rop",
+      "section": "What's the treatment for ROP?",
+      "scope": "美国 NEI 面向公众的早产儿视网膜病变健康教育",
+      "anchors": [
+        "rop"
+      ],
+      "text": "轻度早产儿视网膜病变可能在随访中自然好转；部分进展病例需要激光、眼内注射或手术，由眼科团队依据分期决定。"
+    }
+  ]
+}

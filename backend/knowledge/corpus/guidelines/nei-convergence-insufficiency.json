@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "convergence_insufficiency": {
+      "label": "集合不足",
+      "aliases": [
+        "集合不足",
+        "辐辏不足",
+        "会聚不足",
+        "Convergence Insufficiency"
+      ]
+    },
+    "near_diplopia": {
+      "label": "看近重影",
+      "aliases": [
+        "看近重影",
+        "阅读时重影"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "near_diplopia",
+      "相关表现见于",
+      "convergence_insufficiency"
+    ]
+  ],
+  "sources": {
+    "nei-convergence-insufficiency": {
+      "title": "美国国家眼科研究所（NEI）集合不足公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/convergence-insufficiency"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-convergence-insufficiency-features",
+      "source": "nei-convergence-insufficiency",
+      "section": "At a glance: Convergence Insufficiency / What is convergence insufficiency? / What are the symptoms of convergence insufficiency? / What causes convergence insufficiency?",
+      "scope": "美国 NEI 面向公众的集合不足健康教育",
+      "anchors": [
+        "convergence_insufficiency",
+        "near_diplopia"
+      ],
+      "text": "集合不足可在阅读或近距离工作时导致重影、眼疲劳或头痛，即使单眼视力良好也可能发生。"
+    },
+    {
+      "id": "nei-convergence-insufficiency-assessment",
+      "source": "nei-convergence-insufficiency",
+      "section": "How will your eye doctor check for convergence insufficiency?",
+      "scope": "美国 NEI 面向公众的集合不足健康教育",
+      "anchors": [
+        "convergence_insufficiency"
+      ],
+      "text": "医生会检查近距离注视时双眼向内转动的能力、远近眼位和调焦能力，并询问症状出现的场景。"
+    },
+    {
+      "id": "nei-convergence-insufficiency-care",
+      "source": "nei-convergence-insufficiency",
+      "section": "What’s the treatment for convergence insufficiency?",
+      "scope": "美国 NEI 面向公众的集合不足健康教育",
+      "anchors": [
+        "convergence_insufficiency"
+      ],
+      "text": "有症状的集合不足可由专业人员安排集合训练，部分患者可考虑棱镜眼镜，需随访近距离用眼症状。"
+    }
+  ]
+}

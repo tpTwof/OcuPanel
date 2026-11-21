@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "macular_hole": {
+      "label": "黄斑裂孔",
+      "aliases": [
+        "黄斑裂孔",
+        "Macular Hole"
+      ]
+    },
+    "central_blank": {
+      "label": "中央视野缺块",
+      "aliases": [
+        "中央视野缺块",
+        "视野中央空缺"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "central_blank",
+      "相关表现见于",
+      "macular_hole"
+    ],
+    [
+      "macular_hole",
+      "评估检查",
+      "oct"
+    ]
+  ],
+  "sources": {
+    "nei-macular-hole": {
+      "title": "美国国家眼科研究所（NEI）黄斑裂孔公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/macular-hole"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-macular-hole-features",
+      "source": "nei-macular-hole",
+      "section": "At a glance: Macular Hole / What is a macular hole? / What are the symptoms of a macular hole? / What causes a macular hole?",
+      "scope": "美国 NEI 面向公众的黄斑裂孔健康教育",
+      "anchors": [
+        "macular_hole",
+        "central_blank"
+      ],
+      "text": "黄斑裂孔早期可有中心视物模糊或变形，裂孔扩大时，看向物体中央可能出现空缺。"
+    },
+    {
+      "id": "nei-macular-hole-assessment",
+      "source": "nei-macular-hole",
+      "section": "How will my eye doctor check for a macular hole?",
+      "scope": "美国 NEI 面向公众的黄斑裂孔健康教育",
+      "anchors": [
+        "macular_hole"
+      ],
+      "text": "眼科医生可散瞳查看黄斑，并通过 OCT 的视网膜断面检查确认黄斑裂孔。"
+    },
+    {
+      "id": "nei-macular-hole-care",
+      "source": "nei-macular-hole",
+      "section": "What’s the treatment for a macular hole?",
+      "scope": "美国 NEI 面向公众的黄斑裂孔健康教育",
+      "anchors": [
+        "macular_hole"
+      ],
+      "text": "影响视力的黄斑裂孔常需玻璃体切除术。术中眼内气泡可暂时支撑裂孔边缘，术后活动和体位应遵循手术团队安排。"
+    }
+  ]
+}

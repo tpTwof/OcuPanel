@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "bietti": {
+      "label": "Bietti结晶样视网膜营养不良",
+      "aliases": [
+        "Bietti结晶样视网膜营养不良",
+        "Bietti",
+        "结晶样视网膜变性",
+        "Bietti's Crystalline Dystrophy"
+      ]
+    },
+    "retinal_crystals": {
+      "label": "视网膜结晶",
+      "aliases": [
+        "视网膜结晶",
+        "眼底结晶"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "retinal_crystals",
+      "相关表现见于",
+      "bietti"
+    ],
+    [
+      "bietti",
+      "康复支持",
+      "vision_rehab"
+    ]
+  ],
+  "sources": {
+    "nei-bietti": {
+      "title": "美国国家眼科研究所（NEI）Bietti结晶样视网膜营养不良公众教育",
+      "jurisdiction": "US",
+      "version": "2025-11-05",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/biettis-crystalline-dystrophy"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-bietti-features",
+      "source": "nei-bietti",
+      "section": "At a glance: Bietti's Crystalline Dystrophy / What is Bietti’s crystalline dystrophy? / What are the symptoms of BCD? / What causes BCD?",
+      "scope": "美国 NEI 面向公众的Bietti结晶样视网膜营养不良健康教育",
+      "anchors": [
+        "bietti",
+        "retinal_crystals"
+      ],
+      "text": "Bietti 结晶样营养不良是罕见遗传性眼病，可出现视网膜内结晶，并逐渐影响夜间和周边视力。"
+    },
+    {
+      "id": "nei-bietti-assessment",
+      "source": "nei-bietti",
+      "section": "How will my eye doctor check for BCD?",
+      "scope": "美国 NEI 面向公众的Bietti结晶样视网膜营养不良健康教育",
+      "anchors": [
+        "bietti"
+      ],
+      "text": "疑似 Bietti 结晶样营养不良时可做全面散瞳检查，医生可使用基因检测帮助确认。"
+    },
+    {
+      "id": "nei-bietti-care",
+      "source": "nei-bietti",
+      "section": "What's the treatment for BCD?",
+      "scope": "美国 NEI 面向公众的Bietti结晶样视网膜营养不良健康教育",
+      "anchors": [
+        "bietti"
+      ],
+      "text": "Bietti 结晶样营养不良影响日常活动时，可通过低视力辅助器具和康复训练改善日常功能。"
+    }
+  ]
+}

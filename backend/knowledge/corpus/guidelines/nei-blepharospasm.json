@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "blepharospasm": {
+      "label": "眼睑痉挛",
+      "aliases": [
+        "眼睑痉挛",
+        "睑痉挛",
+        "Blepharospasm"
+      ]
+    },
+    "involuntary_closure": {
+      "label": "眼皮不自主闭合",
+      "aliases": [
+        "眼皮不自主闭合",
+        "眼睛不由自主闭紧"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "involuntary_closure",
+      "相关表现见于",
+      "blepharospasm"
+    ]
+  ],
+  "sources": {
+    "nei-blepharospasm": {
+      "title": "美国国家眼科研究所（NEI）眼睑痉挛公众教育",
+      "jurisdiction": "US",
+      "version": "2024-11-27",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/blepharospasm"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-blepharospasm-features",
+      "source": "nei-blepharospasm",
+      "section": "At a glance: Blepharospasm / What is blepharospasm? / What are the symptoms of blepharospasm? / What causes blepharospasm?",
+      "scope": "美国 NEI 面向公众的眼睑痉挛健康教育",
+      "anchors": [
+        "blepharospasm",
+        "involuntary_closure"
+      ],
+      "text": "良性特发性眼睑痉挛可从间歇抽动逐渐发展到双眼不自主闭合，影响阅读或行走等活动。"
+    },
+    {
+      "id": "nei-blepharospasm-assessment",
+      "source": "nei-blepharospasm",
+      "section": "If my eyelids twitch, do I have blepharospasm? / How will my eye doctor check for blepharospasm?",
+      "scope": "美国 NEI 面向公众的眼睑痉挛健康教育",
+      "anchors": [
+        "blepharospasm"
+      ],
+      "text": "多数偶发眼皮跳会自行缓解。抽动持续数周、抽动时眼睛完全闭合或面部其他部位也抽动时应就医。"
+    },
+    {
+      "id": "nei-blepharospasm-care",
+      "source": "nei-blepharospasm",
+      "section": "What’s the treatment for blepharospasm?",
+      "scope": "美国 NEI 面向公众的眼睑痉挛健康教育",
+      "anchors": [
+        "blepharospasm"
+      ],
+      "text": "影响功能的眼睑痉挛可由专科医生评估使用肉毒毒素注射，以减轻眼睑肌肉的不自主收缩。"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "cvi": {
+      "label": "脑性视觉障碍",
+      "aliases": [
+        "脑性视觉障碍",
+        "皮质性视觉障碍",
+        "CVI",
+        "cortical visual impairment",
+        "Cerebral Visual Impairment (CVI)"
+      ]
+    },
+    "face_recognition": {
+      "label": "难以辨认面孔",
+      "aliases": [
+        "难以辨认面孔",
+        "难以看清移动物体"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "face_recognition",
+      "相关表现见于",
+      "cvi"
+    ],
+    [
+      "cvi",
+      "康复支持",
+      "vision_rehab"
+    ]
+  ],
+  "sources": {
+    "nei-cvi": {
+      "title": "美国国家眼科研究所（NEI）脑性视觉障碍公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/cerebral-visual-impairment-cvi"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-cvi-features",
+      "source": "nei-cvi",
+      "section": "At a glance: CVI / What is CVI? / What are the symptoms of CVI? / What causes CVI?",
+      "scope": "美国 NEI 面向公众的脑性视觉障碍健康教育",
+      "anchors": [
+        "cvi",
+        "face_recognition"
+      ],
+      "text": "脑性视觉障碍涉及大脑处理视觉信息的能力。孩子可能难以辨认脸或追踪移动物体，眼部检查所见难以充分解释这些困难。"
+    },
+    {
+      "id": "nei-cvi-assessment",
+      "source": "nei-cvi",
+      "section": "How will my child’s eye doctor check for CVI?",
+      "scope": "美国 NEI 面向公众的脑性视觉障碍健康教育",
+      "anchors": [
+        "cvi"
+      ],
+      "text": "评估脑性视觉障碍需要了解病史、检查眼部，并结合功能表现；部分儿童还需脑影像等检查。"
+    },
+    {
+      "id": "nei-cvi-care",
+      "source": "nei-cvi",
+      "section": "What’s the treatment for CVI?",
+      "scope": "美国 NEI 面向公众的脑性视觉障碍健康教育",
+      "anchors": [
+        "cvi"
+      ],
+      "text": "脑性视觉障碍患儿可结合视觉康复、早期干预和教育支持，使训练与实际学习及生活需要相匹配。"
+    }
+  ]
+}

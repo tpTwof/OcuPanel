@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "thyroid_eye": {
+      "label": "甲状腺眼病",
+      "aliases": [
+        "甲状腺眼病",
+        "甲状腺相关眼病",
+        "Graves眼病",
+        "thyroid eye disease",
+        "Graves’ Eye Disease"
+      ]
+    },
+    "proptosis": {
+      "label": "眼球突出",
+      "aliases": [
+        "眼球突出",
+        "突眼",
+        "proptosis"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "proptosis",
+      "相关表现见于",
+      "thyroid_eye"
+    ]
+  ],
+  "sources": {
+    "nei-thyroid-eye": {
+      "title": "美国国家眼科研究所（NEI）甲状腺眼病公众教育",
+      "jurisdiction": "US",
+      "version": "2024-11-26",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/graves-eye-disease"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-thyroid-eye-features",
+      "source": "nei-thyroid-eye",
+      "section": "At a glance: Graves’ Eye Disease / What is Graves’ eye disease? / What is Graves’ disease? / What are the symptoms of Graves’ eye disease? / What causes Graves’ eye disease?",
+      "scope": "美国 NEI 面向公众的甲状腺眼病健康教育",
+      "anchors": [
+        "thyroid_eye",
+        "proptosis"
+      ],
+      "text": "甲状腺相关眼病可表现为突眼、眼睑退缩、干涩或复视，症状来自眼眶组织受累。"
+    },
+    {
+      "id": "nei-thyroid-eye-assessment",
+      "source": "nei-thyroid-eye",
+      "section": "How will my eye doctor check for Graves’ eye disease?",
+      "scope": "美国 NEI 面向公众的甲状腺眼病健康教育",
+      "anchors": [
+        "thyroid_eye"
+      ],
+      "text": "医生检查眼球和眼睑；怀疑合并 Graves 病时，还需要血液检查评估甲状腺功能。"
+    },
+    {
+      "id": "nei-thyroid-eye-care",
+      "source": "nei-thyroid-eye",
+      "section": "What’s the treatment for Graves’ eye disease?",
+      "scope": "美国 NEI 面向公众的甲状腺眼病健康教育",
+      "anchors": [
+        "thyroid_eye"
+      ],
+      "text": "甲状腺功能异常和眼部受累均需评估，控制甲状腺疾病后仍可能需要处理眼表干燥或眼眶炎症。"
+    }
+  ]
+}

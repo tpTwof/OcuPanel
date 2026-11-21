@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "anophthalmia_microphthalmia": {
+      "label": "先天性无眼球",
+      "aliases": [
+        "先天性无眼球",
+        "先天性小眼球",
+        "小眼畸形",
+        "anophthalmia",
+        "microphthalmia",
+        "Anophthalmia and Microphthalmia"
+      ]
+    },
+    "small_globe": {
+      "label": "眼球发育过小",
+      "aliases": [
+        "眼球发育过小",
+        "出生时没有眼球"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "small_globe",
+      "相关表现见于",
+      "anophthalmia_microphthalmia"
+    ]
+  ],
+  "sources": {
+    "nei-anophthalmia-microphthalmia": {
+      "title": "美国国家眼科研究所（NEI）先天性无眼球公众教育",
+      "jurisdiction": "US",
+      "version": "2024-11-26",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/anophthalmia-and-microphthalmia"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-anophthalmia-microphthalmia-features",
+      "source": "nei-anophthalmia-microphthalmia",
+      "section": "At a glance: Anophthalmia and Microphthalmia / What are anophthalmia and microphthalmia? / What health problems do people with anophthalmia and microphthalmia have? / What causes anophthalmia and microphthalmia?",
+      "scope": "美国 NEI 面向公众的先天性无眼球健康教育",
+      "anchors": [
+        "anophthalmia_microphthalmia",
+        "small_globe"
+      ],
+      "text": "先天性无眼球指一侧或双侧眼球未形成，小眼球指眼球发育得异常小，均在出生时即存在。"
+    },
+    {
+      "id": "nei-anophthalmia-microphthalmia-assessment",
+      "source": "nei-anophthalmia-microphthalmia",
+      "section": "How will I know if my baby has anophthalmia or microphthalmia?",
+      "scope": "美国 NEI 面向公众的先天性无眼球健康教育",
+      "anchors": [
+        "anophthalmia_microphthalmia"
+      ],
+      "text": "先天性无眼球和小眼球可在产前影像检查时发现，也可在出生后通过体格和眼科检查识别。"
+    },
+    {
+      "id": "nei-anophthalmia-microphthalmia-care",
+      "source": "nei-anophthalmia-microphthalmia",
+      "section": "What's the treatment for anophthalmia and microphthalmia?",
+      "scope": "美国 NEI 面向公众的先天性无眼球健康教育",
+      "anchors": [
+        "anophthalmia_microphthalmia"
+      ],
+      "text": "先天性无眼球或小眼球患儿可由专科团队评估使用眼窝扩张器，帮助眼窝发育；仅一眼有视力时还需保护该眼。"
+    }
+  ]
+}

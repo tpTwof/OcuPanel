@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "ocular_histoplasmosis": {
+      "label": "眼组织胞浆菌病综合征",
+      "aliases": [
+        "眼组织胞浆菌病综合征",
+        "眼组织胞浆菌病",
+        "OHS",
+        "Ocular Histoplasmosis Syndrome (OHS)"
+      ]
+    },
+    "visual_blind_spot": {
+      "label": "中心暗点",
+      "aliases": [
+        "中心暗点",
+        "中心视野盲点"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "visual_blind_spot",
+      "相关表现见于",
+      "ocular_histoplasmosis"
+    ]
+  ],
+  "sources": {
+    "nei-ocular-histoplasmosis": {
+      "title": "美国国家眼科研究所（NEI）眼组织胞浆菌病综合征公众教育",
+      "jurisdiction": "US",
+      "version": "2025-08-06",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/ocular-histoplasmosis-syndrome-ohs"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-ocular-histoplasmosis-features",
+      "source": "nei-ocular-histoplasmosis",
+      "section": "At a glance: Ocular Histoplasmosis Syndrome (OHS) / What is OHS? / What are the symptoms of OHS? / What causes OHS?",
+      "scope": "美国 NEI 面向公众的眼组织胞浆菌病综合征健康教育",
+      "anchors": [
+        "ocular_histoplasmosis",
+        "visual_blind_spot"
+      ],
+      "text": "眼组织胞浆菌病综合征早期可能没有症状，后期可出现视力模糊或视野盲点。"
+    },
+    {
+      "id": "nei-ocular-histoplasmosis-assessment",
+      "source": "nei-ocular-histoplasmosis",
+      "section": "How will my eye doctor check for OHS?",
+      "scope": "美国 NEI 面向公众的眼组织胞浆菌病综合征健康教育",
+      "anchors": [
+        "ocular_histoplasmosis"
+      ],
+      "text": "眼科医生可散瞳检查眼底，必要时通过荧光素血管造影评估异常血管。"
+    }
+  ]
+}

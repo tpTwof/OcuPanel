@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "usher": {
+      "label": "Usher综合征",
+      "aliases": [
+        "Usher综合征",
+        "Usher 综合征",
+        "乌谢尔综合征",
+        "Usher Syndrome"
+      ]
+    },
+    "hearing_vision_loss": {
+      "label": "听力和视力下降",
+      "aliases": [
+        "听力和视力下降",
+        "耳聋伴夜盲"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "hearing_vision_loss",
+      "相关表现见于",
+      "usher"
+    ],
+    [
+      "usher",
+      "眼部表现",
+      "retinitis_pigmentosa"
+    ]
+  ],
+  "sources": {
+    "nei-usher": {
+      "title": "美国国家眼科研究所（NEI）Usher综合征公众教育",
+      "jurisdiction": "US",
+      "version": "2026-03-12",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/usher-syndrome"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-usher-features",
+      "source": "nei-usher",
+      "section": "At a glance: Usher Syndrome / What is Usher syndrome? / What are the symptoms of Usher syndrome? / What causes Usher syndrome?",
+      "scope": "美国 NEI 面向公众的Usher综合征健康教育",
+      "anchors": [
+        "usher",
+        "hearing_vision_loss"
+      ],
+      "text": "Usher 综合征累及听觉和视觉。听力下降与视网膜色素变性相关的夜盲、周边视野缩小可先后出现，部分患者还有平衡障碍。"
+    },
+    {
+      "id": "nei-usher-assessment",
+      "source": "nei-usher",
+      "section": "How will my child's doctor check for Usher syndrome?",
+      "scope": "美国 NEI 面向公众的Usher综合征健康教育",
+      "anchors": [
+        "usher"
+      ],
+      "text": "评估 Usher 综合征需结合病史、听力、平衡及视觉功能检查，还可通过基因检测进一步明确。"
+    },
+    {
+      "id": "nei-usher-care",
+      "source": "nei-usher",
+      "section": "What's the treatment for Usher syndrome?",
+      "scope": "美国 NEI 面向公众的Usher综合征健康教育",
+      "anchors": [
+        "usher"
+      ],
+      "text": "Usher 综合征的支持需兼顾听觉与视觉。助听设备、低视力辅助器具及视觉康复可根据个人功能需求选择。"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "blepharitis": {
+      "label": "睑缘炎",
+      "aliases": [
+        "睑缘炎",
+        "眼睑缘炎",
+        "Blepharitis"
+      ]
+    },
+    "lash_crust": {
+      "label": "睫毛根部结痂",
+      "aliases": [
+        "睫毛根部结痂",
+        "睫毛根有皮屑"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "lash_crust",
+      "相关表现见于",
+      "blepharitis"
+    ],
+    [
+      "blepharitis",
+      "可能伴发",
+      "dry_eye"
+    ]
+  ],
+  "sources": {
+    "nei-blepharitis": {
+      "title": "美国国家眼科研究所（NEI）睑缘炎公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/blepharitis"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-blepharitis-features",
+      "source": "nei-blepharitis",
+      "section": "At a glance: Blepharitis / What is blepharitis? / What are the symptoms of blepharitis? / What causes blepharitis? / What are the types of blepharitis?",
+      "scope": "美国 NEI 面向公众的睑缘炎健康教育",
+      "anchors": [
+        "blepharitis",
+        "lash_crust"
+      ],
+      "text": "睑缘炎常表现为眼睑边缘红痒、灼热，睫毛根部可见鳞屑或结痂。"
+    },
+    {
+      "id": "nei-blepharitis-assessment",
+      "source": "nei-blepharitis",
+      "section": "How will my eye doctor check for blepharitis?",
+      "scope": "美国 NEI 面向公众的睑缘炎健康教育",
+      "anchors": [
+        "blepharitis"
+      ],
+      "text": "检查睑缘炎时，医生在照明或放大条件下观察眼睑边缘、睫毛及眼表。"
+    },
+    {
+      "id": "nei-blepharitis-care",
+      "source": "nei-blepharitis",
+      "section": "What's the treatment for blepharitis?",
+      "scope": "美国 NEI 面向公众的睑缘炎健康教育",
+      "anchors": [
+        "blepharitis"
+      ],
+      "text": "睑缘炎的日常管理重在清洁睑缘、软化并去除睫毛根部结痂。持续炎症需由眼科医生判断是否需要药物治疗。"
+    }
+  ]
+}

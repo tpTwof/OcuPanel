@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "astigmatism": {
+      "label": "散光",
+      "aliases": [
+        "散光",
+        "astigmatism",
+        "Astigmatism"
+      ]
+    },
+    "distorted_focus": {
+      "label": "远近都模糊",
+      "aliases": [
+        "远近都模糊",
+        "远近视物变形"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "distorted_focus",
+      "相关表现见于",
+      "astigmatism"
+    ],
+    [
+      "astigmatism",
+      "分型属于",
+      "refractive_error"
+    ]
+  ],
+  "sources": {
+    "nei-astigmatism": {
+      "title": "美国国家眼科研究所（NEI）散光公众教育",
+      "jurisdiction": "US",
+      "version": "2024-12-04",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/astigmatism"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-astigmatism-features",
+      "source": "nei-astigmatism",
+      "section": "At a glance: Astigmatism / What is astigmatism? / What are the symptoms of astigmatism? / What causes astigmatism?",
+      "scope": "美国 NEI 面向公众的散光健康教育",
+      "anchors": [
+        "astigmatism",
+        "distorted_focus"
+      ],
+      "text": "散光与角膜或晶状体形态有关，看远和看近均可能模糊或变形，也可有眼疲劳。"
+    },
+    {
+      "id": "nei-astigmatism-assessment",
+      "source": "nei-astigmatism",
+      "section": "How will my eye doctor check for astigmatism? / What's the treatment for astigmatism?",
+      "scope": "美国 NEI 面向公众的散光健康教育",
+      "anchors": [
+        "astigmatism"
+      ],
+      "text": "医生可在眼科检查中评估散光，常通过眼镜或隐形眼镜矫正。"
+    }
+  ]
+}

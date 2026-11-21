@@ -293,7 +293,11 @@ export default function ChatView({
                 }
               }}
             >
-              <summary aria-label="高级选项" title="高级选项">+</summary>
+              <summary aria-label="高级选项" title="高级选项">
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M2 8h12M8 2v12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </summary>
               <div className="composer-tools-panel">
                 <button type="button" disabled={busy} onClick={onOpenAnalysis}>眼科影像分析</button>
                 {mode === 'ophthalmic' && (

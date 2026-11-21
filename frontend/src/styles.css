@@ -891,7 +891,8 @@ button:disabled {
 
 .report-measurement img {
   display: block;
-  max-width: 100%;
+  max-width: min(100%, 320px);
+  max-height: 280px;
   height: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1064,11 +1065,8 @@ button:disabled {
   width: 36px;
   height: 36px;
   list-style: none;
-  border: 1px solid var(--line);
-  border-radius: 50%;
   color: var(--text);
   cursor: pointer;
-  font-size: 22px;
 }
 .composer-tools summary::-webkit-details-marker { display: none; }
 .composer-tools-panel {

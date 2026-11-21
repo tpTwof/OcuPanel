@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "conjunctivitis": {
+      "label": "结膜炎",
+      "aliases": [
+        "结膜炎",
+        "红眼病",
+        "conjunctivitis",
+        "Pink Eye"
+      ]
+    },
+    "eye_discharge": {
+      "label": "眼部分泌物",
+      "aliases": [
+        "眼部分泌物",
+        "眼屎增多"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "eye_discharge",
+      "相关表现见于",
+      "conjunctivitis"
+    ]
+  ],
+  "sources": {
+    "nei-conjunctivitis": {
+      "title": "美国国家眼科研究所（NEI）结膜炎公众教育",
+      "jurisdiction": "US",
+      "version": "2025-11-05",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/pink-eye"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-conjunctivitis-features",
+      "source": "nei-conjunctivitis",
+      "section": "At a glance: Pink Eye / What is pink eye? / What are the symptoms of pink eye? / What causes pink eye?",
+      "scope": "美国 NEI 面向公众的结膜炎健康教育",
+      "anchors": [
+        "conjunctivitis",
+        "eye_discharge"
+      ],
+      "text": "结膜炎可有眼红、流泪、瘙痒及分泌物。病毒、细菌和过敏等均可能引起，需要结合病因判断是否具有传染性。"
+    },
+    {
+      "id": "nei-conjunctivitis-assessment",
+      "source": "nei-conjunctivitis",
+      "section": "When do I need to see a doctor for pink eye?",
+      "scope": "美国 NEI 面向公众的结膜炎健康教育",
+      "anchors": [
+        "conjunctivitis"
+      ],
+      "text": "新生儿出现结膜炎症状应立即联系医生。其他年龄段若眼红伴眼痛、畏光、视力模糊或症状加重，也应就医评估。"
+    }
+  ]
+}

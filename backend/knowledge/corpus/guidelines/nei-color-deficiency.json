@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "color_deficiency": {
+      "label": "色觉异常",
+      "aliases": [
+        "色觉异常",
+        "色盲",
+        "色弱",
+        "color vision deficiency",
+        "Color Blindness"
+      ]
+    },
+    "color_plates": {
+      "label": "色觉检查图",
+      "aliases": [
+        "色觉检查图",
+        "色盲图"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "color_deficiency",
+      "评估检查",
+      "color_plates"
+    ]
+  ],
+  "sources": {
+    "nei-color-deficiency": {
+      "title": "美国国家眼科研究所（NEI）色觉异常公众教育",
+      "jurisdiction": "US",
+      "version": "2025-11-05",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/color-blindness"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-color-deficiency-features",
+      "source": "nei-color-deficiency",
+      "section": "At a glance: Color Blindness / What is color blindness? / What are the types of color vision deficiency? / What are the symptoms of color vision deficiency? / What causes color vision deficiency?",
+      "scope": "美国 NEI 面向公众的色觉异常健康教育",
+      "anchors": [
+        "color_deficiency"
+      ],
+      "text": "色觉异常可表现为难以区分某些颜色；不少人很早就有这种情况，自己却未必察觉。"
+    },
+    {
+      "id": "nei-color-deficiency-assessment",
+      "source": "nei-color-deficiency",
+      "section": "How can I find out if I have color deficiency?",
+      "scope": "美国 NEI 面向公众的色觉异常健康教育",
+      "anchors": [
+        "color_deficiency",
+        "color_plates"
+      ],
+      "text": "色觉检查常使用彩点组成的图案，让受检者识别其中的数字、线条或形状。"
+    },
+    {
+      "id": "nei-color-deficiency-care",
+      "source": "nei-color-deficiency",
+      "section": "What's the treatment for color vision deficiency?",
+      "scope": "美国 NEI 面向公众的色觉异常健康教育",
+      "anchors": [
+        "color_deficiency"
+      ],
+      "text": "遗传性色觉异常者可通过学习和工作环境适配来区分颜色信息。后天出现的色觉改变需由医生评估相关疾病或用药。"
+    }
+  ]
+}

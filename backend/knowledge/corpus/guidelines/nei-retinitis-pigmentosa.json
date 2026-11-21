@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "retinitis_pigmentosa": {
+      "label": "视网膜色素变性",
+      "aliases": [
+        "视网膜色素变性",
+        "RP",
+        "Retinitis Pigmentosa"
+      ]
+    },
+    "nyctalopia": {
+      "label": "夜盲",
+      "aliases": [
+        "夜盲",
+        "夜间看不清",
+        "night blindness"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "nyctalopia",
+      "相关表现见于",
+      "retinitis_pigmentosa"
+    ],
+    [
+      "retinitis_pigmentosa",
+      "功能评估",
+      "visual_field"
+    ],
+    [
+      "retinitis_pigmentosa",
+      "康复支持",
+      "vision_rehab"
+    ]
+  ],
+  "sources": {
+    "nei-retinitis-pigmentosa": {
+      "title": "美国国家眼科研究所（NEI）视网膜色素变性公众教育",
+      "jurisdiction": "US",
+      "version": "2025-08-06",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/retinitis-pigmentosa"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-retinitis-pigmentosa-features",
+      "source": "nei-retinitis-pigmentosa",
+      "section": "At a glance: Retinitis Pigmentosa / What is retinitis pigmentosa? / What are the symptoms of RP? / What causes RP?",
+      "scope": "美国 NEI 面向公众的视网膜色素变性健康教育",
+      "anchors": [
+        "retinitis_pigmentosa",
+        "nyctalopia"
+      ],
+      "text": "视网膜色素变性是一组遗传性疾病。暗处视物困难常较早出现，随后周边视野可逐渐缩小。"
+    },
+    {
+      "id": "nei-retinitis-pigmentosa-assessment",
+      "source": "nei-retinitis-pigmentosa",
+      "section": "How will my eye doctor check for RP?",
+      "scope": "美国 NEI 面向公众的视网膜色素变性健康教育",
+      "anchors": [
+        "retinitis_pigmentosa"
+      ],
+      "text": "散瞳检查及视野检查有助于评估视网膜色素变性，视网膜电图可测光反应，基因检测可辅助明确遗传病因。"
+    },
+    {
+      "id": "nei-retinitis-pigmentosa-care",
+      "source": "nei-retinitis-pigmentosa",
+      "section": "What’s the treatment for RP?",
+      "scope": "美国 NEI 面向公众的视网膜色素变性健康教育",
+      "anchors": [
+        "retinitis_pigmentosa"
+      ],
+      "text": "因视网膜色素变性出现低视力时，助视器与视觉康复训练可帮助利用剩余视力，定期眼科复查有助于监测变化。"
+    }
+  ]
+}

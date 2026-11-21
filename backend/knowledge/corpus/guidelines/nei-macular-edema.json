@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "macular_edema": {
+      "label": "黄斑水肿",
+      "aliases": [
+        "黄斑水肿",
+        "macular oedema",
+        "Macular Edema"
+      ]
+    },
+    "washed_colors": {
+      "label": "颜色变淡",
+      "aliases": [
+        "颜色变淡",
+        "颜色发灰"
+      ]
+    }
+  },
+  "relations": [
+    [
+      "washed_colors",
+      "相关表现见于",
+      "macular_edema"
+    ],
+    [
+      "macular_edema",
+      "评估检查",
+      "oct"
+    ]
+  ],
+  "sources": {
+    "nei-macular-edema": {
+      "title": "美国国家眼科研究所（NEI）黄斑水肿公众教育",
+      "jurisdiction": "US",
+      "version": "2025-08-06",
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/macular-edema"
+    }
+  },
+  "evidence": [
+    {
+      "id": "nei-macular-edema-features",
+      "source": "nei-macular-edema",
+      "section": "At a glance: Macular Edema / What is macular edema? / What are the symptoms of macular edema? / What causes macular edema?",
+      "scope": "美国 NEI 面向公众的黄斑水肿健康教育",
+      "anchors": [
+        "macular_edema",
+        "washed_colors"
+      ],
+      "text": "黄斑区积液可使正前方物体模糊或变形，颜色显得黯淡。黄斑水肿有多种病因，需结合基础眼病判断。"
+    },
+    {
+      "id": "nei-macular-edema-assessment",
+      "source": "nei-macular-edema",
+      "section": "How will my eye doctor check for macular edema?",
+      "scope": "美国 NEI 面向公众的黄斑水肿健康教育",
+      "anchors": [
+        "macular_edema"
+      ],
+      "text": "疑似黄斑水肿时可散瞳检查眼底，OCT 可显示肿胀程度，荧光素血管造影可观察视网膜血管渗漏。"
+    },
+    {
+      "id": "nei-macular-edema-care",
+      "source": "nei-macular-edema",
+      "section": "What's the treatment for macular edema?",
+      "scope": "美国 NEI 面向公众的黄斑水肿健康教育",
+      "anchors": [
+        "macular_edema"
+      ],
+      "text": "黄斑水肿的处理首先要明确并管理病因。医生可能根据病因选择抗 VEGF 或其他眼部治疗。"
+    }
+  ]
+}
