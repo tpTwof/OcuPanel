@@ -14,6 +14,8 @@ Linux 使用 `./.venv/bin/python backend/main.py`。默认监听 `127.0.0.1:8000
 
 ## 模块与流程
 
+新增 [`screening/`](screening/README.md) 合成病例演练模块：逐眼任务状态、补拍、模拟复核签发、版本快照、幂等收据、转诊和回执。`/api/screening/cases` 入口不调用模型、不接入真实病例，沿用账号隔离。状态、释义、JSON 及演练 PDF 均可绑定历史版本；原研究报告生成接口保持现有行为。
+
 | 模块 | 职责 |
 |---|---|
 | `main.py` | 应用组装、生命周期、错误映射、静态托管 |
@@ -112,7 +114,7 @@ Verifier 对外部知识核查引用语义，代码另行检测未知编号，�
 | `CHAT_REPORT_MAX_CHARS` | `6000` | 眼科形态最近报告上限，同时受剩余预算一半限制 |
 | `CHAT_MAX_OUTPUT_TOKENS` | `2048` | 聊天回复上限，不影响报告 Agents |
 | `RAG_ENABLED` / `RAG_MODE` | `1` / `hybrid` | 证据检索开关与模式 |
-| `RAG_TOP_K` / `RAG_MIN_SCORE` | `4` / `0.35` | 角色召回数量与相对得分阈值 |
+| `RAG_TOP_K` / `RAG_MIN_SCORE` | `12` / `0.35` | 每病种证据条数与相对得分阈值；报告按诊断、判读、治疗、随访四方面分别检索再合并 |
 | `RAG_VECTOR_MODEL` / `RAG_VECTOR_MIN_SCORE` | `intfloat/multilingual-e5-small` / `0.78` | 向量模型与绝对阈值 |
 | `RAG_VECTOR_REVISION` | `main` | 模型版本，可固定为提交哈希 |
 | `RAG_VECTOR_CACHE_PATH` | `knowledge/.cache/vectors.db`（相对 backend 的默认绝对路径） | 本地 SQLite 向量缓存，空字符串禁用 |
@@ -151,13 +153,15 @@ $env:RAG_MODE = 'bm25'
 
 ## 数据与资源生命周期
 
-SQLite 固定为 `backend/ocupanel.db`，有 users、sessions、llm_configs、conversations、messages、reports 六张表。密码使用 PBKDF2-HMAC-SHA256，登录令牌有效期 7 天；会话形态启动时自动迁移，已有报告的旧会话初始化为 ophthalmic，之后主动切换的状态会保留。
+分析归档增加 `backend/original_store/` 和 reports.source_metadata，保存原图与来源哈希。备份须包含这个目录；当前没有自动原图清理器。历史缺原图不补造，按当前账号的报告归属和哈希读取。导入预览表、确认事务与缺项处理见[工作台](screening/README.md)。
+
+SQLite 固定为 `backend/ocupanel.db`，原有 users、sessions、llm_configs、conversations、messages、reports 六张表，另有 screening_cases、screening_versions、screening_requests 和 screening_import_previews 四张合成演练及导入表。密码使用 PBKDF2-HMAC-SHA256，登录令牌有效期 7 天；会话形态启动时自动迁移，已有报告的旧会话初始化为 ophthalmic，之后主动切换的状态会保留。
 
 每次任务在 `backend/output/` 创建独占目录。正文请求结束清理；PDF 发送完毕后由后台任务清理。启动时清理超过 30 分钟的遗留任务目录，没有周期性任务清理器。`backend/img_store/` 长期保存叠加图，当前没有自动清理。备份需包含数据库、加密密钥与图片。
 
-视觉权重按模型、类型和设备缓存，加载和推理共用进程锁；只缓存权重，不缓存分析结果。自动设备选择为 CUDA → MPS → CPU，当前本机使用 CPU 版 torch。每个 worker 都有独立模型副本，部署先使用单 worker，在目标环境实测容量。当前没有完整报告任务队列。
+视觉权重按模型、类型和设备缓存，加载和推理共用进程锁；只缓存权重，不缓存分析结果。自动设备选择为 CUDA → MPS → CPU，当前本机使用 CPU 版 torch。每个 worker 都有独立模型副本，部署先使用单 worker，在目标环境实测容量。报告页使用 SQLite 持久任务队列，同一数据库同时执行一个排队报告。
 
-会话查询按用户隔离，但分割图接口只要求登录和安全文件名，尚未核对图像所属用户。页面通过报告 ID 下载当前账号已保存的报告，可从历史对话访问。
+会话、报告及分割图查询按用户隔离，分割图通过当前账号的报告归属核对。页面通过报告 ID 下载当前账号已保存的报告，可从历史对话访问。演练病例及其历史版本、释义和导出也按当前账号隔离；不提供机构间共享或正式医生角色授权。
 
 ## 验证与排查
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import hashlib
+import json
 import uuid
 from pathlib import Path
 from typing import Any
@@ -23,11 +25,17 @@ from report.context import format_visual_findings
 from report.pdf import PDFRenderer
 from report.utils.messages import reject_message
 from report.utils.jobs import cleanup_job_dir, new_job_dir
+from report import assets
 
 
 async def _load_generator(user: User) -> MedicalReportGenerator:
     """取当前用户自己的 LLM 配置。没配就直接告诉用户去配，而不是甩一个 500。"""
-    cfg = await run_in_threadpool(storage.load_llm_config, user["id"])
+    from screening.access import analysis_site
+    def checked_config():
+        with storage.connect() as conn:
+            analysis_site(conn, user["id"])
+        return storage.load_llm_config(user["id"])
+    cfg = await run_in_threadpool(checked_config)
     if not cfg:
         raise ApplicationError(
             status_code=409,
@@ -45,7 +53,7 @@ async def _run_report_pipeline(
 ) -> ReportResult:
     """运行所选病种的影像分析、专科报告、综合和引用校验。
 
-    拒答时 summary 为 None，调用方必须自己决定怎么呈现，绝不能把原文当成功返回。
+    未通过的诊疗草稿不能当成功返回；limited 只保留病例输入，不能导出诊断 PDF。
     """
     try:
         return await run_in_threadpool(
@@ -90,13 +98,22 @@ async def generate_content(user: User, request: ReportSubmission) -> ReportConte
 
 def _archive_result(
     user_id: str, request: ReportSubmission, result: ReportResult, append_to_chat: bool,
+    report_id: str | None = None,
 ) -> ReportContent:
     summary, verification, ratio, seg_path, evidence, findings = result
-    rejected = summary is None
+    rejected = summary is None or verification.get("status") == "limited"
     display_text = reject_message(verification) if summary is None else summary
     findings_text = format_visual_findings(findings, verification.get("missing_evidence_diseases"))
     img_name = uuid.uuid4().hex if seg_path else ""
     archive_image = IMG_STORE_DIR / f"{img_name}.jpg" if img_name else None
+    source_metadata = {
+        "schema_version": 1, "filename": request.filename, "clinical_note": request.note,
+        "selected_diseases": list(request.diseases), "laterality": request.laterality,
+        "captured_at": request.captured_at.isoformat() if request.captured_at else None,
+        "device": request.device, "data_kind": "synthetic_declared" if request.synthetic else "unclassified",
+        "original_id": uuid.uuid4().hex, "original_sha256": hashlib.sha256(request.image_bytes).hexdigest(),
+    }
+    original_file = assets.original_path(source_metadata)
     meta = {
         "kind": "report", "img_name": img_name, "evidence": evidence,
         "verification": verification, "rejected": rejected, "cup_to_disc_ratio": ratio,
@@ -106,16 +123,21 @@ def _archive_result(
     if append_to_chat and request.conversation_id:
         chat_turn = (f"眼科分析：{request.filename}\n{request.note}", meta, f"眼科分析 · {request.filename}"[:60])
     try:
+        assets.ORIGINAL_STORE_DIR.mkdir(parents=True, exist_ok=True)
+        original_file.write_bytes(request.image_bytes)
         if archive_image:
             with Image.open(seg_path) as image:
                 image.convert("RGB").save(archive_image)
         report_id = storage.save_report(
             user_id, request.conversation_id, img_name, display_text, verification,
             evidence, rejected, cup_to_disc=ratio, visual_findings=findings, chat_turn=chat_turn,
+            source_metadata=source_metadata,
+            report_id=report_id,
         )
     except Exception:
         if archive_image:
             archive_image.unlink(missing_ok=True)
+        original_file.unlink(missing_ok=True)
         raise
 
     return {
@@ -127,7 +149,7 @@ def _archive_result(
 
 
 async def _generate_and_store(
-    user: User, request: ReportSubmission, *, append_to_chat: bool,
+    user: User, request: ReportSubmission, *, append_to_chat: bool, report_id: str | None = None,
 ) -> ReportContent:
     _validate_upload(request)
     await _activate_analysis_mode(user, request.conversation_id)
@@ -138,7 +160,7 @@ async def _generate_and_store(
         result = await _run_report_pipeline(
             generator, request.image_bytes, request.note, job_dir, request.diseases,
         )
-        return await run_in_threadpool(_archive_result, user["id"], request, result, append_to_chat)
+        return await run_in_threadpool(_archive_result, user["id"], request, result, append_to_chat, report_id)
     finally:
         cleanup_job_dir(job_dir)
 
@@ -157,6 +179,8 @@ async def export_report(user: User, report_id: str) -> ReportDownload:
     report = await run_in_threadpool(storage.get_report, user["id"], report_id)
     if report is None:
         raise ApplicationError(status_code=404, detail="报告不存在")
+    if report["verification"].get("status") == "limited":
+        raise ApplicationError(status_code=422, detail="当前仅提供病例资料摘要，诊疗结论未通过核查，不能导出诊断报告 PDF")
     if report["rejected"] or not report["summary"].strip():
         raise ApplicationError(status_code=422, detail="当前报告没有可导出的正文")
 
@@ -190,3 +214,28 @@ async def export_report(user: User, report_id: str) -> ReportDownload:
         cleanup_job_dir(job_dir)
         raise
     return download
+
+
+def report_detail(user_id: str, report_id: str) -> dict[str, Any]:
+    report = storage.get_report(user_id, report_id)
+    if report is None:
+        raise ApplicationError(404, "报告不存在")
+    report["original"] = assets.inspect_original(report["source_metadata"])
+    return report
+
+
+def report_catalog(user_id: str, limit: int = 100) -> list[dict[str, Any]]:
+    with storage.connect() as conn:
+        rows = conn.execute("SELECT id, created_at, rejected, verification, source_metadata FROM reports WHERE user_id=? ORDER BY created_at DESC LIMIT ?", (user_id, limit)).fetchall()
+    return [{"id": row["id"], "created_at": row["created_at"], "rejected": bool(row["rejected"]),
+             "verification": json.loads(row["verification"]), "source_metadata": json.loads(row["source_metadata"])} for row in rows]
+
+
+def get_original(user_id: str, report_id: str) -> bytes:
+    report = storage.get_report(user_id, report_id)
+    if report is None:
+        raise ApplicationError(404, "报告不存在")
+    _, content = assets.read_original(report["source_metadata"])
+    if content is None:
+        raise ApplicationError(404, "原图缺失或完整性校验失败")
+    return content

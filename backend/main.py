@@ -20,6 +20,7 @@ from utils import storage
 from user.api import account_router
 from chat.api import chat_router
 from report.api import report_router
+from screening.api import screening_router
 from report.utils.jobs import purge_stale_job_dirs
 
 load_dotenv()
@@ -69,7 +70,35 @@ async def setup_cache(app: FastAPI) -> AsyncIterator[None]:
     # generator 现在是每请求按用户配置新建的轻量对象（只存配置，不存对话状态），
     # 对话历史在 SQLite 里。缓存它没有收益，反而会和数据库里的状态打架。
 
-    yield
+    from report.queue import consume
+    from report import assets
+    retention_days = int(os.getenv("ORIGINAL_RETENTION_DAYS") or 0)
+    if retention_days < 0:
+        raise ValueError("ORIGINAL_RETENTION_DAYS must be nonnegative")
+    stop = asyncio.Event()
+
+    async def enforce_retention() -> None:
+        while not stop.is_set():
+            try:
+                removed = await asyncio.to_thread(assets.expire_originals, storage.DB_PATH,
+                                                  assets.ORIGINAL_STORE_DIR, retention_days, True)
+                logger.info("Expired %d archived originals", removed)
+            except Exception:
+                logger.exception("Original retention cleanup failed")
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=86400)
+            except TimeoutError:
+                pass
+
+    worker = asyncio.create_task(consume(stop))
+    retention = asyncio.create_task(enforce_retention()) if retention_days else None
+    try:
+        yield
+    finally:
+        stop.set()
+        await worker
+        if retention:
+            await retention
 
     if gate_task and not gate_task.done():
         gate_task.cancel()
@@ -100,6 +129,7 @@ app.add_middleware(
 app.include_router(account_router, prefix="/api")
 app.include_router(report_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+app.include_router(screening_router, prefix="/api")
 
 
 # ---------------------------------------------------------------------------

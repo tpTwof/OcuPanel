@@ -1,0 +1,24 @@
+{
+  "manifest": {
+    "old_version": "synthetic-old-v1",
+    "candidate_version": "synthetic-candidate-v1",
+    "reference_standard": "synthetic labels; not a clinical reference standard",
+    "locked_workpoints": {"old": "synthetic decisions", "candidate": "synthetic decisions"},
+    "dataset_version": "synthetic-paired-demo-v1"
+  },
+  "rows": [
+    {"patient_id":"p1","encounter_id":"e1","eye":"right","task":"glaucoma","institution":"demo-A","device":"demo-camera","split":"test","reference":"refer","old":"no_refer","candidate":"refer","old_workflow":"no_refer","candidate_workflow":"refer"},
+    {"patient_id":"p1","encounter_id":"e1","eye":"left","task":"glaucoma","institution":"demo-A","device":"demo-camera","split":"test","reference":"refer","old":"no_refer","candidate":"abstain","old_workflow":"no_refer","candidate_workflow":"pending"},
+    {"patient_id":"p2","encounter_id":"e2","eye":"right","task":"glaucoma","institution":"demo-A","device":"demo-camera","split":"test","reference":"no_refer","old":"refer","candidate":"no_refer","old_workflow":"refer","candidate_workflow":"no_refer"},
+    {"patient_id":"p3","encounter_id":"e3","eye":"left","task":"glaucoma","institution":"demo-A","device":"demo-camera","split":"test","reference":"unknown","old":"refer","candidate":"abstain"},
+    {"patient_id":"synthetic-0","encounter_id":"sample","eye":"right","task":"diabetic_retinopathy","institution":"demo-A","device":"demo-camera","split":"test","reference":"refer","old":"no_refer","candidate":"refer","old_workflow":"no_refer","candidate_workflow":"refer","verification_probability":0.5,"selected_for_verification":true},
+    {"patient_id":"synthetic-1","encounter_id":"sample","eye":"right","task":"diabetic_retinopathy","institution":"demo-A","device":"demo-camera","split":"test","reference":"refer","old":"refer","candidate":"refer","old_workflow":"refer","candidate_workflow":"refer","verification_probability":1,"selected_for_verification":true},
+    {"patient_id":"synthetic-2","encounter_id":"sample","eye":"right","task":"diabetic_retinopathy","institution":"demo-A","device":"demo-camera","split":"test","reference":"unknown","old":"refer","candidate":"refer","old_workflow":"refer","candidate_workflow":"refer","verification_probability":0.5,"selected_for_verification":false},
+    {"patient_id":"synthetic-0","encounter_id":"sample","eye":"right","task":"dme","institution":"demo-A","device":"demo-camera","split":"test","reference":"refer","old":"no_refer","candidate":"refer","old_workflow":"no_refer","candidate_workflow":"refer","verification_probability":0.5,"selected_for_verification":true},
+    {"patient_id":"synthetic-1","encounter_id":"sample","eye":"right","task":"dme","institution":"demo-A","device":"demo-camera","split":"test","reference":"refer","old":"refer","candidate":"refer","old_workflow":"refer","candidate_workflow":"refer","verification_probability":1,"selected_for_verification":true},
+    {"patient_id":"synthetic-2","encounter_id":"sample","eye":"right","task":"dme","institution":"demo-A","device":"demo-camera","split":"test","reference":"unknown","old":"refer","candidate":"refer","old_workflow":"refer","candidate_workflow":"refer","verification_probability":0.5,"selected_for_verification":false},
+    {"patient_id":"synthetic-0","encounter_id":"sample","eye":"right","task":"age_related_macular_degeneration","institution":"demo-A","device":"demo-camera","split":"test","reference":"refer","old":"no_refer","candidate":"refer","old_workflow":"no_refer","candidate_workflow":"refer","verification_probability":0.5,"selected_for_verification":true},
+    {"patient_id":"synthetic-1","encounter_id":"sample","eye":"right","task":"age_related_macular_degeneration","institution":"demo-A","device":"demo-camera","split":"test","reference":"refer","old":"refer","candidate":"refer","old_workflow":"refer","candidate_workflow":"refer","verification_probability":1,"selected_for_verification":true},
+    {"patient_id":"synthetic-2","encounter_id":"sample","eye":"right","task":"age_related_macular_degeneration","institution":"demo-A","device":"demo-camera","split":"test","reference":"unknown","old":"refer","candidate":"refer","old_workflow":"refer","candidate_workflow":"refer","verification_probability":0.5,"selected_for_verification":false}
+  ]
+}

@@ -27,7 +27,9 @@ REPORT_LANGUAGE = (os.getenv("REPORT_LANGUAGE") or "zh").strip().lower()
 REPORT_FONT_PATH = os.getenv("REPORT_FONT_PATH") or None
 
 # 单次 LLM 调用超时（秒）与重试次数。不设上限时一个卡住的请求能拖死整条链路。
-LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "120"))
+# 报告核查与改写提示词约 6k 字符，deepseek-v4.1-flash 实测单次 150–227 秒，
+# 120 会让核查稳定超时并扣留正文。取 300 留出余量；较快的模型不受影响。
+LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "300"))
 LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "1"))
 # 关闭 DeepSeek 的 thinking 模式以显著提速（1=关闭，默认关闭 thinking）
 LLM_DISABLE_THINKING = (os.getenv("LLM_DISABLE_THINKING", "1") != "0")
@@ -46,7 +48,11 @@ for _setting in (
 
 # 知识检索（证据包）。RAG_ENABLED=0 可退回纯模型生成，便于 A/B 对比。
 RAG_ENABLED = (os.getenv("RAG_ENABLED", "1") != "0")
-RAG_TOP_K = int(os.getenv("RAG_TOP_K", "4"))
+# 证据条数。报告要同时覆盖诊断评估、结构与功能判读、治疗目标和随访四个方面，
+# 取 4 条时后两类条款会被长病例文本挤出候选池（实测「目标眼压」排在第 14 名），
+# 撰稿只能写无依据的处置句，校验随即判为不受支持，最终退化为病例摘要。
+# 12 是实测能覆盖四类的下限，继续增大会推高提示词长度与校验成本。
+RAG_TOP_K = int(os.getenv("RAG_TOP_K", "12"))
 # 相对阈值：只保留得分不低于最佳命中该比例的片段（0–1）
 RAG_MIN_SCORE = float(os.getenv("RAG_MIN_SCORE", "0.35"))
 # 检索模式：

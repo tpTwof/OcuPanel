@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-11-24T16:17:11.197218+00:00",
+  "description": {
+    "classification_revision": "a25a03d9ff23d6fbaf6cd7a329373253f4671c63",
+    "segmentation_revision": "a0463fb6c2bf184cf398e5fd82a8194e01e66e7f",
+    "class_order": {
+      "0": "Non-glaucoma",
+      "1": "Glaucoma"
+    },
+    "mask_semantics": {
+      "0": "background",
+      "1": "disc ring (project convention; upstream label Optic disc)",
+      "2": "cup"
+    },
+    "processor": {
+      "classification": {
+        "do_normalize": true,
+        "do_rescale": true,
+        "do_resize": true,
+        "image_mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "image_processor_type": "ViTImageProcessor",
+        "image_std": [
+          0.229,
+          0.224,
+          0.225
+        ],
+        "resample": 3,
+        "rescale_factor": 0.00392156862745098,
+        "size": {
+          "height": 512,
+          "width": 512
+        }
+      },
+      "segmentation": {
+        "do_normalize": true,
+        "do_rescale": true,
+        "do_resize": true,
+        "feature_extractor_type": "SegformerFeatureExtractor",
+        "image_mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "image_std": [
+          0.229,
+          0.224,
+          0.225
+        ],
+        "reduce_labels": false,
+        "resample": 2,
+        "rescale_factor": 0.00392156862745098,
+        "size": 512
+      }
+    },
+    "cdr_definition": "sqrt(cup_area / (disc_ring_area + cup_area)); area-equivalent, not vertical CDR",
+    "sources": {
+      "classification": "pamixsun/swinv2_tiny_for_glaucoma_classification",
+      "segmentation": "pamixsun/segformer_for_optic_disc_cup_segmentation"
+    },
+    "license_review": "Pending intended-use review; no weights redistributed",
+    "sample_regression": "backend/tests/test_glaucoma_cases.py; synthetic tests, no clinical validation",
+    "artifact_role": "segmentation"
+  },
+  "artifacts": [
+    {
+      "path": ".gitattributes",
+      "bytes": 1519,
+      "sha256": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361",
+      "symlink": true
+    },
+    {
+      "path": "config.json",
+      "bytes": 1199,
+      "sha256": "e3639987b9b21f8726d8b8abad849b2366936ff5ed042c255ef14390243ef858",
+      "symlink": true
+    },
+    {
+      "path": "model.safetensors",
+      "bytes": 188982852,
+      "sha256": "22e45131b64eb07a5d29a2e5388a7709d10696b13f48d2d0cdcf56cafa1f9ea5",
+      "symlink": true
+    },
+    {
+      "path": "preprocessor_config.json",
+      "bytes": 334,
+      "sha256": "b265f6d53be9b46b2d9f9a16c70cf7648196d57f31192f5bb67212031fea12ef",
+      "symlink": true
+    },
+    {
+      "path": "pytorch_model.bin",
+      "bytes": 189128349,
+      "sha256": "1a1a4154b5a6d6abf4333a12c3903cc84a16d57da7c6d9eaffec3748c3e552e3",
+      "symlink": true
+    },
+    {
+      "path": "README.md",
+      "bytes": 3020,
+      "sha256": "7041bb025d21b8fed9de6aedea098830917d4f4777361d5d77c5903d204250bc",
+      "symlink": true
+    }
+  ],
+  "validation": "not_evaluated"
+}

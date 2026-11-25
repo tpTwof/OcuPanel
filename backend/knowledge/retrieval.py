@@ -13,6 +13,7 @@ from graphrag import GraphRetriever
 from graphrag.builder import SEED_NAME
 from knowledge.corpus import load_guideline, evidence_chunks
 from knowledge.vector_cache import VectorCache
+from knowledge.report_focus import matches_disease
 from graphrag.retriever import query_regions
 from knowledge.models import Chunk, SourcedChunk
 from pathlib import Path
@@ -21,10 +22,19 @@ import numpy as np
 
 from utils import config
 CORPUS_DIR = Path(__file__).resolve().parent / "corpus"
+# Markdown 草稿语料，标题里自带「示例语料」声明。以前一旦收录了正式条款就把它们
+# 整份丢弃，结果全库只剩 2 条青光眼条款：报告要写的随访、目标眼压、视野判读
+# 一句都查不到，Verifier 只能全部判无依据，最后只剩病例摘要。现在保留它们参与
+# 检索，只把草稿身份标出来（见 draft_source），由页面与校验记录如实展示。
 DEMO_SOURCES = {
     "glaucoma-aao-ppp.en.md", "glaucoma-diagnosis.md",
     "glaucoma-followup.md", "glaucoma-treatment.md",
 }
+
+
+def draft_source(source: str | None) -> bool:
+    """该来源是否为未替换成权威原文的草稿语料。"""
+    return bool(source) and (source in DEMO_SOURCES or source.endswith("-nei.md"))
 
 _CJK_RUN = re.compile(r"[\u4e00-\u9fff]+")
 _ASCII_WORD = re.compile(r"[A-Za-z][A-Za-z0-9+\-.]*|\d+(?:\.\d+)?")
@@ -194,6 +204,8 @@ class VectorIndex:
             item = asdict(chunk)
             item["score"] = round(score, 3)
             item["vector"] = round(score, 3)
+            if draft_source(item.get("source")):
+                item["draft"] = True
             results.append(item)
             if len(results) >= k:
                 break
@@ -263,11 +275,13 @@ class Retriever:
                     raise ValueError(f"Duplicate evidence ID {entry.id} in {origins[entry.id]} and {path}")
                 origins[entry.id] = path
             curated.extend(entries)
-        if curated:
-            excluded_sources = DEMO_SOURCES.copy()
-            if any(chunk.id == "nei-amd-symptoms-and-exam" for chunk in curated):
-                excluded_sources.add("macular-degeneration-nei.md")
-            chunks = [chunk for chunk in chunks if chunk.source not in excluded_sources]
+        # 有正式条款替代的演示副本退出检索，避免同一内容出现两份来源：
+        # NEI 的 AMD 主题已由 guidelines/nei-amd.json 正式收录，故排除其 .md 副本。
+        # 青光眼与糖网的 .md 语料没有同等覆盖的正式条款（正式条款只讲诊断与分级，
+        # 缺随访、目标眼压和视野判读），必须保留；否则报告写这些内容时无据可查，
+        # 校验只能判为无依据，最终退化为病例摘要。保留时按草稿来源标注。
+        if curated and any(chunk.id == "nei-amd-symptoms-and-exam" for chunk in curated):
+            chunks = [chunk for chunk in chunks if chunk.source != "macular-degeneration-nei.md"]
         chunks += curated
         graph = None
         if graph_enabled is None:
@@ -302,7 +316,7 @@ class Retriever:
         index = self._get_vector()
         if index is None:
             return []
-        q = f"{query} {boost}".strip() if boost else query
+        q = f"{boost}\n{query}".strip() if boost else query
         try:
             return index.search(q, k=k, min_score=config.RAG_VECTOR_MIN_SCORE)
         except Exception as exc:  # noqa: BLE001 - 向量不可用时退回 BM25，不让整条链路挂掉
@@ -314,12 +328,12 @@ class Retriever:
                      boost: str = "", boost_weight: float = 1.8) -> list[dict]:
         """返回按相关度排序的证据条目（dict，可直接进 JSON 响应）。
 
-        boost: 该角色最关心的关键词（如药师的「禁忌 相互作用」）。命中这些词的
-        片段得分乘以 boost_weight —— 否则病历里的通用词会把所有角色都拉向同一段。
+        boost: 该角色最关心的关键词，按 boost_weight 加权其 BM25 贡献，
+        包括已出现在 query 中的词，避免通用病例词淹没当前病种主题。
         """
         # An interrogative alone supplies no topic for a clinical evidence match.
         query_tokens = set(_tokenize(query)) - {"是否"}
-        boost_tokens = set(_tokenize(boost)) - query_tokens - {"是否"} if boost else set()
+        boost_tokens = set(_tokenize(boost)) - {"是否"} if boost else set()
         if not query_tokens or not self.chunks:
             return []
 
@@ -356,6 +370,8 @@ class Retriever:
             item = asdict(self.chunks[idx])
             item["score"] = round(relative, 3)
             item["bm25"] = round(raw, 2)
+            if draft_source(item.get("source")):
+                item["draft"] = True
             results.append(item)
             if len(results) >= k:
                 break
@@ -532,10 +548,21 @@ class Retriever:
         return kept[:k]
 
     def search(self, query: str, k: int = 4, min_score: float = 0.35,
-               boost: str = "", boost_weight: float = 1.8) -> list[dict]:
-        """统一入口。模式由 RAG_MODE 控制，调用方无需关心。"""
+               boost: str = "", boost_weight: float = 1.8,
+               disease: str | None = None) -> list[dict]:
+        """统一入口。模式由 RAG_MODE 控制，调用方无需关心。
+
+        disease 给出时，只保留登记为该病种或未登记病种的来源，避免跨病种污染。
+        """
         if k <= 0:
             return []
+        hits = self._search_channels(query, k, min_score, boost, boost_weight)
+        if disease:
+            hits = [item for item in hits if matches_disease(item.get("source"), disease)]
+        return hits[:k]
+
+    def _search_channels(self, query: str, k: int, min_score: float,
+                         boost: str, boost_weight: float) -> list[dict]:
         if self._graph is not None:
             regions = query_regions(query)
             wide = max(k * 6, 20)

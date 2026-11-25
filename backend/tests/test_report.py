@@ -1,4 +1,5 @@
 import io
+import json
 import sys
 import tempfile
 import unittest
@@ -13,7 +14,84 @@ from agents.verifier import CitationVerifier
 from agents.models import SpecialistRole
 from agents.specialist import SpecialistAgent
 
+
+def verified_reply(quote='', source='Evidence'):
+    grounding = []
+    if '[1]' in quote:
+        grounding = [{'quote': quote, 'basis': 'medical_knowledge', 'citations': [1],
+                      'sources': [{'kind': 'evidence', 'index': 1, 'quote': source}], 'reason': 'Fixture support'}]
+    return json.dumps({'claims': [], 'grounding': grounding})
+
+
 class ReportTests(unittest.TestCase):
+    def test_unresolved_clinical_draft_retains_only_original_case_input(self):
+        analysis = EyeAnalysis(diseases={'glaucoma': DiseaseResult(probability=.8)})
+        note = '原始病例：左眼 24 mmHg。'
+        verification = {'status': 'rejected', 'reason': 'unverified_claims_remain', 'policy_version': 2,
+                        'remaining_issues': [{'quote': 'Unsupported diagnosis.', 'impact': 'core'}]}
+        generator = MedicalReportGenerator(api_key='test')
+        generator.chat_with_gpt = Mock(return_value='Unsupported diagnosis.')
+        with tempfile.TemporaryDirectory() as folder, \
+             patch('vision.analyze_fundus', return_value=analysis), \
+             patch('report.generation.retrieve_evidence', return_value=[{'id': 'guide', 'text': 'Reference'}]), \
+             patch.object(generator, 'verify_synthesis', return_value=(None, verification)):
+            result = generator.generate(io.BytesIO(b'image'), note, folder)
+        self.assertEqual(result.verification['status'], 'limited')
+        self.assertEqual(result.verification['diagnostic_status'], 'rejected')
+        self.assertIn(note, result.summary)
+        self.assertNotIn('Unsupported diagnosis.', result.summary)
+        self.assertEqual(result.verification['remaining_issues'][0]['quote'], 'Unsupported diagnosis.')
+
+    def test_source_summary_does_not_mask_model_or_format_failure(self):
+        from report.source_summary import case_source_summary
+        for verification in ({'status': 'error', 'policy_version': 2, 'reason': 'verify_call_failed'},
+                             {'status': 'rejected', 'policy_version': 2, 'reason': 'no_evidence'}):
+            text, record = case_source_summary('Input data.', verification)
+            self.assertIsNone(text)
+            self.assertEqual(record, verification)
+
+    def test_local_reference_gap_preserves_case_data_and_delivers_rechecked_report(self):
+        import json
+        analysis = EyeAnalysis(diseases={'glaucoma': DiseaseResult(
+            probability=.8, measurements={'area_equivalent_cdr': .6})})
+        fact = '本例右眼眼压 26 mmHg。'
+        extra = '与本例无关的检查条款 [1]。'
+        issue = json.dumps({'grounding': [], 'claims': [{'quote': extra, 'verdict': 'unsupported',
+                                        'citations': [1], 'impact': 'local', 'reason': '条款不适用'}]})
+        generator = MedicalReportGenerator(api_key='test')
+        generator.chat_with_gpt = Mock(side_effect=[
+            fact + '\n' + extra, issue, '{"replacements":[]}', issue, verified_reply(),
+        ])
+        with tempfile.TemporaryDirectory() as folder, \
+             patch('vision.analyze_fundus', return_value=analysis), \
+             patch('report.generation.retrieve_evidence', return_value=[{'id': 'guide', 'text': 'Evidence'}]), \
+             patch('report.generation.get_retriever', return_value=Mock(similarity=lambda a, b: 0)), \
+             patch('utils.config.VERIFY_ENABLED', True), patch('utils.config.VERIFY_MAX_ROUNDS', 1):
+            result = generator.generate(io.BytesIO(b'fixture-image'), fact, folder)
+        self.assertEqual(result.summary, fact)
+        self.assertEqual(result.cup_to_disc_ratio, .6)
+        self.assertEqual(result.verification['status'], 'rewritten')
+        self.assertEqual(result.verification['fixed'][0]['quote'], extra)
+        self.assertEqual(result.verification['fixed'][0]['reason'], '条款不适用')
+
+    def test_sample_note_report_recovers_from_invalid_verifier_claims(self):
+        analysis = EyeAnalysis(diseases={'glaucoma': DiseaseResult(probability=.8)})
+        evidence = [{'id': 'guide', 'text': 'Evidence', 'index': 1}]
+        note = (Path(__file__).resolve().parents[2] / 'samples' / 'clinical_note.txt').read_text(encoding='utf-8')
+        generator = MedicalReportGenerator(api_key='test')
+        generator.chat_with_gpt = Mock(side_effect=[
+            'Case findings [1].', '{"claims":[{}]}', verified_reply('Case findings [1].'),
+        ])
+        with tempfile.TemporaryDirectory() as folder, \
+             patch('vision.analyze_fundus', return_value=analysis), \
+             patch('report.generation.retrieve_evidence', return_value=evidence), \
+             patch('report.generation.get_retriever', return_value=Mock(similarity=lambda a, b: 0)), \
+             patch('utils.config.VERIFY_ENABLED', True):
+            result = generator.generate(io.BytesIO(b'fixture-image'), note, folder)
+        self.assertEqual(result.summary, 'Case findings [1].')
+        self.assertEqual(result.verification['status'], 'pass')
+        self.assertEqual(result.verification['format_retries'], 1)
+
     def test_uploaded_stream_runs_agents_and_verifier(self):
         analysis = EyeAnalysis(diseases={'glaucoma': DiseaseResult(probability=.8, measurements={'area_equivalent_cdr': .6})}, overlays={'optic_disc_cup': np.zeros((8,8,3), dtype=np.uint8)})
         evidence = [{'id':'a','title':'Guide','section':'One','source':'test','text':'Evidence','score':1}]
@@ -21,7 +99,7 @@ class ReportTests(unittest.TestCase):
         calls = []
         def llm(prompt, **kwargs):
             calls.append((prompt, kwargs))
-            return '{"claims": []}' if kwargs.get('system') else 'Measured findings and evidence [1].'
+            return verified_reply('Measured findings and evidence [1].') if kwargs.get('system') else 'Measured findings and evidence [1].'
         generator.chat_with_gpt = llm
         def analyze(path, *, diseases):
             self.assertEqual(Path(path).read_bytes(), b'uploaded-image')
@@ -62,6 +140,8 @@ class ReportTests(unittest.TestCase):
         analyze.assert_called_once()
         self.assertEqual(analyze.call_args.kwargs["diseases"], diseases)
         self.assertEqual(retrieve.call_count, 3)
+        self.assertIn('青光眼', retrieve.call_args_list[0].kwargs['boost'])
+        self.assertIn('diabetic retinopathy', retrieve.call_args_list[1].kwargs['boost'])
         self.assertNotIn("Diabetic retinopathy", retrieve.call_args_list[0].args[0])
         self.assertIn("Case note", retrieve.call_args_list[2].args[0])
         self.assertEqual([(item["id"], item["index"]) for item in result.evidence],
@@ -84,7 +164,8 @@ class ReportTests(unittest.TestCase):
         llm = Mock(side_effect=["Draft [99]", "Revised [1]"])
         generator.chat_with_gpt = llm
 
-        def verify(draft, items, regenerate):
+        def verify(draft, items, regenerate, *, case_context):
+            self.assertIn('Clinician note:', case_context)
             self.assertEqual(draft, "Draft [99]")
             self.assertEqual(items[0]["index"], 1)
             issues = [{"quote": "Draft [99]", "reason": "Unknown citation numbers: [99]"}]
@@ -109,7 +190,8 @@ class ReportTests(unittest.TestCase):
 
         generator.chat_with_gpt = Mock(side_effect=llm)
 
-        def verify(draft, evidence, regenerate):
+        def verify(draft, evidence, regenerate, *, case_context):
+            self.assertIn('Clinician note:', case_context)
             self.assertEqual(draft, "Draft [99]")
             self.assertEqual(evidence[0]["index"], 1)
             issues = [{"quote": draft, "reason": "Unknown citation [99]"}]

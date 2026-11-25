@@ -1,5 +1,6 @@
 """合成病例回放：固定分类、分割和语言模型输出，检查进入报告的结果。"""
 import sys
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,7 +28,14 @@ class GlaucomaReportCases(unittest.TestCase):
             generator = MedicalReportGenerator(api_key="fixture")
 
             def reply(prompt, **kwargs):
-                return verifier_reply if kwargs.get("system") else "Synthetic report [1]."
+                if not kwargs.get("system"):
+                    return "Synthetic report [1]."
+                if verifier_reply != '{"claims": []}':
+                    return verifier_reply
+                return json.dumps({'claims': [], 'grounding': [{
+                    'quote': 'Synthetic report [1].', 'basis': 'medical_knowledge', 'citations': [1],
+                    'sources': [{'kind': 'evidence', 'index': 1, 'quote': evidence[0]['text']}],
+                }]})
 
             generator.chat_with_gpt = Mock(side_effect=reply)
             with patch.object(analyzer, "predict_probability", return_value=0.9), \

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, NamedTuple
 from typing_extensions import TypedDict, NotRequired
@@ -11,6 +12,10 @@ class ReportSubmission:
     note: str = ""
     conversation_id: str | None = None
     diseases: tuple[str, ...] = DEFAULT_DISEASES
+    laterality: str | None = None
+    captured_at: datetime | None = None
+    device: str = ""
+    synthetic: bool = False
 
 @dataclass(frozen=True)
 class ReportDownload:

@@ -9,6 +9,7 @@ from ..utils.runtime import MODEL_LOCK, resolve_device, load_model
 from ..utils.images import validate_rgb
 
 MODEL_NAME = "pamixsun/segformer_for_optic_disc_cup_segmentation"
+MODEL_REVISION = "a0463fb6c2bf184cf398e5fd82a8194e01e66e7f"
 # 当前权重标签约定：0 背景，1 视盘环，2 视杯。
 def predict_mask(
     image: np.ndarray,
@@ -17,7 +18,7 @@ def predict_mask(
     validate_rgb(image)
     device = resolve_device(device)
     with MODEL_LOCK:
-        processor, model = load_model(MODEL_NAME, SegformerForSemanticSegmentation, device)
+        processor, model = load_model(MODEL_NAME, SegformerForSemanticSegmentation, device, revision=MODEL_REVISION)
         inputs = {k: v.to(device) for k, v in processor(image, return_tensors="pt").items()}
         with torch.inference_mode():
             logits = model(**inputs).logits

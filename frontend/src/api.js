@@ -206,19 +206,47 @@ export const sendMessage = (conversationId, message) =>
 // ---------------------------------------------------------------------------
 // 报告
 // ---------------------------------------------------------------------------
-export const generateReportContent = (file, note, conversationId, diseases = []) => {
+export const generateReportContent = async (file, note, conversationId, diseases = [], capture = {}) => {
   const form = new FormData()
+  const key = Array.from(crypto.getRandomValues(new Uint32Array(4)), (word) => word.toString(16).padStart(8, '0')).join('')
+  form.append('request_key', key)
   form.append('file', file)
   form.append('note', note)
   if (conversationId) form.append('conversation_id', conversationId)
   diseases.forEach((disease) => form.append('diseases', disease))
-  return callApi({
-    name: '生成报告',
-    url: `${API_BASE_URL}/api/generate-report-content/`,
+  if (capture.laterality) form.append('laterality', capture.laterality)
+  if (capture.captured_at) form.append('captured_at', capture.captured_at)
+  if (capture.device) form.append('device', capture.device)
+  if (capture.synthetic) form.append('synthetic', 'true')
+  const submit = () => callApi({
+    name: '提交分析任务',
+    url: `${API_BASE_URL}/api/report-jobs`,
     init: { method: 'POST', body: form },
     request: { file: `${file.name} · ${Math.round(file.size / 1024)} KB`, note: note ? `${note.length} 字` : '(空)' },
     read: json
   })
+  let job
+  try {
+    job = await submit()
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error
+    job = await submit()
+  }
+  let failures = 0
+  for (;;) {
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    let state
+    try {
+      state = await callApi({ name: '查询分析任务', url: `${API_BASE_URL}/api/report-jobs/${job.id}`, read: json })
+      failures = 0
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error
+      if (++failures < 4) continue
+      throw new Error(`连接中断。任务 ${job.id} 已提交，恢复连接后重新打开会话查看结果。`)
+    }
+    if (state.state === 'completed') return state.content
+    if (state.state === 'failed') throw new Error(state.error)
+  }
 }
 
 export const getReportImage = (imgName) =>
@@ -246,3 +274,19 @@ export const changeConversationMode = (id, mode) =>
     },
     read: json
   })
+
+const screeningUrl = (id = '') => `${API_BASE_URL}/api/screening/cases${id ? `/${encodeURIComponent(id)}` : ''}`
+export const getScreeningSite = () => callApi({ name: '当前演练机构', url: `${API_BASE_URL}/api/screening/site`, read: json })
+export const getCaseImage = (id, revision, reportId, kind) => callApi({ name: '病例版本影像', url: `${screeningUrl(id)}/sources/${encodeURIComponent(reportId)}/${kind}?revision=${revision}`, read: (res) => res.blob() })
+export const listScreeningCases = () => callApi({ name: '病例列表', url: screeningUrl(), read: json })
+export const getScreeningCase = (id, revision) => callApi({ name: '病例版本', url: `${screeningUrl(id)}${revision ? `?revision=${revision}` : ''}`, read: json })
+export const createScreeningCase = (body) => callApi({ name: '创建合成病例', url: screeningUrl(), init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, read: json })
+export const mutateScreeningCase = (id, body) => callApi({ name: '病例操作', url: `${screeningUrl(id)}/commands`, init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, read: json })
+export const exportScreeningCase = (id, revision) => callApi({ name: '导出病例快照', url: `${screeningUrl(id)}/export?revision=${revision}`, read: (res) => res.blob() })
+export const exportScreeningPdf = (id, revision) => callApi({ name: '导出演练 PDF', url: `${screeningUrl(id)}/pdf?revision=${revision}`, read: (res) => res.blob() })
+export const getScreeningContext = (id, revision) => callApi({ name: '逐眼版本释义', url: `${screeningUrl(id)}/context?revision=${revision}`, read: json })
+export const listSavedReports = () => callApi({ name: '分析存档列表', url: `${API_BASE_URL}/api/reports`, read: json })
+export const getSavedReport = (id) => callApi({ name: '分析来源详情', url: `${API_BASE_URL}/api/reports/${encodeURIComponent(id)}`, read: json })
+export const getReportOriginal = (id) => callApi({ name: '分析原图', url: `${API_BASE_URL}/api/reports/${encodeURIComponent(id)}/original`, read: (res) => res.blob() })
+export const previewAnalysisImport = (body) => callApi({ name: '预览分析导入', url: `${API_BASE_URL}/api/screening/imports/preview`, init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, read: json })
+export const confirmAnalysisImport = (id, body) => callApi({ name: '确认分析导入', url: `${API_BASE_URL}/api/screening/imports/${encodeURIComponent(id)}/confirm`, init: { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, read: json })

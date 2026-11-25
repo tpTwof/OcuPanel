@@ -5,3 +5,5 @@
 - 登录后使用 `Authorization: Bearer <token>` 访问业务接口。配置中的 API Key 在服务端加密，读取接口返回掩码。连通测试会请求实际配置的模型服务。
 
 接口清单与数据库路径见 [后端 README](../README.md)，模型调用行为见 [LLM README](../llm/README.md)。
+
+机构成员保存、读取或测试模型配置时使用机构获准端点名单。未配置获准端点时，机构成员仍可演练手工病例流程。[机构配置](../../tools/README.md)

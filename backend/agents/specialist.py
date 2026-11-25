@@ -7,6 +7,7 @@ from .tools.evidence import EvidenceTools
 from .tools.json_response import parse_agent_decision
 from knowledge.retrieval import format_evidence_block
 from agents.prompts.language import LANGUAGE_INSTRUCTION
+from agents.prompts.report import REPORT_REQUIREMENTS
 
 class SpecialistAgent:
     def __init__(
@@ -36,6 +37,13 @@ class SpecialistAgent:
             f"{context}\nAs a {self.name}, {self.instructions} "
             "Distinguish model predictions, measurements, missing data and recommendations. "
             "Do not infer untested diseases or severity from probability. Cite evidence for medical claims. "
+            "Use only references relevant to this case; omit unrelated disease or screening clauses, "
+            "including clauses explicitly described as inapplicable. "
+            "Separate supplied case facts, cautious case interpretation, general next steps and "
+            "specific reference-backed recommendations. Case facts come from the input, not from a guideline. "
+            "An interpretation may combine case findings with cited diagnostic criteria without claiming "
+            "that a reference describes this exact patient. Keep uncertainty explicit; do not upgrade "
+            "an assessment to a definitive diagnosis, exclusion or stage. "
             'To use tools output JSON: {"action":"search_evidence","query":"..."} or '
             '{"action":"read_evidence","id":"..."}. To finish output '
             '{"action":"final","text":"report"}, or plain report text. '
@@ -51,7 +59,20 @@ class SpecialistAgent:
                 "\nWrite the final report for the reader. Organize the interpretation, missing "
                 "information and any supported recommendations. The application displays raw model "
                 "metrics separately, so refer to them without restating numeric results."
+                " Use separate sections for supplied case data, evidence-based interpretation and "
+                "next steps with limitations. Cite only the clauses that use external knowledge. "
+                "Omit unsupported specific schedules or treatments; leave their determination to the treating clinician."
+                " Keep the report concise. Do not add an exhaustive generic checklist, uncited physiological "
+                "explanations or a repeated list of all references. Missing information should be limited to "
+                "what the supplied evidence or model warnings actually require. Do not reclassify symptoms "
+                "as absent to fit a screening population. Prefer omitting an irrelevant reference to explaining "
+                "at length why it is inapplicable."
+                " Aim for roughly 600–1000 Chinese characters or 250–400 English words. "
+                "Summarize case facts in 2–4 sentences; do not repeat the entire note. "
+                "The interface already displays raw model values and sources, so do not repeat them "
+                "or add unsupported explanations of their clinical thresholds."
             )
+            prompt += REPORT_REQUIREMENTS
         if issues:
             prompt += (
                 "\nCorrect the following claims based on the supplied references, or omit them: "

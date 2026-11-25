@@ -43,47 +43,55 @@ def is_false_dodge(
 
 
 def _norm_index(text: str) -> tuple[str, list[int]]:
-    """去掉空白后的文本 + 每个字符在原文中的下标，用于宽松定位原句。"""
+    """忽略空白及成对的简单 Markdown 标记，保留可见字符到原文的映射。"""
+    markers = set()
+    for match in re.finditer(r"\*\*\S[^\n]*?\*\*|__\S[^\n]*?__|`[^`\n]+`", text):
+        size = 1 if match[0].startswith('`') else 2
+        markers.update(range(match.start(), match.start() + size))
+        markers.update(range(match.end() - size, match.end()))
     chars: list[str] = []
     index: list[int] = []
     for i, ch in enumerate(text):
-        if ch in _SKIP_CHARS:
+        if ch in _SKIP_CHARS or i in markers:
             continue
         chars.append(ch)
         index.append(i)
     return "".join(chars), index
 
 
+def visible_text(text: str) -> str:
+    return _norm_index(text)[0]
+
+
 def locate(text: str, quote: str) -> tuple[int, int] | None:
     """在 text 里定位 quote，返回 (start, end) 或 None。
 
-    先按原样找，找不到再去空白后找；还找不到就用前 12 个非空白字符定位
-    （模型常把句末的 [n] 或句号抄漏 / 抄多）。
+    仅接受唯一的完整匹配或去空白后的完整匹配，不按句首猜测位置。
     """
     if not quote:
         return None
     pos = text.find(quote)
     if pos >= 0:
-        return pos, pos + len(quote)
+        return (pos, pos + len(quote)) if text.count(quote) == 1 else None
 
     norm, index = _norm_index(text)
-    target = "".join(ch for ch in quote if ch not in _SKIP_CHARS)
+    target = visible_text(quote)
     if not target:
         return None
 
     hit = norm.find(target)
-    if hit >= 0:
+    if hit >= 0 and norm.count(target) == 1:
         end = hit + len(target)
-        return index[hit], index[end - 1] + 1
+        start, stop = index[hit], index[end - 1] + 1
+        for marker in ('**', '__', '`'):
+            if text[start:stop].count(marker) % 2:
+                if text[:start].endswith(marker):
+                    start -= len(marker)
+                elif text[stop:].startswith(marker):
+                    stop += len(marker)
+        return start, stop
 
-    head = target[:12]
-    if len(head) < 8:
-        return None
-    hit = norm.find(head)
-    if hit < 0:
-        return None
-    tail = min(hit + len(target), len(norm)) - 1
-    return index[hit], index[tail] + 1
+    return None
 
 
 def content_len(text: str) -> int:
@@ -103,6 +111,8 @@ def apply_replacements(
     evidence_text: str = '',
     sim_fn: Callable[[str, str], float] | None = None,
     evidence_map: dict[int, str] | None = None,
+    allowed_quotes: list[str] | None = None,
+    protected_facts: list[str] | None = None,
 ) -> tuple[str, list[dict], int]:
     """返回修订文本、实际应用的修改和删除数。
 
@@ -116,8 +126,15 @@ def apply_replacements(
         quote = str(rep.get("quote") or "").strip()
         if not quote:
             continue
+        if allowed_quotes is not None and _norm_index(quote)[0] not in {
+            _norm_index(allowed)[0] for allowed in allowed_quotes
+        }:
+            continue
         new = rep.get("new")
         new = "" if new is None else str(new).strip()
+        if any(_norm_index(fact)[0] in _norm_index(quote)[0]
+               and _norm_index(fact)[0] not in _norm_index(new)[0] for fact in protected_facts or []):
+            continue
 
         if new and (evidence_text or evidence_map):
             # 优先用该句引用的那一条证据比对：拿全部证据拼起来算相似度会虚高，
@@ -146,12 +163,14 @@ def apply_replacements(
             continue
 
         start, end = span
+        if _norm_index(text[start:end])[0] == _norm_index(new)[0]:
+            continue
         text = f"{text[:start]}{new}{text[end:]}"
         if not new:
             deleted += 1
         applied.append({
-            "quote": quote[:200],
-            "new": new[:200],
+            "quote": quote,
+            "new": new,
             "citations": rep.get("citation") or rep.get("citations") or [],
         })
 
@@ -159,3 +178,55 @@ def apply_replacements(
     text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     return text, applied, deleted
+
+
+def omit_local_issues(text: str, issues: list[dict]) -> tuple[str, list[dict]]:
+    """一次性删去可唯一精确定位的非核心问题，返回待整篇复核的文本。"""
+    if not issues or any(item.get("impact", "core") != "local" for item in issues):
+        return text, []
+    spans: dict[tuple[int, int], dict] = {}
+    for item in issues:
+        quote = item["quote"]
+        span = locate(text, quote)
+        if span is None:
+            return text, []
+        start, end = span
+        prefix = text[:start].rsplit("\n", 1)[-1]
+        if not re.search(r"(?:^|[。！？.!?；;])\s*(?:[-*+]|\d+[.)、])?\s*$", prefix):
+            return text, []
+        tail = text[end:].split("\n", 1)[0]
+        if tail.strip() in ("。", ".", "！", "!", "？", "?"):
+            end += len(tail)
+            tail = ""
+        if tail.strip() and quote[-1] not in "。！？.!?；;":
+            return text, []
+        item = {**item, "quote": text[start:end]}
+        if re.fullmatch(r"\s*(?:[-*+]|\d+[.)、])\s*", prefix):
+            start -= len(prefix)
+        spans[(start, end)] = item
+    ordered = sorted(spans)
+    if any(left[1] > right[0] for left, right in zip(ordered, ordered[1:])):
+        return text, []
+    applied = []
+    for start, end in reversed(ordered):
+        item = spans[(start, end)]
+        text = text[:start] + text[end:]
+        applied.append({
+            "quote": item["quote"], "new": "", "citations": item.get("citations", []),
+            "impact": "local", "reason": item.get("reason", ""), "method": "local_omission",
+        })
+    lines = text.splitlines()
+    for index in range(len(lines) - 1, -1, -1):
+        heading = re.match(r"^\s{0,3}(#{1,6})\s+", lines[index])
+        if not heading:
+            continue
+        end = index + 1
+        while end < len(lines):
+            next_heading = re.match(r"^\s{0,3}(#{1,6})\s+", lines[end])
+            if next_heading and len(next_heading[1]) <= len(heading[1]):
+                break
+            end += 1
+        if not any(line.strip() for line in lines[index + 1:end]):
+            del lines[index:end]
+    cleaned = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+    return cleaned, list(reversed(applied))

@@ -13,6 +13,11 @@ import tempfile
 
 class RouteTests(unittest.TestCase):
     def setUp(self):
+        original_folder = tempfile.TemporaryDirectory()
+        self.addCleanup(original_folder.cleanup)
+        original_patch = patch('report.assets.ORIGINAL_STORE_DIR', Path(original_folder.name))
+        original_patch.start()
+        self.addCleanup(original_patch.stop)
         self.client=TestClient(app)
         self.user={'id':'test','username':'tester','display_name':'Tester'}
         app.dependency_overrides[current_user]=lambda:self.user
@@ -49,6 +54,20 @@ class RouteTests(unittest.TestCase):
             response=self.client.post('/api/generate-report-content/',files={'file':('eye.png',b'bytes','image/png')})
             self.assertEqual(response.status_code,409)
             self.assertEqual(response.json(),{'detail':'Configuration missing'})
+
+    def test_capture_metadata_binds_with_timezone_and_keeps_legacy_form_compatible(self):
+        result = {'summary': 'text', 'cup_to_disc_ratio': None, 'img_name': '', 'evidence': [],
+                  'verification': {'status': 'pass'}, 'rejected': False, 'report_id': 'report'}
+        with patch('report.service.generate_content', new_callable=AsyncMock, return_value=result) as service:
+            response = self.client.post('/api/generate-report-content/', files={'file': ('eye.png', b'bytes', 'image/png')},
+                data={'laterality': 'left', 'captured_at': '2026-11-25T16:00:00+08:00', 'device': 'camera-A', 'synthetic': 'true'})
+            self.assertEqual(response.status_code, 200, response.text)
+            request = service.call_args.args[1]
+            self.assertEqual((request.laterality, request.device, request.synthetic), ('left', 'camera-A', True))
+            self.assertEqual(request.captured_at.isoformat(), '2026-11-25T16:00:00+08:00')
+            response = self.client.post('/api/generate-report-content/', files={'file': ('eye.png', b'bytes', 'image/png')},
+                data={'captured_at': '2026-11-25T16:00:00'})
+            self.assertEqual(response.status_code, 422)
 
     def test_pdf_response_cleans_up_after_delivery(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -102,6 +121,70 @@ class RouteTests(unittest.TestCase):
             self.assertIn("-2.500", render.call_args.kwargs["visual_findings_text"])
             self.assertIn("FLAIR@test", render.call_args.kwargs["visual_findings_text"])
 
+    def test_local_cleanup_archive_chat_and_pdf_share_only_rechecked_text(self):
+        import json
+        from unittest.mock import Mock
+        from agents.verifier import CitationVerifier
+        from report.models import ReportResult
+        from report.pdf import PDFRenderer
+        from report.service import _archive_result
+        from utils import storage
+
+        fact, extra = 'Case measurement: 26 mmHg.', 'Unrelated reference clause [1].'
+        issue = {'claims': [{'quote': extra, 'citations': [1], 'verdict': 'unsupported',
+                              'impact': 'local', 'reason': 'Not applicable to this case'}]}
+        evidence = [{'index': 1, 'text': 'Reference'}]
+        text, verification = CitationVerifier(Mock(side_effect=[json.dumps(issue), '{"claims":[]}'])).execute(
+            fact + '\n' + extra, evidence, max_rounds=0)
+        with tempfile.TemporaryDirectory() as directory, patch.object(storage, 'DB_PATH', Path(directory) / 'db'):
+            storage.init_db()
+            owner = storage.create_user('owner', 'example-password')
+            conversation = storage.create_conversation(owner['id'])
+            request = ReportSubmission(b'fixture-image', 'eye.png', fact, conversation['id'])
+            result = _archive_result(owner['id'], request,
+                ReportResult(text, verification, .6, '', evidence), True)
+            saved = storage.get_report(owner['id'], result['report_id'])
+            self.assertEqual(saved['summary'], fact)
+            self.assertFalse(saved['rejected'])
+            message = storage.list_messages(owner['id'], conversation['id'])[-1]
+            self.assertEqual(message['content'], fact)
+            self.assertEqual(message['meta']['verification']['fixed'][0]['quote'], extra)
+            app.dependency_overrides[current_user] = lambda: owner
+            with patch.object(PDFRenderer, 'generate_pdf_report',
+                              side_effect=PDFRenderer().generate_pdf_report) as render:
+                response = self.client.get(f"/api/reports/{result['report_id']}/pdf")
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(render.call_args.kwargs['synthesis_text'], fact)
+            self.assertEqual(render.call_args.kwargs['verification_status'], 'rewritten')
+
+    def test_limited_case_input_is_preserved_without_enabling_diagnostic_pdf(self):
+        from report.models import ReportResult
+        from report.source_summary import case_source_summary
+        from report.service import _archive_result
+        from utils import storage
+
+        note = 'Case input: left eye measurement 24 mmHg.'
+        text, verification = case_source_summary(note, {
+            'policy_version': 2, 'status': 'rejected', 'reason': 'unverified_claims_remain',
+            'remaining_issues': [{'quote': 'Unverified diagnosis.', 'impact': 'core'}],
+        })
+        with tempfile.TemporaryDirectory() as directory, patch.object(storage, 'DB_PATH', Path(directory) / 'db'):
+            storage.init_db()
+            owner = storage.create_user('owner', 'example-password')
+            conversation = storage.create_conversation(owner['id'])
+            content = _archive_result(owner['id'], ReportSubmission(b'image', 'eye.png', note, conversation['id']),
+                ReportResult(text, verification, .6, '', []), True)
+            saved = storage.get_report(owner['id'], content['report_id'])
+            self.assertTrue(content['rejected'])
+            self.assertTrue(saved['rejected'])
+            self.assertIn(note, saved['summary'])
+            self.assertNotIn('Unverified diagnosis.', saved['summary'])
+            self.assertEqual(storage.list_messages(owner['id'], conversation['id'])[-1]['content'], saved['summary'])
+            app.dependency_overrides[current_user] = lambda: owner
+            response = self.client.get(f"/api/reports/{content['report_id']}/pdf")
+            self.assertEqual(response.status_code, 422)
+            self.assertIn('病例资料摘要', response.json()['detail'])
+
     def test_direct_pdf_archives_overlay_for_owner_and_history(self):
         from PIL import Image
         from report.models import ReportResult
@@ -144,7 +227,7 @@ class RouteTests(unittest.TestCase):
             storage.init_db()
             owner = storage.create_user("owner", "example-password")
             app.dependency_overrides[current_user] = lambda: owner
-            for verification in ({"status": "disabled"}, {}):
+            for verification in ({"status": "disabled"}, {}, {"status": "limited"}):
                 result = ReportResult("Research draft", verification, None, "", [])
                 with self.subTest(verification=verification), \
                      patch("report.service._load_generator", new_callable=AsyncMock), \

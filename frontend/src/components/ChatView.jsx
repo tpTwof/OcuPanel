@@ -67,7 +67,7 @@ const RETRIEVAL_LABELS = {
 }
 
 /** 一条消息。meta 里可能带报告相关字段（分割图、证据、校验结果）。 */
-function MessageItem({ m, imageUrls, onDownloadPdf, busy }) {
+function MessageItem({ m, imageUrls, onDownloadPdf, onImportReport, busy }) {
   if (m.role === 'user') {
     return (
       <div className="msg msg-user">
@@ -114,6 +114,7 @@ function MessageItem({ m, imageUrls, onDownloadPdf, busy }) {
             <Markdown text={m.content} evidence={meta.evidence} evidencePrefix={evidencePrefix} />
             {meta.kind === 'report' && (
               <div className="msg-report-meta">
+                {meta.report_id && <button type="button" className="chip-btn" disabled={busy} onClick={() => onImportReport(meta.report_id)}>用于病例草稿</button>}
                 {!meta.visual_findings_text && meta.cup_to_disc_ratio != null && (
                   <span className="chip">杯盘比 {Number(meta.cup_to_disc_ratio).toFixed(2)}</span>
                 )}
@@ -156,6 +157,7 @@ export default function ChatView({
   imageUrls,
   onSend,
   onDownloadPdf,
+  onImportReport,
   busy,
   title,
   notConfigured,
@@ -166,6 +168,15 @@ export default function ChatView({
   const inputRef = useRef(null)
   const toolsRef = useRef(null)
   const pinnedRef = useRef(true)
+
+  useEffect(() => {
+    const closeToolsOnOutsidePress = (event) => {
+      const menu = toolsRef.current
+      if (menu?.open && !menu.contains(event.target)) menu.open = false
+    }
+    document.addEventListener('pointerdown', closeToolsOnOutsidePress, true)
+    return () => document.removeEventListener('pointerdown', closeToolsOnOutsidePress, true)
+  }, [])
 
   // 报告生成和普通提问都会让 busy=true，按钮文案要能区分，否则都是"思考中…"
   const generatingReport = messages.some((m) => m.pending && m.meta?.pending_report)
@@ -251,6 +262,7 @@ export default function ChatView({
             m={m}
             imageUrls={imageUrls}
             onDownloadPdf={onDownloadPdf}
+            onImportReport={onImportReport}
             busy={busy}
           />
         ))}
@@ -284,7 +296,10 @@ export default function ChatView({
           <div className="composer-bar">
             <details className="composer-tools" ref={toolsRef}
               onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false
+                // 保存偏好时复选框会暂时禁用，此时失焦没有目标元素。
+                if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+                  event.currentTarget.open = false
+                }
               }}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {

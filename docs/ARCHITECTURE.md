@@ -31,6 +31,8 @@ frontend/                 React 界面与 HTTP 客户端
 
 ## 请求如何进入业务
 
+合成阅片协作另由 `screening/` 负责：`models.py` 定义逐眼任务及操作契约，`api.py` 绑定接口，`service.py` 执行复核签发和转诊状态变更，`repository.py` 在同一事务中保存当前状态、不可变版本和幂等收据。`presentation.py` 提供版本绑定的释义和演练 PDF 正文，`evaluation.py` 计算新旧方法预先锁定决定的配对结果。此入口不调用原视觉报告管线。[模块约束](../backend/screening/README.md)
+
 ```mermaid
 flowchart TD
   Browser[浏览器] --> API[各模块 api.py：HTTP 参数绑定]
@@ -53,7 +55,7 @@ flowchart TD
 
 ## 上传参数的含义
 
-开发环境以 Python 3.13 为基线，本机 `.venv` 为 3.13.3；系统默认 Python 与项目解释器可能不同，详见[环境与启动](../README.md#前置要求)。当前没有消息流式返回或异步任务队列 API。
+开发环境以 Python 3.13 为基线，本机 `.venv` 为 3.13.3；系统默认 Python 与项目解释器可能不同，详见[环境与启动](../README.md#前置要求)。报告页经持久任务 API 提交，按任务号轮询结果。后端按数据库串行消费，病例状态变更使用独立的版本化事务。
 
 `user: auth.CurrentUser` 由 Authorization 请求头中的 Bearer 令牌解析，客户端不能通过表单指定当前用户。`file` 是 multipart 的文件字段；`note` 和 `conversation_id` 是同一表单中的字符串字段。`parse_report_submission()` 将图片、备注、会话 ID 及所选病种组装成 ReportSubmission，通过 Depends 注入路由。路由仅接收 user 和 request 两个对象，再委托 report/service.py。
 

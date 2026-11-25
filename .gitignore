@@ -23,6 +23,7 @@ frontend/dist-ssr/
 # ---- 运行时产物（每次请求自动生成，不提交）----
 backend/output/
 backend/img_store/
+backend/original_store/
 data/
 
 # ---- 本地数据库（含账户与加密后的 API Key，绝不提交）----

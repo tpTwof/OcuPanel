@@ -2,6 +2,7 @@ from typing import Any
 from llm.models import LLMCall
 from knowledge.retrieval import format_evidence_block
 from agents.prompts.language import LANGUAGE_INSTRUCTION
+from agents.prompts.report import REPORT_REQUIREMENTS
 
 class DirectorAgent:
     name = "director"
@@ -35,13 +36,21 @@ class DirectorAgent:
             "Summarize the key findings, provide "
             "diagnostic reasoning, and include appropriate recommendations. "
             "Organize findings by disease. Keep disagreements and missing information explicit, "
-            "and consolidate duplicate recommendations. The application displays raw model metrics "
-            "separately, so refer to them without restating numeric results. "
+            "and consolidate duplicate recommendations. "
+            "Omit unrelated or inapplicable reference clauses instead of discussing them just to cite them. "
+            "The application displays raw model metrics separately, so refer to them without restating numeric results. "
+            "Separate supplied case facts from cautious inference and specific recommendations. "
+            "Do not cite guidelines as the source of case data. Explain how case findings relate to "
+            "cited diagnostic criteria without implying that the references establish this patient's diagnosis. "
+            "Keep the report concise. Do not invent an exhaustive test checklist or uncited physiology. "
+            "Do not reclassify reported symptoms as absent to fit a screening guideline. "
+            "Summarize rather than repeat the full case note or raw model values. "
             "If FLAIR was used, treat it as research-only prompt matching. Do not infer disease "
             "presence, absence, stage, lesion location, or image quality from its output. "
             "Do not mention any subreports. The report should be "
             f"written in a professional, neutral tone suitable for a clinical team or patient record."
             + LANGUAGE_INSTRUCTION
+            + REPORT_REQUIREMENTS
             + format_evidence_block(evidence or [])
         )
         if evidence_by_role is not None:
@@ -63,7 +72,8 @@ class DirectorAgent:
                 "\n\n【上一版被判定缺乏依据的断言，本次禁止原样写入】\n"
                 f"{listed}\n"
                 "上述内容若要提及，只能写成资料支持得了的表述，或直接写「现有资料未涵盖」，"
-                "不得换一种说法把同样的结论再写一遍。报告中每一条结论性表述都必须在句末标注资料编号 [n]。"
+                "不得换一种说法把同样的结论再写一遍。病例事实对照原始输入，不伪装成文献结论；"
+                "依赖外部知识的解释与具体处置按分句标注资料编号 [n]。保留事实，缺依据的具体处置不编造。"
             )
 
         reply = self.chat_with_gpt(director_prompt, reset=True)

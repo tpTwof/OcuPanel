@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="600" viewBox="0 0 1120 600">
+  <style>
+    text { font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif; fill: #0f172a; }
+    .mono { font-family: Consolas, "Cascadia Mono", monospace; font-weight: 700; }
+    .name { font-size: 15px; }
+    .sub { font-size: 11.5px; fill: #475569; }
+    .edge { font-size: 12px; fill: #334155; }
+    .annot { font-size: 12px; fill: #64748b; }
+    .pill { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; fill: #ffffff; }
+  </style>
+
+  <text class="annot" x="24" y="26">StateGraph(DraftState) → graph.compile().invoke({})</text>
+  <text class="annot" x="24" y="44">无 checkpointer、无 thread_id、无 stream，一次请求内同步跑完即丢弃</text>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f2937"/>
+    </marker>
+  </defs>
+
+  <!-- START -->
+  <rect x="510" y="18" width="100" height="36" rx="18" fill="#0f172a"/>
+  <text class="pill" x="560" y="41" text-anchor="middle">START</text>
+
+  <!-- route diamond -->
+  <polygon points="560,86 682,134 560,182 438,134" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="mono name" x="560" y="130" text-anchor="middle">route()</text>
+  <text class="sub" x="560" y="150" text-anchor="middle">返回分支名，不看 state</text>
+
+  <!-- branches -->
+  <rect x="148" y="220" width="214" height="68" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5"/>
+  <text class="mono name" x="255" y="250" text-anchor="middle">no_evidence</text>
+  <text class="sub" x="255" y="270" text-anchor="middle">reject()：直接返回拒答</text>
+
+  <rect x="453" y="220" width="214" height="68" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>
+  <text class="mono name" x="560" y="250" text-anchor="middle">single</text>
+  <text class="sub" x="560" y="270" text-anchor="middle">write_single()：专科直出</text>
+
+  <rect x="758" y="220" width="214" height="68" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>
+  <text class="mono name" x="865" y="250" text-anchor="middle">parallel</text>
+  <text class="sub" x="865" y="270" text-anchor="middle">ParallelOrchestrator 线程池</text>
+
+  <rect x="758" y="330" width="214" height="68" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text class="mono name" x="865" y="360" text-anchor="middle">director</text>
+  <text class="sub" x="865" y="380" text-anchor="middle">combine()：Director 综合</text>
+
+  <rect x="453" y="392" width="214" height="68" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text class="mono name" x="560" y="422" text-anchor="middle">verify</text>
+  <text class="sub" x="560" y="442" text-anchor="middle">check()：校验 / 修订 / 复核</text>
+
+  <!-- END -->
+  <rect x="510" y="532" width="100" height="36" rx="18" fill="#0f172a"/>
+  <text class="pill" x="560" y="555" text-anchor="middle">END</text>
+
+  <!-- edges -->
+  <line x1="560" y1="54" x2="560" y2="82" stroke="#1f2937" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <path d="M 438,134 C 360,150 288,178 264,216" stroke="#1f2937" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text class="edge" x="298" y="128" text-anchor="middle">无证据 且 VERIFY_ENABLED</text>
+
+  <line x1="560" y1="182" x2="560" y2="216" stroke="#1f2937" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="edge" x="574" y="206">1 个专科</text>
+
+  <path d="M 682,134 C 770,152 838,180 856,216" stroke="#1f2937" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text class="edge" x="786" y="144" text-anchor="middle">≥2 个专科</text>
+
+  <line x1="865" y1="288" x2="865" y2="326" stroke="#1f2937" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="edge" x="877" y="312">专科报告 dict</text>
+
+  <path d="M 865,398 C 800,428 716,430 674,426" stroke="#1f2937" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  <text class="edge" x="762" y="410" text-anchor="middle">草稿</text>
+
+  <line x1="560" y1="288" x2="560" y2="388" stroke="#1f2937" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="edge" x="574" y="340">草稿</text>
+
+  <line x1="560" y1="460" x2="560" y2="528" stroke="#1f2937" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="edge" x="574" y="498">(text | None, verification)</text>
+
+  <path d="M 255,288 C 255,470 380,556 506,554" stroke="#1f2937" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- legend -->
+  <rect x="46" y="506" width="12" height="12" fill="#e0f2fe" stroke="#0284c7"/>
+  <text class="annot" x="66" y="516">撰稿路径</text>
+  <rect x="46" y="528" width="12" height="12" fill="#dcfce7" stroke="#16a34a"/>
+  <text class="annot" x="66" y="538">校验路径</text>
+  <rect x="46" y="550" width="12" height="12" fill="#fee2e2" stroke="#dc2626"/>
+  <text class="annot" x="66" y="560">拒答出口</text>
+</svg>

@@ -1,0 +1,9 @@
+{
+  "organization": "Demo",
+  "receiving_unit": "合成接收科",
+  "emergency_contact": "演练值班席",
+  "daily_capacity": 5,
+  "members": {"nurse": "capture", "reader": "reader", "tracker": "coordinator"},
+  "allowed_llm_endpoints": [],
+  "analysis_paused": false
+}

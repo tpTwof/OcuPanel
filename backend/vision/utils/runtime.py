@@ -24,9 +24,10 @@ def load_model(
     model_name: str,
     model_class: type[PreTrainedModel],
     device: str | torch.device | None,
+    revision: str | None = None,
 ) -> tuple[BaseImageProcessor, PreTrainedModel]:
-    processor = AutoImageProcessor.from_pretrained(model_name, use_fast=False)
-    model = model_class.from_pretrained(model_name).to(device)
+    processor = AutoImageProcessor.from_pretrained(model_name, revision=revision, use_fast=False)
+    model = model_class.from_pretrained(model_name, revision=revision).to(device)
     model.eval()
     return processor, model
 

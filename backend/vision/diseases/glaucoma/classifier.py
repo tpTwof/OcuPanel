@@ -7,6 +7,7 @@ from ...utils.images import validate_rgb
 from ...utils.runtime import MODEL_LOCK, resolve_device, load_model
 
 MODEL_NAME = "pamixsun/swinv2_tiny_for_glaucoma_classification"
+MODEL_REVISION = "a25a03d9ff23d6fbaf6cd7a329373253f4671c63"
 
 def predict_probability(
     image: np.ndarray,
@@ -15,7 +16,7 @@ def predict_probability(
     validate_rgb(image)
     device = resolve_device(device)
     with MODEL_LOCK:
-        processor, model = load_model(MODEL_NAME, Swinv2ForImageClassification, device)
+        processor, model = load_model(MODEL_NAME, Swinv2ForImageClassification, device, revision=MODEL_REVISION)
         inputs = {k: v.to(device) for k, v in processor(image, return_tensors="pt").items()}
         with torch.inference_mode():
             logits = model(**inputs).logits

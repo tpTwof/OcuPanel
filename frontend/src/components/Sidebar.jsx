@@ -26,6 +26,7 @@ export default function Sidebar({
   onSelectConversation,
   onDeleteConversation,
   onOpenSettings,
+  onOpenScreening,
   onLogout
 }) {
   return (
@@ -52,6 +53,9 @@ export default function Sidebar({
       </button>
 
       <div className="nav-divider" />
+      <button type="button" className={`nav-action${view === 'screening' ? ' active' : ''}`} onClick={onOpenScreening}>
+        <Icon name="chat" />病例工作台 · 合成演练
+      </button>
 
       <div className="nav-section-title">最近对话</div>
       <div className="conversation-list">

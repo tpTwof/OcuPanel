@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "sample": "samples/fundus_right_eye.png",
+  "sample_sha256": "e810269f247d240986962fbae9d2e0e2540b3d32167dffecd6f9b2fd44c2fc91",
+  "sample_kind": "repository AI-generated demonstration image; not clinical validation",
+  "python": "3.13.3",
+  "torch": "2.7.0+cpu",
+  "transformers": "4.51.3",
+  "device": "cpu",
+  "elapsed_seconds": 4.688455100000283,
+  "probability": 0.999963641166687,
+  "severity": null,
+  "measurements": {
+    "area_equivalent_cdr": 0.8485026024761082
+  },
+  "warnings": [],
+  "model_sources": {
+    "classifier": "pamixsun/swinv2_tiny_for_glaucoma_classification",
+    "segmenter": "pamixsun/segformer_for_optic_disc_cup_segmentation",
+    "classifier_revision": "a25a03d9ff23d6fbaf6cd7a329373253f4671c63",
+    "segmenter_revision": "a0463fb6c2bf184cf398e5fd82a8194e01e66e7f"
+  },
+  "mask_counts": {
+    "0": 1035653,
+    "1": 3619,
+    "2": 9304
+  },
+  "mask_shape": [
+    1024,
+    1024
+  ],
+  "mask_sha256": "b5f3c26f5749344b0830f88bc9f9578ef42622b20fa26ce7bfc81439e2b2602b"
+}

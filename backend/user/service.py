@@ -106,6 +106,9 @@ async def test_llm(user: User, body: LLMConfigRequest) -> dict[str, Any]:
 
     def _run() -> dict:
         import openai
+        from screening.access import check_endpoint
+        with storage.connect() as conn:
+            check_endpoint(conn, user["id"], body.base_url)
 
         client = openai.OpenAI(
             api_key=api_key,

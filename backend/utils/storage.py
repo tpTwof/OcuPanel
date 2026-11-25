@@ -95,6 +95,14 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE INDEX IF NOT EXISTS idx_report_user ON reports(user_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_report_image ON reports(user_id, img_name);
+CREATE TABLE IF NOT EXISTS report_jobs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    request_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
+    metadata TEXT NOT NULL, image BLOB, created_at REAL NOT NULL,
+    state TEXT NOT NULL DEFAULT 'queued', error TEXT NOT NULL DEFAULT '',
+    UNIQUE(user_id, request_key)
+);
 """
 
 
@@ -124,9 +132,17 @@ def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
         conn.execute("BEGIN IMMEDIATE")
+        from screening.repository import init_schema
+        init_schema(conn)
+        job_fields = {row["name"] for row in conn.execute("PRAGMA table_info(report_jobs)")}
+        for field, kind in (("organization", "TEXT"), ("started_at", "REAL"), ("finished_at", "REAL")):
+            if field not in job_fields:
+                conn.execute(f"ALTER TABLE report_jobs ADD COLUMN {field} {kind}")
         report_columns = {row["name"] for row in conn.execute("PRAGMA table_info(reports)")}
         if "visual_findings" not in report_columns:
             conn.execute("ALTER TABLE reports ADD COLUMN visual_findings TEXT NOT NULL DEFAULT '{}'")
+        if "source_metadata" not in report_columns:
+            conn.execute("ALTER TABLE reports ADD COLUMN source_metadata TEXT NOT NULL DEFAULT '{}'")
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(conversations)")}
         if "graph_enabled" not in columns:
             conn.execute("ALTER TABLE conversations ADD COLUMN graph_enabled INTEGER")
@@ -291,7 +307,9 @@ def get_user(user_id: str) -> dict | None:
 # LLM 配置
 # ---------------------------------------------------------------------------
 def save_llm_config(user_id: str, api_key: str, base_url: str, model: str) -> None:
+    from screening.access import check_endpoint
     with connect() as conn:
+        check_endpoint(conn, user_id, base_url)
         conn.execute(
             "INSERT INTO llm_configs (user_id, api_key_enc, base_url, model, updated_at)"
             " VALUES (?, ?, ?, ?, ?)"
@@ -309,6 +327,9 @@ def load_llm_config(user_id: str) -> dict | None:
             "SELECT api_key_enc, base_url, model, updated_at FROM llm_configs WHERE user_id = ?",
             (user_id,),
         ).fetchone()
+        if row:
+            from screening.access import check_endpoint
+            check_endpoint(conn, user_id, row["base_url"])
     if not row:
         return None
     return {
@@ -466,13 +487,15 @@ def save_report(
     visual_findings: dict[str, dict[str, Any]] | None = None,
     *,
     chat_turn: tuple[str, dict[str, Any], str] | None = None,
+    source_metadata: dict[str, Any] | None = None,
+    report_id: str | None = None,
 ) -> str:
-    rid = new_id()
+    rid = report_id or new_id()
     with connect() as conn:
         conn.execute(
             "INSERT INTO reports (id, user_id, conversation_id, img_name, cup_to_disc,"
-            " glaucoma_prob, summary, verification, evidence, rejected, created_at, visual_findings)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " glaucoma_prob, summary, verification, evidence, rejected, created_at, visual_findings, source_metadata)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 rid,
                 user_id,
@@ -486,6 +509,7 @@ def save_report(
                 1 if rejected else 0,
                 now(),
                 json.dumps(visual_findings or {}, ensure_ascii=False),
+                json.dumps(source_metadata or {}, ensure_ascii=False),
             ),
         )
         if chat_turn:
@@ -531,8 +555,12 @@ def owns_report_image(user_id: str, img_name: str) -> bool:
 
 def get_report(user_id: str, report_id: str) -> dict | None:
     with connect() as conn:
-        row = conn.execute(
-            "SELECT img_name, cup_to_disc, summary, evidence, rejected, visual_findings, verification"
+        return read_report(conn, user_id, report_id)
+
+
+def read_report(conn: sqlite3.Connection, user_id: str, report_id: str) -> dict[str, Any] | None:
+    row = conn.execute(
+            "SELECT id, conversation_id, created_at, img_name, cup_to_disc, summary, evidence, rejected, visual_findings, verification, source_metadata"
             " FROM reports WHERE user_id = ? AND id = ?",
             (user_id, report_id),
         ).fetchone()
@@ -542,6 +570,7 @@ def get_report(user_id: str, report_id: str) -> dict | None:
     report["evidence"] = json.loads(report["evidence"])
     report["visual_findings"] = json.loads(report["visual_findings"])
     report["verification"] = json.loads(report["verification"])
+    report["source_metadata"] = json.loads(report["source_metadata"])
     return report
 
 

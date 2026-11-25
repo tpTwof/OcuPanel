@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="452" viewBox="0 0 1120 452">
+  <style>
+    text { font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif; fill: #0f172a; }
+    .mono { font-family: Consolas, "Cascadia Mono", monospace; font-weight: 700; }
+    .name { font-size: 14px; }
+    .sub { font-size: 11px; fill: #475569; }
+    .edge { font-size: 12px; fill: #334155; }
+    .annot { font-size: 12px; fill: #64748b; }
+  </style>
+
+  <text class="annot" x="24" y="26">图上只有一条边：verify → END。下面这一段，全发生在 verify 节点内部。</text>
+
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f2937"/>
+    </marker>
+    <marker id="ared" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/>
+    </marker>
+  </defs>
+
+  <!-- row of boxes -->
+  <rect x="30" y="170" width="190" height="66" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>
+  <text class="mono name" x="125" y="198" text-anchor="middle">specialists ×N</text>
+  <text class="sub" x="125" y="218" text-anchor="middle">parallel 节点内：N 线程并行</text>
+
+  <rect x="250" y="170" width="170" height="66" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>
+  <text class="mono name" x="335" y="198" text-anchor="middle">director</text>
+  <text class="sub" x="335" y="218" text-anchor="middle">combine 节点</text>
+
+  <rect x="450" y="170" width="150" height="66" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text class="mono name" x="525" y="198" text-anchor="middle">核查 verify()</text>
+  <text class="sub" x="525" y="218" text-anchor="middle">1 次 LLM</text>
+
+  <rect x="630" y="170" width="150" height="66" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text class="mono name" x="705" y="198" text-anchor="middle">改写 rewrite()</text>
+  <text class="sub" x="705" y="218" text-anchor="middle">1 次 LLM</text>
+
+  <rect x="810" y="170" width="170" height="66" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text class="mono name" x="895" y="198" text-anchor="middle">复核 verify()</text>
+  <text class="sub" x="895" y="218" text-anchor="middle">1 次 LLM</text>
+
+  <!-- edges -->
+  <line x1="220" y1="203" x2="246" y2="203" stroke="#1f2937" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="420" y1="203" x2="446" y2="203" stroke="#1f2937" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="600" y1="203" x2="626" y2="203" stroke="#1f2937" stroke-width="1.5" marker-end="url(#a)"/>
+  <line x1="780" y1="203" x2="806" y2="203" stroke="#1f2937" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- loop back -->
+  <path d="M 895,238 C 890,346 540,346 528,240" stroke="#b45309" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text class="edge" x="712" y="352" text-anchor="middle" fill="#b45309">未收敛 → 回到核查，最多 VERIFY_MAX_ROUNDS=2 轮</text>
+
+  <!-- regenerate dashed -->
+  <path d="M 895,168 L 895,96 L 335,96 L 335,164" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#ared)"/>
+  <text class="edge" x="615" y="88" text-anchor="middle" fill="#dc2626">regenerate(issues)：整篇重生成，最多 1 次（Python 回调）</text>
+  <text class="annot" x="24" y="386">也就是说：DraftState 上只有 DAG，真实的迭代与并发都不在图里；</text>
+  <text class="annot" x="24" y="406">用 LangGraph 的 checkpointer / stream / interrupt，都观察不到这些节点内部状态。</text>
+  <text class="annot" x="24" y="426">重生成时：单病种回到原专科重写，多病种回到 Director（复用本轮专科意见）。</text>
+</svg>

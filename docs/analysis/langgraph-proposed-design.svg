@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="620" viewBox="0 0 1120 620">
+  <style>
+    text { font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif; fill: #0f172a; }
+    .mono { font-family: Consolas, "Cascadia Mono", monospace; font-weight: 700; }
+    .name { font-size: 14px; }
+    .sub { font-size: 11px; fill: #475569; }
+    .edge { font-size: 12px; fill: #334155; }
+    .annot { font-size: 12px; fill: #64748b; }
+    .bullet { font-size: 11.5px; fill: #334155; }
+  </style>
+
+  <text class="annot" x="24" y="26">同一拓扑，纯 Python 实现（约 25 行，行为等价）；框架依赖 -1，每个阶段独立可测。</text>
+
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f2937"/>
+    </marker>
+  </defs>
+
+  <rect x="380" y="48" width="320" height="60" rx="10" fill="#0f172a"/>
+  <text class="name" x="540" y="74" text-anchor="middle" font-weight="600" style="fill:#ffffff">入口：generate_verified_draft(...)</text>
+  <text class="sub" x="540" y="94" text-anchor="middle" style="fill:#cbd5e1">generation.py 的调用点完全不动</text>
+
+  <polygon points="540,146 648,188 540,230 432,188" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="mono name" x="540" y="182" text-anchor="middle">plan(draft)</text>
+  <text class="sub" x="540" y="200" text-anchor="middle">纯函数，可单测</text>
+
+  <rect x="150" y="286" width="200" height="66" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5"/>
+  <text class="mono name" x="250" y="314" text-anchor="middle">reject</text>
+  <text class="sub" x="250" y="334" text-anchor="middle">拒答，影像指标照常返回</text>
+
+  <rect x="440" y="286" width="200" height="66" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>
+  <text class="mono name" x="540" y="314" text-anchor="middle">single</text>
+  <text class="sub" x="540" y="334" text-anchor="middle">专科 final_report 直出</text>
+
+  <rect x="700" y="286" width="250" height="66" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text class="mono name" x="825" y="314" text-anchor="middle">multi</text>
+  <text class="sub" x="825" y="334" text-anchor="middle">线程池并行 → Director 综合</text>
+
+  <rect x="380" y="410" width="320" height="66" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text class="mono name" x="540" y="438" text-anchor="middle">repair / verify</text>
+  <text class="sub" x="540" y="458" text-anchor="middle">CitationVerifier 自己管轮次与重生成</text>
+
+  <rect x="380" y="530" width="320" height="54" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text class="name" x="540" y="556" text-anchor="middle">返回 (正文 | None, verification)</text>
+  <text class="sub" x="540" y="574" text-anchor="middle">None 表示不交付正文，调用方走拒答</text>
+
+  <line x1="540" y1="108" x2="540" y2="142" stroke="#1f2937" stroke-width="1.5" marker-end="url(#a)"/>
+  <path d="M 432,188 C 340,232 280,252 258,282" stroke="#1f2937" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <line x1="540" y1="230" x2="540" y2="282" stroke="#1f2937" stroke-width="1.5" marker-end="url(#a)"/>
+  <path d="M 648,188 C 740,232 800,252 818,282" stroke="#1f2937" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <line x1="540" y1="352" x2="540" y2="406" stroke="#1f2937" stroke-width="1.5" marker-end="url(#a)"/>
+  <path d="M 825,352 C 800,392 720,404 706,410" stroke="#1f2937" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <line x1="540" y1="476" x2="540" y2="516" stroke="#1f2937" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <path d="M 704,424 C 756,424 756,462 708,462" stroke="#b45309" stroke-width="1.5" fill="none" marker-end="url(#a)"/>
+  <text class="edge" x="770" y="447" fill="#b45309">内部循环，不进主流程</text>
+
+  <rect x="868" y="60" width="228" height="176" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text class="name" x="982" y="88" text-anchor="middle" font-weight="600">设计要点</text>
+  <text class="bullet" x="884" y="114">· plan / 执行 / 修复 三层分离</text>
+  <text class="bullet" x="884" y="136">· 策略是纯函数，不再藏在闭包里</text>
+  <text class="bullet" x="884" y="158">· 失败用普通异常表达，早失败</text>
+  <text class="bullet" x="884" y="180">· 轨迹可选记录，不依赖框架</text>
+  <text class="bullet" x="884" y="202">· 名字与签名不变，测试不用改</text>
+
+  <text class="annot" x="24" y="606">保留 generate_verified_draft 这个名字与参数，report/generation.py、tests/test_report.py 都不需要改动。</text>
+</svg>

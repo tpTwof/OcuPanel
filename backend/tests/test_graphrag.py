@@ -165,8 +165,14 @@ class GraphRetrievalTests(unittest.TestCase):
         with patch("utils.config.GRAPH_RAG_ENABLED", True):
             retriever = Retriever.from_corpus(mode="bm25")
         sources = {chunk.source for chunk in retriever.chunks}
-        self.assertTrue(sources.isdisjoint(DEMO_SOURCES))
+        # 草稿语料参与检索（正式条款不覆盖随访、目标眼压与视野判读），
+        # 但必须带草稿标记，不能冒充权威来源；有正式条款替代的 NEI 副本仍须排除。
         self.assertNotIn("macular-degeneration-nei.md", sources)
+        self.assertTrue(DEMO_SOURCES <= sources)
+        draft_hits = [item for item in retriever.search("青光眼随访 目标眼压", k=12)
+                      if item["source"] in DEMO_SOURCES]
+        self.assertTrue(draft_hits)
+        self.assertTrue(all(item.get("draft") for item in draft_hits))
         results = retriever.search("美国 EYLEA 阿柏西普 活动性眼内炎症")
         self.assertEqual(len({item["id"] for item in results}), len(results))
         self.assertEqual(results[0]["id"], "us-eylea-4.2")

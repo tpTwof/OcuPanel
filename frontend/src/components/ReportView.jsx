@@ -17,6 +17,10 @@ export default function ReportView({ hasConversation, onGenerate, busy, notConfi
   const [note, setNote] = useState('')
   const [diseases, setDiseases] = useState(['glaucoma'])
   const [dragging, setDragging] = useState(false)
+  const [laterality, setLaterality] = useState('')
+  const [capturedAt, setCapturedAt] = useState('')
+  const [device, setDevice] = useState('')
+  const [synthetic, setSynthetic] = useState(false)
   const inputRef = useRef(null)
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -43,7 +47,7 @@ export default function ReportView({ hasConversation, onGenerate, busy, notConfi
       return
     }
     if (!diseases.length) return
-    await onGenerate(file, note.trim(), diseases)
+    await onGenerate(file, note.trim(), diseases, { laterality, captured_at: capturedAt ? new Date(capturedAt).toISOString() : null, device: device.trim(), synthetic })
   }
 
   return (
@@ -81,6 +85,15 @@ export default function ReportView({ hasConversation, onGenerate, busy, notConfi
             onChange={(e) => setNote(e.target.value)}
           />
         </label>
+        <details className="report-capture-info">
+          <summary>采集信息（用于病例草稿，选填）</summary>
+          <label className="field"><span className="field-label">眼别</span><select value={laterality} onChange={(event) => setLaterality(event.target.value)}>
+            <option value="">暂未确认</option><option value="right">右眼</option><option value="left">左眼</option>
+          </select></label>
+          <label className="field"><span className="field-label">采集时间</span><input type="datetime-local" value={capturedAt} onChange={(event) => setCapturedAt(event.target.value)} /></label>
+          <label className="field"><span className="field-label">采集设备</span><input maxLength={500} value={device} onChange={(event) => setDevice(event.target.value)} /></label>
+          <label><input type="checkbox" checked={synthetic} onChange={(event) => setSynthetic(event.target.checked)} />使用合成/演示图像</label>
+        </details>
 
         <div
           className={`dropzone${dragging ? ' dragging' : ''}${previewUrl ? ' has-file' : ''}`}

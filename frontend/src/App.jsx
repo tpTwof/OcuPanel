@@ -6,6 +6,7 @@ import WelcomeView from './components/WelcomeView.jsx'
 import ChatView from './components/ChatView.jsx'
 import ReportView from './components/ReportView.jsx'
 import SettingsView from './components/SettingsView.jsx'
+import ScreeningView from './components/ScreeningView.jsx'
 import { canChoosePdfLocation, choosePdfFile, getPdfDownloadMode, savePdf } from './pdfDownload.js'
 import {
   AuthError,
@@ -47,10 +48,17 @@ export default function App() {
   const [messages, setMessages] = useState([])
   const [chatMode, setChatMode] = useState('general')
 
-  // view: 'welcome' | 'chat' | 'report' | 'settings'
+  // view: 'welcome' | 'chat' | 'report' | 'screening' | 'settings'
   const [view, setView] = useState('welcome')
   const [busy, setBusy] = useState(false)
   const [imageUrls, setImageUrls] = useState({})
+  const [screeningReportId, setScreeningReportId] = useState(null)
+  const screeningLeaveGuard = useRef(null)
+  const registerScreeningLeaveGuard = useCallback((handler) => { screeningLeaveGuard.current = handler }, [])
+  const leaveScreening = (action) => {
+    if (view === 'screening' && screeningLeaveGuard.current) screeningLeaveGuard.current(action)
+    else action()
+  }
 
   const imageUrlsRef = useRef({})
   imageUrlsRef.current = imageUrls
@@ -270,7 +278,7 @@ export default function App() {
     }
   }
 
-  const handleGenerate = async (file, note, diseases) => {
+  const handleGenerate = async (file, note, diseases, capture) => {
     if (busy) return
     setBusy(true)
 
@@ -297,7 +305,7 @@ export default function App() {
       const convId = await ensureConversation('ophthalmic')
       await changeConversationMode(convId, 'ophthalmic')
       setChatMode('ophthalmic')
-      const info = await generateReportContent(file, note, convId, diseases)
+      const info = await generateReportContent(file, note, convId, diseases, capture)
 
       let imgUrl = null
       if (info.img_name) {
@@ -337,7 +345,9 @@ export default function App() {
 
       // 拒答时后端不产出 PDF，这里也不该让"下载"看起来可用
       if (info.rejected) {
-        alert('本次报告未通过引用校验，已拒答，不提供 PDF 下载。详情见对话中的校验结果。')
+        alert(info.verification?.status === 'limited'
+          ? '诊疗结论尚未通过核查；已保留病例资料与影像结果，诊断 PDF 暂不可下载。'
+          : '本次报告未通过引用校验，未交付诊疗正文。详情见对话中的校验结果。')
       }
       return !info.rejected
     } catch (err) {
@@ -425,14 +435,16 @@ export default function App() {
         conversations={conversations}
         activeId={activeId}
         view={view}
-        onNewChat={newChat}
-        onSelectConversation={openConversation}
-        onDeleteConversation={handleDeleteConversation}
-        onOpenSettings={() => setView('settings')}
-        onLogout={handleLogout}
+        onNewChat={() => leaveScreening(newChat)}
+        onSelectConversation={(id) => leaveScreening(() => openConversation(id))}
+        onDeleteConversation={(id) => leaveScreening(() => handleDeleteConversation(id))}
+        onOpenSettings={() => leaveScreening(() => setView('settings'))}
+        onOpenScreening={() => { setScreeningReportId(null); setView('screening') }}
+        onLogout={() => leaveScreening(handleLogout)}
       />
 
       <main className="app-main">
+        {view === 'screening' && <ScreeningView user={user} onAuthError={guard} onRegisterLeaveGuard={registerScreeningLeaveGuard} initialReportId={screeningReportId} />}
         {view === 'welcome' && (
           <WelcomeView user={user} onPick={handleSend} mode={chatMode}
             onModeChange={handleModeChange} busy={busy} onOpenAnalysis={openAnalysis} />
@@ -449,6 +461,7 @@ export default function App() {
             imageUrls={imageUrls}
             onSend={handleSend}
             onDownloadPdf={handleDownloadPdf}
+            onImportReport={(reportId) => { setScreeningReportId(reportId); setView('screening') }}
             busy={busy}
             title={activeConv?.title}
             notConfigured={notConfigured}

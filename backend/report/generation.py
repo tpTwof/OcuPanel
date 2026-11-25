@@ -1,6 +1,7 @@
 from __future__ import annotations
 import sys
 from dataclasses import asdict
+from functools import partial
 from pathlib import Path
 from typing import Any, BinaryIO, Callable
 
@@ -13,8 +14,10 @@ from agents.roles import DISEASE_ROLES
 from utils import config
 from llm.client import LLMClient
 from knowledge.service import get_retriever, retrieve_evidence
+from knowledge.report_focus import disease_focus
 from .context import build_context
 from .drafting import generate_verified_draft
+from .source_summary import case_source_summary
 from .pdf import PDFRenderer
 from .utils.messages import reject_message
 from agents.tools.text_revision import content_len
@@ -87,7 +90,7 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
             context = build_context({disease: finding}, note)
             contexts[role.name] = context
             role_items = evidence_by_role[role.name] = []
-            retrieved = retrieve_evidence(context)
+            retrieved = retrieve_evidence(context, boost=disease_focus(disease), disease=disease)
             if not retrieved:
                 missing_evidence.append(disease)
             for item in retrieved:
@@ -100,13 +103,16 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
         visual_findings = {
             disease: asdict(finding) for disease, finding in analysis.diseases.items()
         }
+        case_context = build_context(analysis.diseases, note)
         summary, verification = generate_verified_draft(
             agents, DirectorAgent(self.chat_with_gpt), contexts,
-            build_context(analysis.diseases, note), evidence_by_role, evidence,
-            self.verify_synthesis,
+            case_context, evidence_by_role, evidence,
+            partial(self.verify_synthesis, case_context=case_context),
         )
         if missing_evidence:
             verification["missing_evidence_diseases"] = missing_evidence
+        if summary is None:
+            summary, verification = case_source_summary(note, verification)
         return ReportResult(summary, verification, ratio, overlay_path, evidence, visual_findings)
 
     def verify_synthesis(
@@ -114,6 +120,7 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
         text: str,
         evidence: list[dict[str, Any]],
         regenerate: Callable[[list[dict[str, Any]]], str] | None = None,
+        *, case_context: str = "",
     ) -> tuple[str | None, dict[str, Any]]:
         """调用校验 Agent，必要时通过回调重新生成。
 
@@ -137,6 +144,8 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
                     prompt, reset=True, system=system, temperature=temperature
                 ),
                 min_chars=config.VERIFY_MIN_CHARS,
+                case_context=case_context,
+                require_grounding=True,
                 # 语料混英文后，「资料未涵盖」这类偷懒改写的词面判据会失效，
                 # 借用检索器的多语言向量做语义判据（bm25 模式下自动返回 0）
                 sim_fn=get_retriever().similarity,
@@ -147,4 +156,10 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
             )
         except Exception as exc:  # noqa: BLE001 - 校验崩了也不许把未校验的稿子放出去
             print(f"[VERIFY] 校验链路异常，本次不输出报告：{exc}", file=sys.stderr)
-            return None, {"status": "error", "reason": str(exc)[:200]}
+            return None, {
+                "status": "error", "reason": str(exc)[:200],
+                # 记录异常类型，便于区分超时、解析失败与参数错误；
+                # 不写入模型原始响应或服务商错误详情。
+                "failure_kind": "exception",
+                "failure_detail": type(exc).__name__,
+            }

@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OcuPanel · LangGraph 使用审查</title>
+<style>
+  :root{
+    --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --bg:#f5f7fa; --card:#ffffff;
+    --blue:#1d4ed8; --amber:#b45309; --green:#047857; --red:#b91c1c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Microsoft YaHei","Segoe UI",system-ui,-apple-system,sans-serif;
+       font-size:15px;line-height:1.75;}
+  .wrap{max-width:1120px;margin:0 auto;padding:48px 28px 80px}
+  header{padding-bottom:28px;border-bottom:1px solid var(--line);margin-bottom:36px}
+  .kicker{font-size:12px;letter-spacing:2px;color:var(--blue);font-weight:700;text-transform:uppercase}
+  h1{font-size:32px;line-height:1.3;margin:10px 0 12px;letter-spacing:-.5px}
+  .lead{color:var(--muted);max-width:820px;margin:0}
+  .meta{margin-top:18px;font-size:12.5px;color:#64748b}
+  .meta span{margin-right:18px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;
+          padding:30px 32px;margin-bottom:26px}
+  h2{font-size:20px;margin:0 0 6px;letter-spacing:-.3px}
+  h2 .num{color:#94a3b8;font-weight:400;margin-right:8px;font-family:Consolas,monospace}
+  .sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+  h3{font-size:15.5px;margin:26px 0 8px}
+  p{margin:0 0 14px}
+  ul,ol{margin:0 0 16px;padding-left:22px}
+  li{margin-bottom:7px}
+  .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:8px 0 4px}
+  .card{border:1px solid var(--line);border-radius:12px;padding:18px 18px 16px;background:#fbfcfe}
+  .card .tag{font-size:11px;letter-spacing:1px;font-weight:700;color:#94a3b8}
+  .card h4{margin:8px 0 6px;font-size:16px;line-height:1.4}
+  .card p{margin:0;font-size:13px;color:var(--muted);line-height:1.65}
+  .card.b{border-top:3px solid var(--blue)}
+  .card.a{border-top:3px solid var(--amber)}
+  .card.g{border-top:3px solid var(--green)}
+  table{width:100%;border-collapse:collapse;margin:14px 0 10px;font-size:13.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#f8fafc;font-weight:600;color:#334155;font-size:12.5px}
+  code.inl{font-family:Consolas,"Cascadia Mono",monospace;font-size:13px;
+           background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;padding:1px 6px;color:#0f172a}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:18px 20px;overflow:auto;
+      font-family:Consolas,"Cascadia Mono",monospace;font-size:13px;line-height:1.65;margin:16px 0}
+  pre .c{color:#94a3b8}
+  pre .k{color:#93c5fd}
+  pre .s{color:#a7f3d0}
+  figure{margin:20px 0 6px}
+  figure img{width:100%;display:block;border:1px solid var(--line);border-radius:12px;background:#fff}
+  figcaption{font-size:12.5px;color:#64748b;margin-top:10px}
+  .note{border-left:3px solid var(--amber);background:#fffbeb;padding:12px 16px;border-radius:0 8px 8px 0;
+        font-size:13.5px;color:#78350f;margin:16px 0}
+  .note.blue{border-left-color:var(--blue);background:#eff6ff;color:#1e3a8a}
+  .note.red{border-left-color:var(--red);background:#fef2f2;color:#7f1d1d}
+  .verdict{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .score{font-family:Consolas,monospace;font-size:34px;font-weight:700;color:var(--amber);line-height:1}
+  .score small{font-size:13px;color:#94a3b8;font-weight:400}
+  footer{color:#94a3b8;font-size:12.5px;text-align:center;padding-top:10px}
+  @media (max-width:820px){.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">Code Review · OcuPanel backend</div>
+  <h1>LangGraph 在当前项目里怎么用，以及值不值得继续用</h1>
+  <p class="lead">结论：全项目只有一处用到 LangGraph，它被用来描述一个「五个节点、三条分支、没有环」的顺序流程；
+  真正需要框架的循环、并发、持久化、流式进度，一项都没用上。建议把编排退化成同签名的普通函数，把图的能力留到真正需要它的那天。</p>
+  <div class="meta">
+    <span>审查对象：backend/report/drafting.py（83 行）</span>
+    <span>依赖：langgraph==1.0.10</span>
+    <span>2026-11-20</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">01</span>三句话结论</h2>
+  <p class="sub">先看结论，再看证据。</p>
+  <div class="cols">
+    <div class="card b">
+      <div class="tag">现状</div>
+      <h4>一个 5 节点的无环分支图</h4>
+      <p>节点：no_evidence / single / parallel / director / verify；1 条条件边、5 条普通边。
+      每个请求都 <code class="inl">compile().invoke({})</code> 一次，跑完即丢。</p>
+    </div>
+    <div class="card a">
+      <div class="tag">必要性</div>
+      <h4>低：图没承载任何「只有框架能做」的事</h4>
+      <p>路由读的是闭包变量而不是 state；并发是节点内部自己开的线程池；
+      唯一的循环藏在 Verifier 的 for 循环里，图上看不见。换成 <code class="inl">if/else</code> 行为等价。</p>
+    </div>
+    <div class="card g">
+      <div class="tag">建议</div>
+      <h4>退化为纯函数，保留升级路径</h4>
+      <p>保留 <code class="inl">generate_verified_draft</code> 的名字与签名，内部改成 plan / 执行 / 修复三段；
+      等出现 checkpoint 续跑、人工复核、逐节点进度时再引入图。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">02</span>它在项目里的位置与用法</h2>
+  <p class="sub">唯一的 import、唯一的调用点，全部证据可核对。</p>
+
+  <table>
+    <tr><th style="width:26%">位置</th><th style="width:22%">内容</th><th>说明</th></tr>
+    <tr><td><code class="inl">requirements.txt:26</code></td><td>langgraph==1.0.10</td><td>全项目唯一的 LangGraph 依赖声明；连带 langchain-core 1.7.2、langgraph-sdk、langgraph-checkpoint、xxhash。</td></tr>
+    <tr><td><code class="inl">report/drafting.py:6</code></td><td>from langgraph.graph import END, START, StateGraph</td><td>唯一 import LangGraph 的业务文件（<code class="inl">graphrag/builder.py</code> 里的 <code class="inl">add_node</code> 是 networkx，与 LangGraph 无关）。</td></tr>
+    <tr><td><code class="inl">report/drafting.py:70-82</code></td><td>构图 + 编译 + 执行</td><td><code class="inl">StateGraph(DraftState)</code> → 5 个 <code class="inl">add_node</code> → 1 条 <code class="inl">add_conditional_edges(START, route)</code> → 5 条 <code class="inl">add_edge</code> → <code class="inl">compile().invoke({})</code> → 取 <code class="inl">["result"]</code>。</td></tr>
+    <tr><td><code class="inl">report/generation.py:103</code></td><td>generate_verified_draft(...)</td><td>在 <code class="inl">MedicalReportGenerator.generate()</code> 里同步调用；外层由 <code class="inl">report/service.py:51</code> 的 <code class="inl">run_in_threadpool</code> 承载。</td></tr>
+    <tr><td><code class="inl">report/drafting.py:17-20</code></td><td>DraftState</td><td>三个字段：<code class="inl">specialist_reports</code>、<code class="inl">draft</code>、<code class="inl">result</code>，<code class="inl">total=False</code>，只用于节点间传值。</td></tr>
+  </table>
+
+  <h3>每个节点实际做什么</h3>
+  <table>
+    <tr><th style="width:18%">节点</th><th style="width:30%">函数</th><th>行为</th></tr>
+    <tr><td>no_evidence</td><td>reject()</td><td>返回 <code class="inl">(None, CitationVerifier.no_evidence_result())</code>，一个模型都不调。</td></tr>
+    <tr><td>single</td><td>write_single()</td><td>一个专科 <code class="inl">final_report=True</code> 直出正文。</td></tr>
+    <tr><td>parallel</td><td>ParallelOrchestrator().run()</td><td>内部 <code class="inl">ThreadPoolExecutor</code> 并行跑 N 个专科，返回 <code class="inl">dict[name, report]</code>；非 parallel 模式在此抛 <code class="inl">NotImplementedError</code>。</td></tr>
+    <tr><td>director</td><td>synthesize() → DirectorAgent.execute()</td><td>把专科报告合成一份正文。</td></tr>
+    <tr><td>verify</td><td>verify() → CitationVerifier.execute()</td><td>核查引用 → 有限轮改写 → 复核，必要时请求一次整篇重生成；返回正文或 None。</td></tr>
+  </table>
+
+  <h3>运行时的事实</h3>
+  <ul>
+    <li>没有 <code class="inl">checkpointer</code>、没有 <code class="inl">thread_id</code>、没有 <code class="inl">interrupt</code>：图不保存任何中间状态。</li>
+    <li>调用的是 <code class="inl">invoke</code> 而不是 <code class="inl">stream</code>：节点级进度对前端不可见，页面只能等整个请求返回。</li>
+    <li><code class="inl">invoke({})</code> 传入的是空 state，路由靠闭包里的 <code class="inl">specialists</code> 与 <code class="inl">config.VERIFY_ENABLED</code> 判断。</li>
+    <li>「选了哪些病种」这件事图里看不到：<code class="inl">route</code> 只比较 <code class="inl">len(specialists) == 1</code>；
+    病种到专家的映射发生在图之前的 <code class="inl">generation.py:84-98</code>（dict 查表）。</li>
+    <li>每次请求都重新构图 + 编译，图对象不复用。</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">03</span>当前这张图</h2>
+  <p class="sub">按代码逐节点、逐边还原；颜色只区分路径性质，不代表执行先后。</p>
+
+  <figure>
+    <img src="langgraph-current-graph.svg" alt="OcuPanel 当前 LangGraph 结构">
+    <figcaption>图 1 · drafting.py 里的 StateGraph。三个出口由 route() 决定：无证据且开启校验 → 直接拒答；
+    单专科 → 直出；多专科 → 并行后由 Director 综合。两条撰稿路径都汇入 verify。</figcaption>
+  </figure>
+
+  <div class="note blue">
+    <b>为什么它看起来像一个「真的 DAG 编排」：</b>节点名（single / parallel / director / verify）正好对应业务流程，
+    读代码时很容易以为「流程由这张图驱动」。但图里没有一条边是从 state 计算出来的，也没有一条边构成环 ——
+    这正是后面所有问题的起点。
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">04</span>图没告诉你的四件事</h2>
+  <p class="sub">这些控制流真实存在，但都发生在节点内部，LangGraph 看不见。</p>
+
+  <figure>
+    <img src="langgraph-hidden-flow.svg" alt="verify 节点内部被折叠的控制流">
+    <figcaption>图 2 · verify 节点内部：核查 → 改写 → 复核的循环（橙色），以及触发整篇重生成的反向调用（红色虚线）。</figcaption>
+  </figure>
+
+  <ol>
+    <li><b>唯一的环被藏进 Python for 循环。</b> <code class="inl">CitationVerifier.verify_and_rewrite()</code> 里
+    <code class="inl">for round_no in range(max_rounds)</code> 才是真正的迭代；图上 <code class="inl">verify → END</code>
+    是一条直线。也就是说：<b>图描述的控制流与真实控制流不一致。</b></li>
+    <li><b>「verify 回到 director」这条反向边是用回调实现的。</b>
+    <code class="inl">check()</code> 传入的 <code class="inl">regenerate</code> 是
+    <code class="inl">partial(synthesize, specialist_reports)</code> 或 <code class="inl">write_single</code>；
+    Verifier 在内部直接把它调回来。在图上这不能画成边（会成环），在代码里它却是普通函数调用。</li>
+    <li><b>并发不是 LangGraph 做的。</b> <code class="inl">parallel</code> 节点里自己
+    <code class="inl">ThreadPoolExecutor(max_workers=len(agents))</code>；LangGraph 的 fan-out / <code class="inl">Send</code>
+    / reducer 合并一概没用上。所以图既没有带来并行调度，也没有带来合并语义。</li>
+    <li><b>路由不看 state。</b> <code class="inl">route(_)</code> 的参数被丢弃，判断依据是
+    <code class="inl">config.VERIFY_ENABLED and not evidence</code> 与 <code class="inl">len(specialists)</code>。
+    这等于「图的状态驱动」退化成了普通闭包捕获 —— 而 <code class="inl">route</code> 因为定义在函数内部，也没法单独做单测。</li>
+  </ol>
+
+  <div class="note red">
+    <b>换个角度看这份收益：</b>项目里所有「框架才有」的能力（持久化续跑、人工介入、节点级流式、动态扇出）
+    都是关闭状态；反倒是框架带来的成本（依赖、导入耗时、两套控制流语义）全部生效。
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">05</span>有没有必要：逐项算账</h2>
+  <p class="sub">把「LangGraph 能给的」和「这里真正用到的」并排看。</p>
+
+  <table>
+    <tr><th style="width:30%">LangGraph 的能力</th><th style="width:12%">本项目</th><th>判断</th></tr>
+    <tr><td>多节点有环的状态机</td><td>未使用</td><td>图是无环 DAG；唯一的环在节点内部用 for 循环实现。</td></tr>
+    <tr><td>checkpoint / 断点续跑</td><td>未使用</td><td>无 checkpointer，失败即整单失败；报告是同步请求，没有续跑需求。</td></tr>
+    <tr><td>interrupt / 人工介入</td><td>未使用</td><td>没有人工确认环节；校验后的拒答由 Verifier 自动决定。</td></tr>
+    <tr><td>stream 事件 / 节点进度</td><td>未使用</td><td>调 <code class="inl">invoke</code>；AGENTS.md 明确「当前没有消息流式返回」。</td></tr>
+    <tr><td>Send / 动态并行扇出 + reducer</td><td>未使用</td><td>扇出发生在节点内部线程池里，图只看到一次 <code class="inl">parallel</code> 调用。</td></tr>
+    <tr><td>节点级重试策略 / 超时</td><td>未使用</td><td>专科失败直接抛异常；重试与超时在 <code class="inl">llm/client.py</code> 里做。</td></tr>
+    <tr><td>可视化 / 调试单步</td><td>部分</td><td><code class="inl">get_graph().draw_mermaid()</code> 可以出图，但出的图恰好少了上面那个环。</td></tr>
+  </table>
+
+  <h3>成本侧（本机实测）</h3>
+  <table>
+    <tr><th style="width:30%">项</th><th>实测 / 事实</th></tr>
+    <tr><td>依赖树</td><td>langgraph 1.0.10 连带 langchain-core 1.7.2、langgraph-sdk、langgraph-checkpoint、langgraph-prebuilt、xxhash，site-packages 约 5.7&nbsp;MB。</td></tr>
+    <tr><td>导入耗时</td><td>本机 <code class="inl">import langgraph.graph</code> 在 pydantic 之后额外约 3.3&nbsp;s（冷启动首测 5.5&nbsp;s）。</td></tr>
+    <tr><td>代码占比</td><td>drafting.py 共 83 行，其中图定义约 13 行；被它包裹的业务调用其实只有 4 个方法。</td></tr>
+    <tr><td>认知成本</td><td>读者要同时理解两套控制流：图上的 DAG，和 Verifier 内部的循环 + 回调反向边。</td></tr>
+  </table>
+
+  <h3>反方观点（保留它也有道理的地方）</h3>
+  <ul>
+    <li><code class="inl">docs/SPEC-Ophthalmology-Copilot.md:340</code> 把 LangGraph 列为 Multi-Agent 编排首选，图是当初的方案落地。</li>
+    <li>「按病种选专家」「发布前人工复核」已经做到了 —— 但两者都不是图的功劳：前者是 <code class="inl">generation.py:84</code> 的 dict 查表，后者是 <code class="inl">service.py:161</code> 的一道状态门控。它们恰恰说明这些需求用普通代码就够了。</li>
+    <li>节点名本身就是一份可读的流程文档 —— 但现在这份文档漏掉了最关键的环。</li>
+  </ul>
+
+  <div class="verdict" style="margin-top:20px">
+    <span class="score">2 / 10</span>
+    <span style="font-size:14px;color:var(--muted);max-width:720px">当前形态下 LangGraph 的必要性评分。
+    它不是「错」，而是「用一把手术刀削铅笔」：能力都在，需求都不在。</span>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">06</span>如果不用它，该怎么设计</h2>
+  <p class="sub">保持对外契约不变，把编排还原成「可读的三层」。以下只是方案，未改动仓库里的任何代码。</p>
+
+  <figure>
+    <img src="langgraph-proposed-design.svg" alt="建议的编排结构">
+    <figcaption>图 3 · 同一套流程用普通 Python 表达：plan（纯函数策略）→ 执行（Agents / 线程池）→ 修复（Verifier 自带的循环）。</figcaption>
+  </figure>
+
+  <h3>三层职责</h3>
+  <table>
+    <tr><th style="width:16%">层</th><th style="width:26%">放什么</th><th>要点</th></tr>
+    <tr><td>plan</td><td><code class="inl">reject | single | multi</code> 的判断</td><td>做成 <code class="inl">(specialists, evidence, verify_enabled) → kind</code> 的纯函数，可单测，不再藏在图的条件边里。</td></tr>
+    <tr><td>执行</td><td>SpecialistAgent / ParallelOrchestrator / DirectorAgent</td><td>完全沿用现有类，不改行为；<code class="inl">MULTI_AGENT_MODE</code> 的校验提到入口，早失败而不是跑到一半抛 NotImplementedError。</td></tr>
+    <tr><td>修复</td><td>CitationVerifier</td><td>轮次、改写、重生成本来就由它管，不要再套一层「图」重复表达循环。</td></tr>
+  </table>
+
+  <h3>等价实现（草案，约 30 行）</h3>
+  <pre><span class="c"># 签名不变：report/generation.py 的调用点、tests/test_report.py 都不用动</span>
+<span class="k">def</span> generate_verified_draft(specialists, director, contexts, case_context,
+                            evidence_by_role, evidence, verify) -&gt; VerifiedDraft:
+    <span class="k">if</span> config.MULTI_AGENT_MODE != <span class="s">"parallel"</span>:
+        <span class="k">raise</span> NotImplementedError(config.MULTI_AGENT_MODE)   <span class="c"># 早失败</span>
+
+    numbers = {item[<span class="s">"id"</span>]: item[<span class="s">"index"</span>] <span class="k">for</span> item <span class="k">in</span> evidence}
+    <span class="k">if</span> config.VERIFY_ENABLED <span class="k">and</span> <span class="k">not</span> evidence:
+        <span class="k">return</span> None, CitationVerifier.no_evidence_result()
+
+    <span class="k">if</span> len(specialists) == 1:                      <span class="c"># 单专科：直出 + 原专科重写</span>
+        agent = specialists[0]
+        draft = agent.execute(contexts[agent.name], evidence_by_role[agent.name],
+                              numbers, final_report=True)
+        regenerate = <span class="k">lambda</span> issues: agent.execute(
+            contexts[agent.name], evidence_by_role[agent.name],
+            numbers, final_report=True, issues=issues)
+    <span class="k">else</span>:                                           <span class="c"># 多专科：并行 + Director 综合</span>
+        reports = ParallelOrchestrator().run(specialists, contexts, evidence_by_role, numbers)
+        draft = director.execute(reports, evidence, context=case_context,
+                                 evidence_by_role=evidence_by_role)
+        regenerate = <span class="k">lambda</span> issues: director.execute(
+            reports, evidence, issues, context=case_context,
+            evidence_by_role=evidence_by_role)
+
+    <span class="k">return</span> verify(draft, evidence, regenerate)</pre>
+
+  <h3>迁移步骤（低风险）</h3>
+  <ol>
+    <li>先把 <code class="inl">plan</code> 抽成模块级函数并补一条单测（覆盖 reject / single / multi 三种出口）。</li>
+    <li>用上面的函数替换 drafting.py 内部实现，保留文件名、函数名、参数顺序与返回类型。</li>
+    <li>跑 <code class="inl">tests/test_report.py</code>：现有用例覆盖了单病种、多病种、无证据、拒答、校验重生成，行为应完全一致。</li>
+    <li>确认无其他 <code class="inl">langchain</code> / <code class="inl">langgraph</code> import 后，从 requirements.txt 移除并清理环境。</li>
+  </ol>
+
+  <div class="note">
+    <b>顺带能改善的两处：</b>① <code class="inl">route</code> 现在是函数内的闭包，无法单测；提出来即可测。
+    ② <code class="inl">MULTI_AGENT_MODE</code> 的 <code class="inl">NotImplementedError</code> 目前埋在 parallel 分支里，
+    只有多病种才会炸；提到入口可按配置立刻报错。
+  </div>
+
+  <h3>如果仍想要「可视图」</h3>
+  <p>不需要框架：在每个阶段 append 一条 <code class="inl">step{name, elapsed, status}</code> 到
+  <code class="inl">verification</code> 记录里，就能往前端和 PDF 展示真实执行轨迹 ——
+  这比 <code class="inl">draw_mermaid()</code> 更接近事实，因为它能记录 Verifier 内部那两轮改写。</p>
+</section>
+
+<section>
+  <h2><span class="num">07</span>什么情况下应该把 LangGraph 请回来</h2>
+  <p class="sub">先纠正一处：按病种选专家、发布前人工复核，项目里已经做到了。要看的是这两件事的形态，而不是它们的存在。</p>
+
+  <h3>已经做到的两件事，为什么不能算「图的证据」</h3>
+  <table>
+    <tr><th style="width:22%">需求</th><th style="width:34%">现在怎么做</th><th>为什么不需要图</th></tr>
+    <tr><td>按所选病种选专家</td>
+        <td><code class="inl">generation.py:84-98</code>：遍历 <code class="inl">analysis.diseases</code>，用 <code class="inl">DISEASE_ROLES[disease]</code> 查表建 <code class="inl">SpecialistAgent</code>，只跑选中的病种。</td>
+        <td>这是一次 dict 查表 + 列表构造。图反而看不见它：<code class="inl">route</code> 只判断 <code class="inl">len(specialists)</code>，三个分支出口里没有任何一处表达「选了哪个病种」。选专家的逻辑在图之外，并且工作得很好。</td></tr>
+    <tr><td>发布前人工复核</td>
+        <td>正文进会话后，页面展示正文 + 引用校验条 + 影像指标；只有 <code class="inl">status ∈ {pass, rewritten}</code> 才出现「下载 PDF」按钮（<code class="inl">ChatView.jsx:111</code>），后端导出同样硬门控（<code class="inl">service.py:161-165</code>）。</td>
+        <td>复核发生在<b>流程结束之后</b>：请求已经返回、正文已经落库，人看的是成品。这里没有「未完成的中间状态」需要保存和恢复，所以 <code class="inl">checkpoint</code> / <code class="inl">interrupt</code> 无用武之地；一道状态判断就够了。</td>
+    </tr>
+  </table>
+
+  <div class="note blue">
+    <b>关键区别：</b>LangGraph 的 <code class="inl">interrupt</code> 解决的是「流程跑到一半停下来等人，然后带着中间状态继续跑」。
+    现在的复核是「跑完了，人看过再决定发不发」—— 前者叫暂停与恢复，后者叫交付与签核。后者用普通代码更简单，也更容易做权限与留痕。
+  </div>
+
+  <h3>真正还没做、且只有图划算的四件事</h3>
+  <table>
+    <tr><th style="width:36%">触发信号</th><th>为什么那时图才划算</th></tr>
+    <tr><td>复核要插进流程<b>中间</b>：例如专科出稿后先让医生改/确认，再交给 Director 综合</td><td>需要在节点边界暂停，保存当时的 <code class="inl">specialist_reports</code>，等人提交后再从这一点恢复。<code class="inl">interrupt()</code> + checkpointer 正是为此设计的；自己实现等于写一套小型状态机与持久化。</td></tr>
+    <tr><td>报告生成变成异步长任务，中途失败要续跑</td><td>一条报告有 10+ 次模型调用，现在失败即整单重来。用 checkpointer + thread_id（可直接复用现有 SQLite）只补失败的分支。</td></tr>
+    <tr><td>前端要逐节点进度（正在检索 / 正在专科 / 正在校验）</td><td>现在只有 <code class="inl">invoke</code> + <code class="inl">run_in_threadpool</code>，页面只有一句「正在分析影像、生成报告并校验引用…」。<code class="inl">graph.stream()</code> 天然给节点事件。</td></tr>
+    <tr><td>专科拓扑由 <b>VLM 检出结果</b>动态扩展，且角色间存在依赖</td><td>现在按用户勾选病种做查表，最多 3 个固定角色、彼此独立，所以线程池就够。若改成「检出什么就跑什么、还要按依赖排序（如 DR 合并 DME）」，<code class="inl">Send</code> 扇出 + reducer 才真正省事。</td></tr>
+  </table>
+
+  <h3>想把「人工复核」做实，也不必上图</h3>
+  <p>现在导出只校验机器状态，人的签核没有留痕。若要变成产品里的硬流程，普通代码三步就够：</p>
+  <ol>
+    <li>报告记录上加 <code class="inl">reviewer_id</code> / <code class="inl">reviewed_at</code> / <code class="inl">decision</code>（approve / reject / edit）。</li>
+    <li>一个确认接口写入这三个字段，导出时除了 <code class="inl">status</code> 再校验 <code class="inl">decision == approve</code>。</li>
+    <li>医生驳回时，把意见当 issues 交给已有的 <code class="inl">regenerate</code> 通道（多病种走 <code class="inl">DirectorAgent.execute(avoid=issues)</code>）重写一版 —— 这是一次新请求，不是断点恢复。</li>
+  </ol>
+
+  <h3>如果决定继续用，最低限度做这三件事</h3>
+  <ol>
+    <li><b>让图说真话：</b>把 Verifier 的「核查 → 改写 → 复核」搬成 <code class="inl">verify → rewrite → verify</code> 的条件边，
+    循环上限放进 <code class="inl">DraftState</code>（<code class="inl">rounds</code>），而不是留在 Python 的 for 循环里。</li>
+    <li><b>让并发回到图里：</b>用 <code class="inl">Send</code> 扇出专科、用 reducer 合并 <code class="inl">specialist_reports</code>，
+    节点内部不再自带线程池。</li>
+    <li><b>用上持久化：</b>给 <code class="inl">compile()</code> 配 SqliteSaver，<code class="inl">thread_id</code> 用 job id，
+    这样「跑到一半崩了」才有意义。</li>
+  </ol>
+  <p>这三件事都不难，但它们会把 drafting.py 从 83 行推到 200 行以上 —— 值不值得，取决于上表四条里是否已经有项目命中的项。
+  按现在的实现，前四条一条都没有：选专家是查表，复核在流程之外，进度只到「整单进行中」，专科拓扑固定为三个角色。</p>
+</section>
+
+<section>
+  <h2><span class="num">08</span>证据清单</h2>
+  <p class="sub">所有判断都能在下列位置核对。</p>
+  <table>
+    <tr><th style="width:34%">文件</th><th>要点</th></tr>
+    <tr><td><code class="inl">backend/report/drafting.py</code></td><td>图定义（70-82）、route（34-37）、各节点（39-68）、DraftState（17-20）。</td></tr>
+    <tr><td><code class="inl">backend/agents/verifier.py:174-222</code></td><td>真实循环：for round_no in range(max_rounds)、regenerate 回调、复核与拒答。</td></tr>
+    <tr><td><code class="inl">backend/agents/parallel.py:24-25</code></td><td>节点内部的 ThreadPoolExecutor，与 LangGraph 的并行无关。</td></tr>
+    <tr><td><code class="inl">backend/agents/specialist.py:60-86</code></td><td>专科自己的工具循环（最多 3 步），同样是节点内部的循环。</td></tr>
+    <tr><td><code class="inl">backend/report/generation.py:103-107</code></td><td>唯一调用点；返回 (summary, verification)。病种 → 专家映射在同文件 84-98 行。</td></tr>
+    <tr><td><code class="inl">backend/report/service.py:161-165</code></td><td>导出 PDF 前只校验机器状态（pass / rewritten），人工复核没有留痕。</td></tr>
+    <tr><td><code class="inl">frontend/src/components/ChatView.jsx:111</code></td><td>「下载 PDF」按钮的出现条件与后端同一套状态判断。</td></tr>
+    <tr><td><code class="inl">backend/utils/config.py:86-91,123</code></td><td>VERIFY_ENABLED / VERIFY_MAX_ROUNDS / MULTI_AGENT_MODE，route 与节点行为实际依赖它们。</td></tr>
+    <tr><td><code class="inl">docs/SPEC-Ophthalmology-Copilot.md:340</code></td><td>当初选型 LangGraph 的理由（历史方案，非现状）。</td></tr>
+  </table>
+</section>
+
+<footer>本页为审查报告，未修改仓库内任何源码；三张图为 SVG 矢量图，同目录另有 PNG 版本。</footer>
+</div>
+</body>
+</html>

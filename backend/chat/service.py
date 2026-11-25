@@ -44,7 +44,7 @@ def _verify_ophthalmic_reply(
             "没有证据时，可以解释资料不足、追问病例信息或建议联系专业人员。",
         )
 
-    verifier = CitationVerifier(check, min_chars=0)
+    verifier = CitationVerifier(check, min_chars=0, case_context=question)
     try:
         if evidence:
             verified, status = verifier.execute(reply, evidence, max_rounds=config.VERIFY_MAX_ROUNDS)

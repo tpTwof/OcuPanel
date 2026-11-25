@@ -99,6 +99,13 @@ class TransportPromptTests(unittest.TestCase):
             self.assertEqual(sdk.return_value.chat.completions.create.call_args.kwargs['messages'][0], {'role':'system','content':'Eye role'})
 
 class AnalysisConversationTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        original_folder = tempfile.TemporaryDirectory()
+        self.addCleanup(original_folder.cleanup)
+        original_patch = patch('report.assets.ORIGINAL_STORE_DIR', Path(original_folder.name))
+        original_patch.start()
+        self.addCleanup(original_patch.stop)
+
     async def test_failed_chat_archive_rolls_back_report_messages_and_overlay(self):
         from PIL import Image
         from report import service as reports
