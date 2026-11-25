@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "ctd_glaucoma": {"label": "闭角型青光眼", "aliases": ["闭角型青光眼", "闭角", "房角关闭", "angle closure"]},
+    "primary_angle_closure": {"label": "原发性房角关闭", "aliases": ["原发性房角关闭", "PAC", "PACG"]},
+    "laser_iridotomy": {"label": "激光周边虹膜切开", "aliases": ["激光周边虹膜切开", "LPI", "虹膜周切"]},
+    "phaco_glaucoma": {"label": "白内障手术联合房角分离", "aliases": ["晶状体摘除", "phacoemulsification", "房角分离"]},
+    "diurnal_iop": {"label": "昼夜眼压波动", "aliases": ["昼夜眼压", "眼压波动", "diurnal IOP"]},
+    "cct": {"label": "中央角膜厚度", "aliases": ["中央角膜厚度", "CCT", "角膜厚度"]}
+  },
+  "relations": [
+    ["ctd_glaucoma", "亚型", "primary_angle_closure"],
+    ["primary_angle_closure", "治疗选择", "laser_iridotomy"],
+    ["ctd_glaucoma", "评估检查", "gonioscopy"]
+  ],
+  "sources": {
+    "cn-glaucoma-angle-2020": {
+      "title": "中国青光眼指南（2020年）闭角型青光眼章节条款摘要",
+      "jurisdiction": "CN",
+      "version": "2020 年版，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://master.yiigle.com/uploads/guide_html/%E4%B8%AD%E5%9B%BD%E9%9D%92%E5%85%89%E7%9C%BC%E6%8C%87%E5%8D%97%EF%BC%882020%E5%B9%B4%EF%BC%89.html"
+    },
+    "aao-pacg-2020": {
+      "title": "AAO 原发性闭角型青光眼指南（PPP）诊断与治疗条款摘要",
+      "jurisdiction": "US",
+      "version": "2020 年版摘要，临床专家复核状态为待复核",
+      "url": "https://www.aao.org/preferred-practice-pattern/primary-angle-closure-disease-ppp"
+    },
+    "eas-pacg-2021": {
+      "title": "欧洲青光眼学会（EGS）闭角型青光眼处理条款摘要",
+      "jurisdiction": "INT",
+      "version": "第 5 版（2020）摘要，临床专家复核状态为待复核",
+      "url": "https://www.eugs.org/eng/guidelines.asp"
+    }
+  },
+  "evidence": [
+    {
+      "id": "cn-angle-classification",
+      "source": "cn-glaucoma-angle-2020",
+      "section": "闭角型青光眼的分型",
+      "scope": "中国原发性房角关闭疾病的诊断分型",
+      "anchors": ["primary_angle_closure", "gonioscopy"],
+      "text": "原发性房角关闭疾病依据房角关闭范围、眼压水平与视神经损害分为可疑房角关闭、原发性房角关闭、原发性闭角型青光眼及急性房角关闭危象。分型必须基于房角镜检查，不能仅凭前房深度或光学测量推断。"
+    },
+    {
+      "id": "cn-angle-acute",
+      "source": "cn-glaucoma-angle-2020",
+      "section": "急性房角关闭的处理",
+      "scope": "中国急性房角关闭危象的急诊处理",
+      "anchors": ["primary_angle_closure"],
+      "text": "急性眼压显著升高伴角膜水肿、瞳孔中度散大固定及眼痛、头痛、恶心呕吐时，应考虑急性房角关闭。处理以迅速降低眼压、控制炎症和尽快解除房角关闭为主，需紧急眼科处置，包括降眼压药物、局部糖皮质激素及激光周边虹膜切开。"
+    },
+    {
+      "id": "cn-angle-lpi",
+      "source": "cn-glaucoma-angle-2020",
+      "section": "激光周边虹膜切开",
+      "scope": "中国原发性房角关闭患者的预防性治疗",
+      "anchors": ["laser_iridotomy", "primary_angle_closure"],
+      "text": "激光周边虹膜切开适用于存在瞳孔阻滞机制的房角关闭。对房角狭窄但尚未关闭、无视神经损害者，是否预防性治疗需结合房角关闭范围、眼压、随访条件与患者意愿个体化决定。非瞳孔阻滞机制为主的房角关闭疗效有限。"
+    },
+    {
+      "id": "cn-angle-lens",
+      "source": "cn-glaucoma-angle-2020",
+      "section": "晶状体摘除的作用",
+      "scope": "中国合并白内障的原发性房角关闭患者",
+      "anchors": ["phaco_glaucoma", "primary_angle_closure"],
+      "text": "合并白内障的房角关闭患者，晶状体摘除可加深前房并开放房角。对有明确白内障指征者，可优先考虑白内障手术；残余眼压升高者术后需继续评估抗青光眼治疗需求。"
+    },
+    {
+      "id": "aao-pacg-gonioscopy",
+      "source": "aao-pacg-2020",
+      "section": "Diagnosis / Gonioscopy",
+      "scope": "美国闭角型青光眼的诊断评估",
+      "anchors": ["gonioscopy", "primary_angle_closure"],
+      "text": "房角镜检查是评估房角关闭的金标准，应在压迫与非压迫条件下观察房角结构。双眼均应检查，因房角形态常不对称。评估内容包括关闭范围、周边虹膜形态与是否存在周边前粘连。"
+    },
+    {
+      "id": "aao-pacg-followup",
+      "source": "aao-pacg-2020",
+      "section": "Follow-up",
+      "scope": "美国房角关闭患者的随访",
+      "anchors": ["poag_followup", "primary_angle_closure"],
+      "text": "激光周边虹膜切开后仍需定期随访眼压、房角与视神经状态，因部分患者房角可再度关闭或仍发生青光眼性损害。房角关闭范围的扩大与周边前粘连形成是随访关注重点。"
+    },
+    {
+      "id": "egs-angle-management",
+      "source": "eas-pacg-2021",
+      "section": "Management of angle closure",
+      "scope": "欧洲房角关闭疾病的分层处理",
+      "anchors": ["primary_angle_closure", "laser_iridotomy"],
+      "text": "房角关闭的处理应按机制分层：以瞳孔阻滞为主者首选激光周边虹膜切开；存在晶状体相关机制者，晶状体摘除可能更有效。多发周边虹膜切开孔或联合晶状体摘除适用于激光后房角仍持续关闭者。"
+    },
+    {
+      "id": "cn-ctd-iop-measure",
+      "source": "cn-glaucoma-angle-2020",
+      "section": "眼压测量的注意事项",
+      "scope": "中国青光眼患者的眼压评估",
+      "anchors": ["iop", "cct"],
+      "text": "眼压测量应记录测量方式与时间。中央角膜厚度会影响压平眼压测量结果，角膜较薄者可能低估真实眼压，较厚者可能高估。眼压评估应结合昼夜波动多次测量，单次测量不足以判断峰值。"
+    },
+    {
+      "id": "cn-diurnal-iop",
+      "source": "cn-glaucoma-angle-2020",
+      "section": "昼夜眼压波动",
+      "scope": "中国青光眼患者的眼压波动评估",
+      "anchors": ["diurnal_iop", "iop"],
+      "text": "对可疑青光眼或进展原因不明者，可安排昼夜眼压测量以了解波动幅度与峰值时间。眼压波动较大者需调整随访频率与用药时间点，治疗判断不能仅依据门诊单次眼压。"
+    }
+  ]
+}

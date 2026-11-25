@@ -43,10 +43,22 @@ class ContextWindowTests(unittest.TestCase):
         self.assertEqual(self.select(history,max_chars=20),[])
 
     def test_chat_output_cap_passed_to_provider(self):
-        with patch('llm.client.openai.OpenAI') as sdk, patch('utils.config.CHAT_MAX_OUTPUT_TOKENS',123):
-            sdk.return_value.chat.completions.create.return_value=SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='Reply'))])
+        """输出上限必须传给模型；现在经由 LangChain 的 bind(max_tokens=...) 完成。"""
+        bound = {}
+
+        class FakeRunnable:
+            def invoke(self, payload):
+                return SimpleNamespace(content='Reply')
+
+        class FakeClient:
+            def bind(self, **kwargs):
+                bound.update(kwargs)
+                return FakeRunnable()
+
+        with patch.object(LLMClient, '_build_client', return_value=FakeClient()), \
+                patch('utils.config.CHAT_MAX_OUTPUT_TOKENS', 123):
             LLMClient(api_key='test').chat_with_history([], 'Question')
-            self.assertEqual(sdk.return_value.chat.completions.create.call_args.kwargs['max_tokens'],123)
+        self.assertEqual(bound.get('max_tokens'), 123)
 
 class ContextRejectionTests(unittest.IsolatedAsyncioTestCase):
     async def test_oversized_question_is_not_saved_or_sent(self):

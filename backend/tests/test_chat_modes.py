@@ -89,14 +89,25 @@ class ChatModeServiceTests(unittest.IsolatedAsyncioTestCase):
 
 class TransportPromptTests(unittest.TestCase):
     def test_general_call_has_no_business_system_prompt(self):
-        with patch('llm.client.openai.OpenAI') as sdk:
-            sdk.return_value.chat.completions.create.return_value=SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='Reply'))])
-            client=LLMClient(api_key='test')
+        """普通聊天不注入业务系统提示词；传入 system 时才带在首条消息。"""
+        sent = []
+
+        class FakeRunnable:
+            def invoke(self, payload):
+                sent.append(payload)
+                return SimpleNamespace(content='Reply')
+
+        class FakeClient:
+            def bind(self, **kwargs):
+                return FakeRunnable()
+
+        with patch.object(LLMClient, '_build_client', return_value=FakeClient()):
+            client = LLMClient(api_key='test')
             client.chat_with_history([], 'Hello')
-            messages=sdk.return_value.chat.completions.create.call_args.kwargs['messages']
-            self.assertEqual(messages,[{'role':'user','content':'Hello'}])
+            self.assertEqual([getattr(m, 'content', m) for m in sent[-1]], ['Hello'])
             client.chat_with_history([], 'Question', system='Eye role')
-            self.assertEqual(sdk.return_value.chat.completions.create.call_args.kwargs['messages'][0], {'role':'system','content':'Eye role'})
+            self.assertEqual(
+                [getattr(m, 'content', m) for m in sent[-1]], ['Eye role', 'Question'])
 
 class AnalysisConversationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):

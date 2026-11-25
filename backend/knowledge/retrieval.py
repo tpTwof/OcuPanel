@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sqlite3
 import math
 import re
 import sys
@@ -12,7 +11,7 @@ from collections import Counter
 from graphrag import GraphRetriever
 from graphrag.builder import SEED_NAME
 from knowledge.corpus import load_guideline, evidence_chunks
-from knowledge.vector_cache import VectorCache
+from knowledge.chroma_store import ChromaVectorStore
 from knowledge.report_focus import matches_disease
 from graphrag.retriever import query_regions
 from knowledge.models import Chunk, SourcedChunk
@@ -38,7 +37,7 @@ def draft_source(source: str | None) -> bool:
 
 _CJK_RUN = re.compile(r"[\u4e00-\u9fff]+")
 _ASCII_WORD = re.compile(r"[A-Za-z][A-Za-z0-9+\-.]*|\d+(?:\.\d+)?")
-_H2 = re.compile(r"^##\s+(.*)$", re.M)
+_H1 = re.compile(r"^#\s+.*$", re.M)
 
 
 
@@ -65,45 +64,103 @@ def _tokenize(text: str) -> list[str]:
 
 
 def load_chunks(corpus_dir: Path = CORPUS_DIR) -> list[Chunk]:
-    """按 `## 小节` → 段落 两级切分。
+    """把 corpus 下的 Markdown 与 PDF 切成检索块。
 
-    只按小节切时，一个块里塞满 3–4 段，长块在 BM25 里被长度归一化惩罚，
-    真正对口的短段落会被埋掉。按段落切更细，召回更准，出处也更具体。
+    先用 Markdown 标题切出小节（LangChain 的 MarkdownHeaderTextSplitter），
+    再按段落合并成不超过约 400 字的块：整段保留语义完整，过短的段落并到下一段，
+    避免出现只剩标题行的噪声块。PDF 按页抽取文本后再用同一套规则切分。
     """
+    from langchain_text_splitters import MarkdownHeaderTextSplitter
+
+    splitter = MarkdownHeaderTextSplitter(
+        headers_to_split_on=[("##", "section")], strip_headers=True,
+    )
     chunks: list[Chunk] = []
-    for path in sorted(corpus_dir.glob("*.md")):
-        raw = path.read_text(encoding="utf-8")
-        title_match = re.search(r"^#\s+(.*)$", raw, re.M)
-        title = title_match.group(1).strip() if title_match else path.stem
-
-        positions = [(m.start(), m.group(1).strip()) for m in _H2.finditer(raw)]
-        for idx, (start, section) in enumerate(positions):
-            end = positions[idx + 1][0] if idx + 1 < len(positions) else len(raw)
-            body = raw[start:end].split("\n", 1)[-1].strip()
-            if not body:
-                continue
-
-            paragraphs = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()]
-            merged: list[str] = []
-            for para in paragraphs:
-                # 过短的段落（标题行、单句提示）并入下一段，避免噪声块
-                if merged and len(merged[-1]) < 60:
-                    merged[-1] = f"{merged[-1]}\n{para}"
-                else:
-                    merged.append(para)
-
-            for p_idx, para in enumerate(merged):
-                chunks.append(
-                    Chunk(
+    for path in sorted(corpus_dir.iterdir()):
+        if path.suffix.lower() not in {".md", ".pdf"}:
+            continue
+        for title, sections in _document_sections(path, splitter):
+            for idx, (section, body) in enumerate(sections):
+                for p_idx, para in enumerate(_pack_paragraphs(body)):
+                    chunks.append(Chunk(
                         id=f"{path.stem}#{idx + 1}-{p_idx + 1}",
                         source=path.name,
                         title=title,
                         section=section,
                         text=para,
                         lang=detect_lang(f"{title} {section} {para}"),
-                    )
-                )
+                    ))
     return chunks
+
+
+def _document_sections(path: Path, splitter):
+    """返回 [(文档标题, [(小节名, 正文)])]，Markdown 与 PDF 统一处理。"""
+    if path.suffix.lower() == ".pdf":
+        from pypdf import PdfReader
+
+        reader = PdfReader(str(path))
+        pages = []
+        for number, page in enumerate(reader.pages, 1):
+            text = (page.extract_text() or "").strip()
+            if text:
+                pages.append((f"第 {number} 页", text))
+        yield path.stem, pages
+        return
+
+    raw = path.read_text(encoding="utf-8")
+    title_match = re.search(r"^#\s+(.*)$", raw, re.M)
+    title = title_match.group(1).strip() if title_match else path.stem
+    # 去掉一级标题再切分，否则它会作为一个没有小节的「正文」块出现
+    body = _H1.sub("", raw, count=1).strip()
+    sections = [
+        (doc.metadata.get("section") or "正文", doc.page_content.strip())
+        for doc in splitter.split_text(body)
+        if doc.page_content.strip()
+    ]
+    # 引用块（「> 示例语料…」这类说明）不是可引用的条款，丢掉避免噪声块
+    sections = [(name, text) for name, text in sections
+                if not text.lstrip().startswith(">")]
+    if not sections and body:  # 没有二级标题时整篇作为一节
+        sections = [("正文", body)]
+    yield title, sections
+
+
+def _pack_paragraphs(body: str) -> list[str]:
+    """把小节正文拆成独立的段落块。
+
+    MarkdownHeaderTextSplitter 会把同一小节内的段落用换行连成一个 doc：
+    - 中文语料段落之间是空行分隔，可直接按空行还原；
+    - 英文语料是软换行（段内换行不缩进），直接按行拆会把一句话切成碎片。
+    先按空行分段，再对超长的段按句子边界拆分，保证每块语义完整。
+    """
+    packed: list[str] = []
+    for paragraph in re.split(r"\n\s*\n", body):
+        text = " ".join(line.strip() for line in paragraph.splitlines() if line.strip())
+        if not text:
+            continue
+        for piece in _split_sentences(text):
+            if packed and len(packed[-1]) < 60:
+                packed[-1] = f"{packed[-1]} {piece}"
+            else:
+                packed.append(piece)
+    return packed
+
+
+def _split_sentences(text: str, limit: int = 320) -> list[str]:
+    """按句号/问号/感叹号与中文句末标点切句，超长句再按逗号拆。"""
+    units = [u for u in re.split(r"(?<=[.!?。！？])\s*", text) if u]
+    out: list[str] = []
+    for unit in units:
+        while len(unit) > limit:
+            cut = max(unit.rfind("，", 0, limit), unit.rfind(",", 0, limit),
+                      unit.rfind("；", 0, limit), unit.rfind(";", 0, limit))
+            if cut <= 0:
+                cut = limit
+            out.append(unit[:cut + 1].strip())
+            unit = unit[cut + 1:].strip()
+        if unit:
+            out.append(unit)
+    return out
 
 
 class VectorIndex:
@@ -125,6 +182,7 @@ class VectorIndex:
         self._tokenizer = None
         self._model = None
         self._matrix: np.ndarray | None = None
+        self._store: ChromaVectorStore | None = None
         self._lock = threading.Lock()
 
     def _load(self):
@@ -154,47 +212,64 @@ class VectorIndex:
             if self._matrix is not None:
                 return
             self._load()
-            revision = getattr(getattr(self._model, "config", None), "_commit_hash", None)
-            revision = revision or config.RAG_VECTOR_REVISION
-            cache = None
-            if config.RAG_VECTOR_CACHE_PATH:
-                try:
-                    cache = VectorCache(Path(config.RAG_VECTOR_CACHE_PATH))
-                except (OSError, sqlite3.Error) as exc:
-                    print(f"[RAG] 向量缓存不可用: {exc}", file=sys.stderr)
             texts = [f"{self.PASSAGE_PREFIX}{c.title}\n{c.section}\n{c.text}" for c in self.chunks]
-            keys = [VectorCache.key(self.model_name, revision, text) for text in texts]
-            vectors = [None] * len(texts)
-            if cache is not None:
+            ids = [c.id for c in self.chunks]
+            store = None
+            if config.RAG_VECTOR_STORE_PATH:
                 try:
-                    vectors = [cache.get(key) for key in keys]
-                except (OSError, sqlite3.Error, ValueError) as exc:
-                    print(f"[RAG] 读取向量缓存失败: {exc}", file=sys.stderr)
-                    cache = None
-            missing = [i for i, vector in enumerate(vectors) if vector is None]
-            batch_size = 32
-            for start in range(0, len(missing), batch_size):
-                indices = missing[start:start + batch_size]
-                encoded = self._encode([texts[i] for i in indices])
-                for i, vector in zip(indices, encoded):
-                    vectors[i] = vector
-                if cache is not None:
-                    try:
-                        cache.put([(keys[i], vectors[i]) for i in indices])
-                    except (OSError, sqlite3.Error) as exc:
-                        print(f"[RAG] 写入向量缓存失败: {exc}", file=sys.stderr)
-                        cache = None
-            self._matrix = np.stack(vectors) if vectors else np.empty((0, 0), dtype=np.float32)
+                    store = ChromaVectorStore(
+                        Path(config.RAG_VECTOR_STORE_PATH), self._encode_many, self.model_name,
+                    )
+                    encoded = store.sync(ids, texts, [self._metadata(c) for c in self.chunks])
+                    if encoded:
+                        print(f"[RAG] Chroma 新编码 {encoded}/{len(ids)} 条", file=sys.stderr)
+                    self._matrix = store.matrix(ids)
+                    self._store = store
+                    return
+                except Exception as exc:  # noqa: BLE001 - 向量库不可用就退回内存编码
+                    print(f"[RAG] 向量库不可用，改用内存编码: {exc}", file=sys.stderr)
+                    store = None
+            self._matrix = self._encode_many(texts) if texts else np.empty((0, 0), dtype=np.float32)
+
+    @staticmethod
+    def _metadata(chunk: Chunk) -> dict:
+        """写入 Chroma 的元数据。Chroma 只接受标量，缺失值用空串占位。"""
+        meta = {"source": chunk.source, "title": chunk.title, "section": chunk.section,
+                "lang": chunk.lang or ""}
+        if isinstance(chunk, SourcedChunk):
+            meta.update({key: getattr(chunk, key) or ""
+                         for key in ("url", "version", "jurisdiction", "scope")})
+        return meta
+
+    def _encode_many(self, texts: list[str]) -> np.ndarray:
+        """分批编码，避免一次喂入过多文本。"""
+        if not texts:
+            return np.empty((0, 0), dtype=np.float32)
+        out = []
+        for start in range(0, len(texts), 32):
+            out.append(self._encode(texts[start:start + 32]))
+        return np.vstack(out)
 
     def search(self, query: str, k: int, min_score: float = 0.0) -> list[dict]:
         if not self.chunks or k <= 0:
             return []
         self.ensure()
         vector = self._encode([f"{self.QUERY_PREFIX}{query}"])[0]
+        # 交给 Chroma 的 ANN 索引取候选，再回到本类按阈值与地区过滤。
+        # 候选数放宽到 k 的数倍，避免地区过滤后不足 k 条。
+        candidates: list[int] | None = None
+        if self._store is not None:
+            try:
+                order = self._store.query(vector, max(k * 6, 24))
+                index_of = {chunk.id: i for i, chunk in enumerate(self.chunks)}
+                candidates = [index_of[key] for key in order if key in index_of]
+            except Exception as exc:  # noqa: BLE001 - ANN 失败就退回全量比较
+                print(f"[RAG] Chroma 查询失败，退回全量比较：{exc}", file=sys.stderr)
         sims = self._matrix @ vector
+        order = candidates if candidates is not None else sims.argsort()[::-1]
         regions = query_regions(query)
         results: list[dict] = []
-        for idx in sims.argsort()[::-1]:
+        for idx in order:
             score = float(sims[idx])
             if score < min_score:
                 break

@@ -64,8 +64,11 @@ RAG_MODE = (os.getenv("RAG_MODE") or "hybrid").strip().lower()
 # 不引入 sentence-transformers。换模型只改这里。
 RAG_VECTOR_MODEL = (os.getenv("RAG_VECTOR_MODEL") or "intfloat/multilingual-e5-small").strip()
 RAG_VECTOR_REVISION = os.getenv("RAG_VECTOR_REVISION", "main")
-RAG_VECTOR_CACHE_PATH = os.getenv(
-    "RAG_VECTOR_CACHE_PATH", str(Path(__file__).resolve().parents[1] / "knowledge" / ".cache" / "vectors.db"),
+# Chroma 持久化目录。留空表示不使用向量库，退回每次启动在内存里编码。
+# Chroma 库中每条记录同时保存向量、原文与出处元数据，语料更新时按 id 增量同步。
+RAG_VECTOR_STORE_PATH = os.getenv(
+    "RAG_VECTOR_STORE_PATH",
+    str(Path(__file__).resolve().parents[1] / "knowledge" / ".cache" / "chroma"),
 )
 # 向量相似度的绝对阈值（cosine）。e5 系列的分数整体偏高，0.78 相当于"确实相关"。
 RAG_VECTOR_MIN_SCORE = float(os.getenv("RAG_VECTOR_MIN_SCORE", "0.78"))

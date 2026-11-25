@@ -2,7 +2,6 @@ from __future__ import annotations
 import os
 import sys
 import threading
-import openai
 from utils import config
 DEFAULT_MODEL = config.DEFAULT_MODEL
 def resolve_model(model: str | None = None) -> str:
@@ -119,26 +118,55 @@ class LLMClient:
                 messages.append({"role": role, "content": item["content"]})
         messages.append({"role": "user", "content": user_message})
 
-        client = openai.OpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-            timeout=config.LLM_TIMEOUT,
-            max_retries=config.LLM_MAX_RETRIES,
-        )
-        kwargs = {
-            "model": self.model, "messages": messages, "temperature": 0.7,
-            "max_tokens": config.CHAT_MAX_OUTPUT_TOKENS,
-        }
-        extra = thinking_control(self.base_url)
-        if extra:
-            kwargs["extra_body"] = extra
         try:
-            response = client.chat.completions.create(**kwargs)
-            return response.choices[0].message.content or ""
+            reply = self._invoke(
+                messages, temperature=0.7, max_tokens=config.CHAT_MAX_OUTPUT_TOKENS,
+            )
+            return reply
         except Exception as exc:  # noqa: BLE001 - 让上层统一转成可读错误
             raise RuntimeError(
                 describe_llm_error(exc, self.base_url, from_user_config=True)
             ) from exc
+
+    def _build_client(self):
+        """每次调用新建 LangChain ChatOpenAI，避免共享连接状态。
+
+        用户的 key 与端点可能在会话中途被改，按调用重建最省心。
+        """
+        from langchain_openai import ChatOpenAI
+
+        return ChatOpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            model=self.model,
+            timeout=config.LLM_TIMEOUT,
+            max_retries=config.LLM_MAX_RETRIES,
+        )
+
+    def _invoke(self, messages: list[dict], *, temperature: float,
+                max_tokens: int | None = None) -> str:
+        """统一的模型调用：转成 LangChain 消息并取回纯文本。"""
+        from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+        mapping = {"system": SystemMessage, "user": HumanMessage, "assistant": AIMessage}
+        payload = [
+            mapping[item["role"]](content=item["content"])
+            for item in messages if item.get("role") in mapping and item.get("content")
+        ]
+        options: dict = {"temperature": temperature}
+        if max_tokens is not None:
+            options["max_tokens"] = max_tokens
+        extra = thinking_control(self.base_url)
+        if extra:
+            options["extra_body"] = extra
+        result = self._build_client().bind(**options).invoke(payload)
+        content = getattr(result, "content", "")
+        if isinstance(content, list):  # 部分实现返回分片列表
+            content = "".join(
+                part.get("text", "") if isinstance(part, dict) else str(part)
+                for part in content
+            )
+        return (content or "").strip()
 
     def chat_with_gpt(
         self,
@@ -163,22 +191,9 @@ class LLMClient:
                     self.messages.append({"role": "user", "content": user_message})
                     messages = list(self.messages)
 
-            client = openai.OpenAI(
-                api_key=self.api_key,
-                base_url=self.base_url,
-                timeout=config.LLM_TIMEOUT,
-                max_retries=config.LLM_MAX_RETRIES,
+            reply = self._invoke(
+                messages, temperature=0.7 if temperature is None else temperature,
             )
-            kwargs = {
-                "model": self.model,
-                "messages": messages,
-                "temperature": 0.7 if temperature is None else temperature,
-            }
-            extra = thinking_control(self.base_url)
-            if extra:
-                kwargs["extra_body"] = extra
-            response = client.chat.completions.create(**kwargs)
-            reply = response.choices[0].message.content or ""
 
             if not reset:
                 with self._state_lock:

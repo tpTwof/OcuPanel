@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "poag_risk": {"label": "POAG 危险因素", "aliases": ["危险因素", "风险因素", "risk factors", "家族史"]},
+    "oh": {"label": "高眼压症", "aliases": ["高眼压症", "OHT", "ocular hypertension"]},
+    "ntg": {"label": "正常眼压性青光眼", "aliases": ["正常眼压性青光眼", "NTG", "normal tension glaucoma"]},
+    "rnfl_oct": {"label": "视网膜神经纤维层成像", "aliases": ["RNFL", "神经纤维层", "OCT RNFL"]},
+    "gcc": {"label": "黄斑神经节细胞复合体", "aliases": ["GCC", "神经节细胞复合体", "节细胞层"]},
+    "vf_reliability": {"label": "视野可靠性指标", "aliases": ["可靠性指标", "固视丢失", "假阳性率", "假阴性率"]}
+  },
+  "relations": [
+    ["oh", "需鉴别", "glaucoma"],
+    ["ntg", "亚型", "glaucoma"],
+    ["poag_risk", "关联", "glaucoma"]
+  ],
+  "sources": {
+    "cn-glaucoma-diag-2020": {
+      "title": "中国青光眼指南（2020年）诊断与鉴别章节条款摘要",
+      "jurisdiction": "CN",
+      "version": "2020 年版，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://master.yiigle.com/uploads/guide_html/%E4%B8%AD%E5%9B%BD%E9%9D%92%E5%85%89%E7%9C%BC%E6%8C%87%E5%8D%97%EF%BC%882020%E5%B9%B4%EF%BC%89.html"
+    },
+    "aao-poag-diag": {
+      "title": "AAO 原发性开角型青光眼指南（PPP）诊断评估条款摘要",
+      "jurisdiction": "US",
+      "version": "2020 年版摘要，临床专家复核状态为待复核",
+      "url": "https://www.aao.org/preferred-practice-pattern/primary-open-angle-glaucoma-ppp"
+    },
+    "nice-ng81-diag": {
+      "title": "NICE NG81 青光眼诊断和管理，诊断章节条款摘要",
+      "jurisdiction": "UK",
+      "version": "2022-01-26，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://www.nice.org.uk/guidance/ng81/chapter/recommendations#diagnosis"
+    }
+  },
+  "evidence": [
+    {
+      "id": "cn-poag-definition",
+      "source": "cn-glaucoma-diag-2020",
+      "section": "原发性开角型青光眼的定义",
+      "scope": "中国原发性开角型青光眼的诊断",
+      "anchors": ["glaucoma", "gonioscopy"],
+      "text": "原发性开角型青光眼指房角开放、无其他可识别的继发因素，并存在青光眼性视神经病变的进行性疾病。诊断需建立在房角开放、特征性视盘改变与相应视野缺损的证据上，眼压可在统计正常范围内。"
+    },
+    {
+      "id": "cn-oh-distinction",
+      "source": "cn-glaucoma-diag-2020",
+      "section": "高眼压症的鉴别",
+      "scope": "中国高眼压症与青光眼的区分",
+      "anchors": ["oh", "glaucoma"],
+      "text": "高眼压症指眼压高于人群统计上限，但视盘形态与视野均无青光眼性损害。高眼压症不等于青光眼，需按危险分层随访，部分患者可长期不进展。诊断青光眼必须有结构性或功能性损害证据。"
+    },
+    {
+      "id": "cn-ntg",
+      "source": "cn-glaucoma-diag-2020",
+      "section": "正常眼压性青光眼",
+      "scope": "中国正常眼压性青光眼的识别",
+      "anchors": ["ntg", "glaucoma"],
+      "text": "正常眼压性青光眼指眼压多次测量均在统计正常范围内，但存在典型青光眼性视神经与视野损害，且排除其他视神经疾病。需排查夜间低血压、睡眠呼吸暂停、脑血管疾病与全身低灌注等非眼压性危险因素。"
+    },
+    {
+      "id": "cn-poag-risk-factors",
+      "source": "cn-glaucoma-diag-2020",
+      "section": "危险因素",
+      "scope": "中国开角型青光眼的危险因素评估",
+      "anchors": ["poag_risk"],
+      "text": "开角型青光眼的主要危险因素包括高龄、一级亲属青光眼家族史、高眼压、中央角膜偏薄、高度近视、糖尿病与长期糖皮质激素使用。存在多项危险因素者应缩短随访间隔。"
+    },
+    {
+      "id": "cn-steroid-response",
+      "source": "cn-glaucoma-diag-2020",
+      "section": "糖皮质激素相关眼压升高",
+      "scope": "中国继发性眼压升高的排查",
+      "anchors": ["poag_risk", "iop"],
+      "text": "含糖皮质激素的滴眼液、眼周注射、鼻喷剂、吸入剂与皮肤外用制剂均可能升高眼压，反应存在个体差异。长期使用者应定期监测眼压，眼压升高者应与原治疗医生协商调整方案。"
+    },
+    {
+      "id": "aao-poag-exam",
+      "source": "aao-poag-diag",
+      "section": "Diagnosis / Initial evaluation",
+      "scope": "美国疑似开角型青光眼的初始评估",
+      "anchors": ["gonioscopy", "rnfl_oct", "visual_field"],
+      "text": "初始评估包括视力、裂隙灯与前房检查、眼压测量、中央角膜厚度、房角镜检查、视盘与视网膜神经纤维层评估及视野检查。评估的目的是建立基线并排除其他视神经疾病。"
+    },
+    {
+      "id": "aao-poag-structure",
+      "source": "aao-poag-diag",
+      "section": "Diagnosis / Optic nerve assessment",
+      "scope": "美国青光眼性视神经损害的识别",
+      "anchors": ["rnfl_oct", "cdr"],
+      "text": "青光眼性视盘改变包括盘沿弥漫性或局限性变窄、盘沿切迹、视盘出血、视网膜神经纤维层缺损与视盘周围萎缩。杯盘比本身不是诊断标准，需结合盘沿形态与双眼不对称综合判断。"
+    },
+    {
+      "id": "aao-poag-cc",
+      "source": "aao-poag-diag",
+      "section": "Diagnosis / Corneal thickness",
+      "scope": "美国中央角膜厚度在青光眼评估中的作用",
+      "anchors": ["cct", "iop"],
+      "text": "中央角膜厚度影响压平眼压测量值，是评估眼压相关风险时的参考因素。角膜偏薄者可能低估真实眼压，偏厚者可能高估。角膜厚度校正后的眼压仍不能替代实际测量值作为随访依据。"
+    },
+    {
+      "id": "aao-poag-vf-reliability",
+      "source": "aao-poag-diag",
+      "section": "Diagnosis / Visual field reliability",
+      "scope": "美国视野检查结果的可靠性判读",
+      "anchors": ["vf_reliability", "visual_field"],
+      "text": "判读视野结果时应先看可靠性指标，包括固视丢失率、假阳性率与假阴性率。可靠性差的结果不能单独作为诊断或进展依据，应重复检查。典型的青光眼性缺损包括鼻侧阶梯、弓形暗点与旁中心暗点。"
+    },
+    {
+      "id": "nice-ng81-diagnosis-steps",
+      "source": "nice-ng81-diag",
+      "section": "1.2 诊断",
+      "scope": "英国疑似慢性开角型青光眼的诊断步骤",
+      "anchors": ["gonioscopy", "visual_field", "cct"],
+      "text": "对疑似慢性开角型青光眼者，应进行 Goldmann 压平眼压测量、前房角镜检查、标准自动视野检查与视盘评估，并在初次评估时测量中央角膜厚度。确立诊断前应排除其他视神经疾病。"
+    },
+    {
+      "id": "nice-ng81-oh",
+      "source": "nice-ng81-diag",
+      "section": "1.3 高眼压症的监测",
+      "scope": "英国高眼压症的随访策略",
+      "anchors": ["oh", "poag_risk"],
+      "text": "高眼压症的处理取决于附加危险因素，包括眼压水平、中央角膜厚度、年龄、家族史与视盘形态。危险因素较多者可考虑早期干预，危险因素较少者定期监测即可。"
+    }
+  ]
+}

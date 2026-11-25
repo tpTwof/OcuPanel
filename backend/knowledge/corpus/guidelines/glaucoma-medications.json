@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "prostaglandin": {"label": "前列腺素类似物", "aliases": ["前列腺素", "拉坦前列素", "曲伏前列素", "prostaglandin", "latanoprost"]},
+    "beta_blocker": {"label": "β 受体阻滞剂", "aliases": ["β受体阻滞剂", "噻吗洛尔", "beta blocker", "timolol"]},
+    "caa": {"label": "碳酸酐酶抑制剂", "aliases": ["碳酸酐酶抑制剂", "布林佐胺", "多佐胺", "brinzolamide"]},
+    "alpha_agonist": {"label": "α2 受体激动剂", "aliases": ["α2受体激动剂", "溴莫尼定", "brimonidine"]},
+    "fixed_combo": {"label": "固定联合制剂", "aliases": ["复方制剂", "固定联合", "fixed combination"]},
+    "adherence": {"label": "用药依从性", "aliases": ["依从性", "规律用药", "adherence"]},
+    "slt": {"label": "选择性激光小梁成形术", "aliases": ["选择性激光小梁成形术", "SLT", "激光小梁成形"]}
+  },
+  "relations": [
+    ["prostaglandin", "一线选择", "glaucoma"],
+    ["beta_blocker", "需核对禁忌", "asthma"],
+    ["slt", "治疗选择", "glaucoma"]
+  ],
+  "sources": {
+    "cn-glaucoma-drug-2020": {
+      "title": "中国青光眼指南（2020年）降眼压药物章节条款摘要",
+      "jurisdiction": "CN",
+      "version": "2020 年版，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://master.yiigle.com/uploads/guide_html/%E4%B8%AD%E5%9B%BD%E9%9D%92%E5%85%89%E7%9C%BC%E6%8C%87%E5%8D%97%EF%BC%882020%E5%B9%B4%EF%BC%89.html"
+    },
+    "aao-poag-med": {
+      "title": "AAO 原发性开角型青光眼指南（PPP）药物治疗条款摘要",
+      "jurisdiction": "US",
+      "version": "2020 年版摘要，临床专家复核状态为待复核",
+      "url": "https://www.aao.org/preferred-practice-pattern/primary-open-angle-glaucoma-ppp"
+    },
+    "nice-ng81-treat": {
+      "title": "NICE NG81 青光眼诊断和管理，治疗章节条款摘要",
+      "jurisdiction": "UK",
+      "version": "2022-01-26，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://www.nice.org.uk/guidance/ng81/chapter/recommendations#treatment"
+    }
+  },
+  "evidence": [
+    {
+      "id": "cn-drug-prostaglandin",
+      "source": "cn-glaucoma-drug-2020",
+      "section": "前列腺素类似物",
+      "scope": "中国开角型青光眼的一线降眼压用药",
+      "anchors": ["prostaglandin", "glaucoma"],
+      "text": "前列腺素类似物降眼压幅度较大，每日一次晚间点眼，可作为开角型青光眼的首选一线用药。常见不良反应包括结膜充血、睫毛增长变粗、眶周皮肤色素沉着与虹膜色素加深；黄斑囊样水肿与活动性眼内炎症患者需慎用。"
+    },
+    {
+      "id": "cn-drug-betablocker",
+      "source": "cn-glaucoma-drug-2020",
+      "section": "β 受体阻滞剂",
+      "scope": "中国青光眼降眼压用药的禁忌核对",
+      "anchors": ["beta_blocker", "asthma"],
+      "text": "β 受体阻滞剂的禁忌包括支气管哮喘及支气管哮喘病史、慢性阻塞性肺疾病、心动过缓与二度以上房室传导阻滞。使用期间应关注心率与血压变化，合并心血管疾病者需与内科协同。"
+    },
+    {
+      "id": "cn-drug-caa",
+      "source": "cn-glaucoma-drug-2020",
+      "section": "碳酸酐酶抑制剂",
+      "scope": "中国青光眼局部降眼压用药",
+      "anchors": ["caa"],
+      "text": "局部碳酸酐酶抑制剂可减少房水生成，常作为联合用药。磺胺类药物过敏者需慎用；长期使用应关注角膜内皮状态。口服碳酸酐酶抑制剂可能引起手足麻木、味觉异常、肾结石与电解质紊乱，需监测全身情况。"
+    },
+    {
+      "id": "cn-drug-alpha",
+      "source": "cn-glaucoma-drug-2020",
+      "section": "α2 受体激动剂",
+      "scope": "中国青光眼局部降眼压用药",
+      "anchors": ["alpha_agonist"],
+      "text": "α2 受体激动剂可引起口鼻干燥、嗜睡与眼局部过敏反应。2 岁以下儿童禁用。与其他降眼压药物联合使用时，需注意全身吸收导致的中枢抑制作用。"
+    },
+    {
+      "id": "cn-drug-punctal",
+      "source": "cn-glaucoma-drug-2020",
+      "section": "减少全身吸收的方法",
+      "scope": "中国青光眼滴眼液使用指导",
+      "anchors": ["adherence"],
+      "text": "滴眼后按压泪囊区 1 至 2 分钟并轻闭眼睑，可减少经鼻泪管吸收引起的全身不良反应。同时使用多种滴眼液时，间隔应至少 5 分钟，避免前一种药物被冲洗掉。"
+    },
+    {
+      "id": "cn-drug-combo",
+      "source": "cn-glaucoma-drug-2020",
+      "section": "联合治疗与复方制剂",
+      "scope": "中国青光眼需要多种药物时的用药策略",
+      "anchors": ["fixed_combo"],
+      "text": "单一药物不能达到目标眼压时可联合不同机制药物。固定复方制剂可减少点眼次数、提高依从性，但需注意各成分的禁忌会叠加。联合方案应避免同类药物叠加使用。"
+    },
+    {
+      "id": "cn-drug-adherence",
+      "source": "cn-glaucoma-drug-2020",
+      "section": "依从性管理",
+      "scope": "中国青光眼长期用药管理",
+      "anchors": ["adherence"],
+      "text": "青光眼为终身性疾病，不规范用药是眼压失控和进展的常见原因。随访时应询问实际点眼情况而非仅问是否开药，可结合取药记录与点眼手法评估依从性。不可自行停药。"
+    },
+    {
+      "id": "aao-poag-first-line",
+      "source": "aao-poag-med",
+      "section": "Treatment / First-line therapy",
+      "scope": "美国开角型青光眼初始治疗选择",
+      "anchors": ["prostaglandin", "slt"],
+      "text": "开角型青光眼和高眼压症的初始治疗可考虑前列腺素类似物、β 受体阻滞剂、α2 受体激动剂或选择性激光小梁成形术，选择取决于降低眼压的幅度需求、禁忌、不良反应、费用与依从性。"
+    },
+    {
+      "id": "aao-poag-target-setting",
+      "source": "aao-poag-med",
+      "section": "Treatment / Treatment goal",
+      "scope": "美国开角型青光眼治疗目标设定",
+      "anchors": ["target_iop"],
+      "text": "治疗目标的设定应综合考虑基线眼压、损害严重程度、进展速率、年龄与预期寿命，并在随访中依据结构功能变化调整。目标达成不等于治疗结束，仍需持续评估是否稳定。"
+    },
+    {
+      "id": "nice-ng81-slt",
+      "source": "nice-ng81-treat",
+      "section": "1.4 治疗 / 激光治疗",
+      "scope": "英国慢性开角型青光眼或高眼压症的初始治疗",
+      "anchors": ["slt", "glaucoma"],
+      "text": "对慢性开角型青光眼或高眼压症，可向患者提供选择性激光小梁成形术作为初始治疗选择。选择激光或药物治疗时应讨论各自的获益、风险、复查次数与长期依从性要求。"
+    },
+    {
+      "id": "nice-ng81-review-medication",
+      "source": "nice-ng81-treat",
+      "section": "1.5 药物治疗与复查",
+      "scope": "英国青光眼药物治疗的评估",
+      "anchors": ["adherence", "poag_followup"],
+      "text": "开始或调整药物治疗后应评估眼压反应与局部及全身不良反应。若眼压未达目标，应先确认用药方法与依从性，再考虑加用或更换药物。"
+    }
+  ]
+}

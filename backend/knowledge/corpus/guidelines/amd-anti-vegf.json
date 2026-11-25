@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "concepts": {
+    "wet_amd_treat": {"label": "新生血管性 AMD 治疗", "aliases": ["新生血管性AMD治疗", "nAMD 治疗", "抗VEGF治疗"]},
+    "oct_followup": {"label": "OCT 随访监测", "aliases": ["OCT随访", "OCT监测", "anatomical monitoring"]},
+    "injection_interval": {"label": "注射间隔调整", "aliases": ["治疗间隔调整", "延长间隔", "treat and extend"]},
+    "amsler": {"label": "阿姆斯勒表自查", "aliases": ["阿姆斯勒表", "Amsler", "方格表自测"]},
+    "amd_stage": {"label": "AMD 分期", "aliases": ["AMD分期", "早期AMD", "中期AMD", "晚期AMD"]},
+    "amd_second_eye": {"label": "对侧眼风险", "aliases": ["对侧眼", "第二眼", "fellow eye"]}
+  },
+  "relations": [
+    ["wet_amd_treat", "治疗选择", "anti_vegf"],
+    ["amd_stage", "分级属于", "amd"],
+    ["oct_followup", "监测对象", "amd"]
+  ],
+  "sources": {
+    "cn-amd-anti-vegf-2023": {
+      "title": "中国年龄相关性黄斑变性临床诊疗指南（2023年）抗 VEGF 治疗章节条款摘要",
+      "jurisdiction": "CN",
+      "version": "中华眼科杂志 2023，59(5)，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://www.ddzxhospital.com/library/up_f/file/20230802/202308020837477207.pdf"
+    },
+    "aao-amd-treat-2023": {
+      "title": "AAO 年龄相关性黄斑变性指南（PPP）治疗与随访条款摘要",
+      "jurisdiction": "US",
+      "version": "2023 年版摘要，临床专家复核状态为待复核",
+      "url": "https://www.aao.org/preferred-practice-pattern/age-related-macular-degeneration-ppp"
+    },
+    "nice-ng82-anti-vegf": {
+      "title": "NICE NG82 年龄相关性黄斑变性，抗 VEGF 治疗章节条款摘要",
+      "jurisdiction": "UK",
+      "version": "2018 年版，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://www.nice.org.uk/guidance/ng82/chapter/recommendations"
+    }
+  },
+  "evidence": [
+    {
+      "id": "cn-amd-anti-vegf-inject",
+      "source": "cn-amd-anti-vegf-2023",
+      "section": "抗 VEGF 治疗",
+      "scope": "中国新生血管性年龄相关性黄斑变性的治疗",
+      "anchors": ["wet_amd_treat", "anti_vegf"],
+      "text": "新生血管性年龄相关性黄斑变性以玻璃体腔注射抗 VEGF 药物为主要治疗。初始治疗多采用连续每月注射，随后依据 OCT 解剖反应与视力变化调整间隔。治疗目标是控制渗出、维持或改善视力，而非一次性治愈。"
+    },
+    {
+      "id": "cn-amd-injection-followup",
+      "source": "cn-amd-anti-vegf-2023",
+      "section": "治疗后监测",
+      "scope": "中国抗 VEGF 治疗后的随访安排",
+      "anchors": ["oct_followup", "injection_interval"],
+      "text": "注射后应定期复查视力与 OCT，评估视网膜内积液、视网膜下积液与色素上皮脱离的变化。积液消退后可逐步延长注射间隔；一旦积液复发或视力下降，需缩短间隔或恢复每月注射。不可因症状改善自行停诊。"
+    },
+    {
+      "id": "cn-amd-injection-safety",
+      "source": "cn-amd-anti-vegf-2023",
+      "section": "注射相关风险",
+      "scope": "中国玻璃体腔注射的知情与随访",
+      "anchors": ["wet_amd_treat"],
+      "text": "玻璃体腔注射的少见但严重后果包括感染性眼内炎、视网膜脱离与眼压升高。注射后若出现眼痛、视力骤降或明显红眼，应立即就诊。注射前处理活动性眼内炎症与眼睑感染。"
+    },
+    {
+      "id": "cn-amd-dry-no-treatment",
+      "source": "cn-amd-anti-vegf-2023",
+      "section": "非新生血管型病变的处理",
+      "scope": "中国非新生血管性年龄相关性黄斑变性",
+      "anchors": ["dry_amd", "amd_stage"],
+      "text": "非新生血管性年龄相关性黄斑变性尚无公认的逆转手段，处理以随访观察、危险因素管理与低视力康复为主。出现新发视物变形、中心暗点或视力快速下降时，应及时复查排查新生血管化。"
+    },
+    {
+      "id": "cn-amd-amsler-self",
+      "source": "cn-amd-anti-vegf-2023",
+      "section": "患者自我监测",
+      "scope": "中国年龄相关性黄斑变性患者的自我监测指导",
+      "anchors": ["amsler", "amd_followup"],
+      "text": "建议患者使用阿姆斯勒表每日或每周单眼自查。出现线条变弯、视野中心发暗或视物变形范围扩大时应尽快就诊。自查异常不能确诊新生血管，但可缩短发现与治疗的延迟。"
+    },
+    {
+      "id": "aao-amd-fellow-eye",
+      "source": "aao-amd-treat-2023",
+      "section": "Fellow eye risk",
+      "scope": "美国单眼晚期 AMD 的对侧眼管理",
+      "anchors": ["amd_second_eye", "amd_supplement"],
+      "text": "一眼已进展至晚期者，对侧眼在后续数年内的进展风险明显升高，应加强自我监测与定期随访，并按分期考虑 AREDS2 配方营养补充。对侧眼的风险评估不因当前无症状而降低。"
+    },
+    {
+      "id": "aao-amd-oct-guided",
+      "source": "aao-amd-treat-2023",
+      "section": "Treatment monitoring",
+      "scope": "美国新生血管性 AMD 的治疗监测",
+      "anchors": ["oct_followup", "injection_interval"],
+      "text": "治疗随访应结合视力、眼底检查与 OCT。OCT 所示视网膜内或视网膜下积液是调整注射间隔的主要依据；无症状但存在积液者仍可能需要治疗，是否处理由临床结合病程判断。"
+    },
+    {
+      "id": "nice-ng82-dose-extend",
+      "source": "nice-ng82-anti-vegf",
+      "section": "1.7 抗 VEGF 治疗与延长方案",
+      "scope": "英国新生血管性 AMD 的抗 VEGF 治疗安排",
+      "anchors": ["injection_interval", "wet_amd_treat"],
+      "text": "抗 VEGF 治疗可采用治疗后评估并按反应逐步延长间隔的方案。延长间隔的前提是眼部和解剖学稳定；出现活动性病变时应缩短间隔。不得因主观感受良好而跳过随访评估。"
+    },
+    {
+      "id": "nice-ng82-referral-urgent",
+      "source": "nice-ng82-anti-vegf",
+      "section": "转诊时效",
+      "scope": "英国疑似新生血管性 AMD 的转诊",
+      "anchors": ["wet_amd", "metamorphopsia"],
+      "text": "新发视物变形或视力下降提示可能为新生血管性 AMD 时，应尽快转诊至黄斑专科，不必等待视力进一步恶化。评估应在数日内完成，以缩短从症状出现到治疗的时间。"
+    }
+  ]
+}
