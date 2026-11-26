@@ -10,8 +10,8 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from report.generation import MedicalReportGenerator
-from vision.diseases.glaucoma import analyzer
+from modules.report.generation import MedicalReportGenerator
+from modules.vision.diseases.glaucoma import analyzer
 
 
 class GlaucomaReportCases(unittest.TestCase):
@@ -40,9 +40,9 @@ class GlaucomaReportCases(unittest.TestCase):
             generator.chat_with_gpt = Mock(side_effect=reply)
             with patch.object(analyzer, "predict_probability", return_value=0.9), \
                  patch.object(analyzer, "predict_mask", return_value=mask), \
-                 patch("report.generation.retrieve_evidence", return_value=evidence), \
-                 patch("report.generation.get_retriever", return_value=Mock(similarity=lambda a, b: 0)), \
-                 patch("utils.config.VERIFY_ENABLED", True):
+                 patch("modules.report.generation.retrieve_evidence", return_value=evidence), \
+                 patch("modules.report.generation.get_retriever", return_value=Mock(similarity=lambda a, b: 0)), \
+                 patch("core.config_impl.VERIFY_ENABLED", True):
                 result = generator.generate(path, "Synthetic case. Stage unknown.", folder)
 
             self.assertTrue(Path(result.image_path).is_file())

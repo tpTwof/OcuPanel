@@ -6,19 +6,19 @@ from unittest.mock import Mock, call, patch
 import numpy as np
 import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from vision import analyze_fundus, EyeAnalysis, DiseaseResult
-from vision.diseases import retinal
+from modules.vision import analyze_fundus, EyeAnalysis, DiseaseResult
+from modules.vision.diseases import retinal
 
 class AnalysisTests(unittest.TestCase):
     def setUp(self):
-        self.images = ModuleType('vision.utils.images')
+        self.images = ModuleType('modules.vision.utils.images')
         self.image = object()
         self.images.read_rgb = Mock(return_value=self.image)
         self.images.check_fundus_input = Mock()
-        self.worker = ModuleType('vision.diseases.glaucoma.analyzer')
+        self.worker = ModuleType('modules.vision.diseases.glaucoma.analyzer')
         self.result = EyeAnalysis(diseases={'glaucoma': DiseaseResult(probability=0.7)})
         self.worker.analyze = Mock(return_value=self.result)
-        self.modules = patch.dict(sys.modules, {'vision.utils.images': self.images, 'vision.diseases.glaucoma.analyzer': self.worker})
+        self.modules = patch.dict(sys.modules, {'modules.vision.utils.images': self.images, 'modules.vision.diseases.glaucoma.analyzer': self.worker})
         self.modules.start()
         self.addCleanup(self.modules.stop)
 
@@ -36,10 +36,10 @@ class AnalysisTests(unittest.TestCase):
         self.images.read_rgb.assert_not_called()
 
     def test_unusable_image_skips_all_models(self):
-        from vision.models import FundusImageUnusable
+        from modules.vision.models import FundusImageUnusable
 
         self.images.check_fundus_input.side_effect = FundusImageUnusable("不可判读")
-        with patch('vision.diseases.retinal.analyze_retinal') as retinal_model:
+        with patch('modules.vision.diseases.retinal.analyze_retinal') as retinal_model:
             with self.assertRaises(FundusImageUnusable):
                 analyze_fundus('example.png', diseases=('glaucoma', 'diabetic_retinopathy'))
         self.worker.analyze.assert_not_called()
@@ -50,7 +50,7 @@ class AnalysisTests(unittest.TestCase):
         amd = 'age_related_macular_degeneration'
         retinal = {dr: DiseaseResult(prompt_similarity_margin=-1.5),
                    amd: DiseaseResult(prompt_similarity_margin=2.5)}
-        with patch('vision.diseases.retinal.analyze_retinal', return_value=retinal) as model:
+        with patch('modules.vision.diseases.retinal.analyze_retinal', return_value=retinal) as model:
             result = analyze_fundus('example.png', diseases=(dr, 'glaucoma', amd), device='cpu')
         self.images.read_rgb.assert_called_once_with('example.png')
         model.assert_called_once_with(self.image, (dr, amd), 'cpu')
@@ -61,8 +61,8 @@ class AnalysisTests(unittest.TestCase):
 
 class RetinalInferenceTests(unittest.TestCase):
     def test_technical_input_check(self):
-        from vision.models import FundusImageUnusable
-        from vision.utils.images import check_fundus_input, read_rgb
+        from modules.vision.models import FundusImageUnusable
+        from modules.vision.utils.images import check_fundus_input, read_rgb
 
         for image in (np.zeros((64, 64, 3), dtype=np.uint8), np.zeros((20, 64, 3), dtype=np.uint8)):
             with self.assertRaises(FundusImageUnusable):

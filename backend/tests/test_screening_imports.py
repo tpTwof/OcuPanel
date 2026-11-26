@@ -10,12 +10,12 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
-from main import app
-from report import assets, service as reports
-from report.models import ReportResult, ReportSubmission
-from screening import repository
-from utils import storage
-from utils.auth import current_user
+from app.main import app
+from modules.report import assets, service as reports
+from modules.report.models import ReportResult, ReportSubmission
+from modules.screening import repository
+from core import storage
+from common.auth import current_user
 from test_screening import examination
 
 
@@ -24,7 +24,7 @@ class ImportTests(unittest.TestCase):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.folder = Path(folder.name)
-        for target, value in [('utils.storage.DB_PATH', self.folder / 'db'), ('report.assets.ORIGINAL_STORE_DIR', self.folder / 'originals')]:
+        for target, value in [('core.storage.DB_PATH', self.folder / 'db'), ('modules.report.assets.ORIGINAL_STORE_DIR', self.folder / 'originals')]:
             patched = patch(target, value); patched.start(); self.addCleanup(patched.stop)
         storage.init_db()
         self.owner = storage.create_user('owner', 'test-password')
@@ -222,7 +222,7 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(self.confirm(preview)['revision'], 1)
 
     def test_import_sources_are_identical_in_context_json_and_signed_pdf(self):
-        from report.pdf import PDFRenderer
+        from modules.report.pdf import PDFRenderer
         report = self.report()
         saved = self.confirm(self.preview([report]))
         context = self.client.get(f"/api/screening/cases/{saved['id']}/context?revision=1").json()

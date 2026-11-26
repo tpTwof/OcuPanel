@@ -8,18 +8,18 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from utils import storage
-from chat import service
-from chat.models import SendMessageRequest, ChangeModeRequest
-from chat.prompts import CHAT_SYSTEM_PROMPT
-from llm.client import LLMClient
-from utils.errors import ApplicationError
+from core import storage
+from modules.chat import service
+from modules.chat.schemas import SendMessageRequest, ChangeModeRequest
+from modules.chat.prompts import CHAT_SYSTEM_PROMPT
+from core.llm.client import LLMClient
+from core.errors import ApplicationError
 
 class ConversationModeStorageTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        override = patch('utils.storage.DB_PATH', Path(self.temp.name) / 'test.db')
+        override = patch('core.storage.DB_PATH', Path(self.temp.name) / 'test.db')
         override.start()
         self.addCleanup(override.stop)
 
@@ -72,7 +72,7 @@ class ConversationModeStorageTests(unittest.TestCase):
 class ChatModeServiceTests(unittest.IsolatedAsyncioTestCase):
     async def test_mode_controls_only_system_prompt(self):
         for mode in ('general','ophthalmic'):
-            with self.subTest(mode=mode), patch('utils.config.RAG_ENABLED', False), patch('utils.config.VERIFY_ENABLED', False), patch('knowledge.service.get_retriever') as get_retriever, patch('chat.service.storage.get_conversation',return_value={'title':'Case','mode':mode}), patch('chat.service.storage.load_llm_config',return_value={'api_key':'test','model':'test','base_url':''}), patch('chat.service.storage.list_messages',return_value=[{'role':'user','content':'Analyze this'}, {'role':'assistant','content':'Saved report'}]), patch('chat.service.storage.add_message',return_value={'id':'m'}), patch('chat.service.LLMClient') as client:
+            with self.subTest(mode=mode), patch('core.config_impl.RAG_ENABLED', False), patch('core.config_impl.VERIFY_ENABLED', False), patch('modules.knowledge.service.get_retriever') as get_retriever, patch('modules.chat.repository.get_conversation',return_value={'title':'Case','mode':mode}), patch('modules.chat.repository.load_llm_config',return_value={'api_key':'test','model':'test','base_url':''}), patch('modules.chat.repository.list_messages',return_value=[{'role':'user','content':'Analyze this'}, {'role':'assistant','content':'Saved report'}]), patch('modules.chat.repository.add_message',return_value={'id':'m'}), patch('modules.chat.service.LLMClient') as client:
                 client.return_value.chat_with_history.return_value='Reply'
                 result = await service.send_message({'id':'u'},'c',SendMessageRequest(message='Question'))
                 self.assertEqual(result['reply'],'Reply')
@@ -82,7 +82,7 @@ class ChatModeServiceTests(unittest.IsolatedAsyncioTestCase):
                 get_retriever.assert_not_called()
 
     async def test_other_users_mode_is_not_changed(self):
-        with patch('chat.service.storage.set_conversation_mode',return_value=False):
+        with patch('modules.chat.repository.set_conversation_mode',return_value=False):
             with self.assertRaises(ApplicationError) as caught:
                 await service.change_mode({'id':'other'},'c',ChangeModeRequest(mode='ophthalmic'))
             self.assertEqual(caught.exception.status_code,404)
@@ -113,14 +113,14 @@ class AnalysisConversationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         original_folder = tempfile.TemporaryDirectory()
         self.addCleanup(original_folder.cleanup)
-        original_patch = patch('report.assets.ORIGINAL_STORE_DIR', Path(original_folder.name))
+        original_patch = patch('modules.report.assets.ORIGINAL_STORE_DIR', Path(original_folder.name))
         original_patch.start()
         self.addCleanup(original_patch.stop)
 
     async def test_failed_chat_archive_rolls_back_report_messages_and_overlay(self):
         from PIL import Image
-        from report import service as reports
-        from report.models import ReportSubmission, ReportResult
+        from modules.report import service as reports
+        from modules.report.models import ReportSubmission, ReportResult
 
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
@@ -145,16 +145,16 @@ class AnalysisConversationTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(storage.get_conversation(owner["id"], conv["id"])["title"], "新对话")
 
     async def test_analysis_activates_mode_and_saves_case_and_reply(self):
-        from report import service as reports
-        from report.models import ReportSubmission, ReportResult
-        with tempfile.TemporaryDirectory() as folder, patch('utils.storage.DB_PATH', Path(folder) / 'db.sqlite'):
+        from modules.report import service as reports
+        from modules.report.models import ReportSubmission, ReportResult
+        with tempfile.TemporaryDirectory() as folder, patch('core.storage.DB_PATH', Path(folder) / 'db.sqlite'):
             storage.init_db()
             with storage.connect() as conn:
                 conn.execute('INSERT INTO users VALUES (?,?,?,?,?)', ('u', 'u', 'hash', 'u', 1))
             conv = storage.create_conversation('u')
             findings = {'glaucoma': {'measurements': {'area_equivalent_cdr': .6}}}
             result = ReportResult('Analysis result', {'status':'pass'}, .6, '', [], findings)
-            with patch('report.service._load_generator', new_callable=AsyncMock), patch('report.service._run_report_pipeline', new_callable=AsyncMock, return_value=result):
+            with patch('modules.report.service._load_generator', new_callable=AsyncMock), patch('modules.report.service._run_report_pipeline', new_callable=AsyncMock, return_value=result):
                 response = await reports.generate_content(
                     {'id':'u'}, ReportSubmission(b'image', 'eye.png', 'Case note', conv['id']),
                 )

@@ -4,9 +4,9 @@ from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pydantic import TypeAdapter
-from llm.models import LLMConfiguration
-from report.models import ReportContent
-from user.models import User
+from core.llm.models import LLMConfiguration
+from modules.report.models import ReportContent
+from modules.account.models import User
 
 class TypedDictCompatibilityTests(unittest.TestCase):
     def test_schema_generation_on_pre_312_branch(self):

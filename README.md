@@ -49,7 +49,7 @@ OcuPanel 是一个基于 React 和 FastAPI 的眼科问答与眼底影像分析�
 在仓库根目录运行以下命令，并打开 [本地页面](http://127.0.0.1:8000)。FastAPI 同时托管前端和 API。
 
 ```powershell
-.\.venv\Scripts\python.exe .\backend\main.py
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir backend
 ```
 
 1. 注册或登录。在「个人设置」填写自己的 LLM API Key、接口地址和模型，测试连通后保存。

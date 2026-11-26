@@ -3,10 +3,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from agents.models import SpecialistRole
-from agents.specialist import SpecialistAgent
-from agents.director import DirectorAgent
-from agents.verifier import CitationVerifier
+from modules.agent.models import SpecialistRole
+from modules.agent.specialist import SpecialistAgent
+from modules.agent.director import DirectorAgent
+from modules.agent.verifier import CitationVerifier
 
 class ReviewRegressionTests(unittest.TestCase):
     evidence = [{'id':'a', 'index':1, 'title':'Guide', 'section':'Test', 'source':'fixture', 'text':'Evidence'}]
@@ -41,7 +41,7 @@ class ConfigurationRegressionTests(unittest.TestCase):
         env = dict(os.environ)
         env["ANALYSIS_PIPELINE"] = "vlm"
         result = subprocess.run(
-            [sys.executable, "-c", "from utils import config"],
+            [sys.executable, "-c", "from core import config"],
             cwd=Path(__file__).resolve().parents[1], env=env, capture_output=True, text=True,
         )
         self.assertNotEqual(result.returncode, 0)
@@ -49,8 +49,8 @@ class ConfigurationRegressionTests(unittest.TestCase):
 
     def test_unknown_citation_rejected_when_llm_verification_disabled(self):
         from unittest.mock import patch
-        from report.generation import MedicalReportGenerator
-        with patch('utils.config.VERIFY_ENABLED', False):
+        from modules.report.generation import MedicalReportGenerator
+        with patch('core.config_impl.VERIFY_ENABLED', False):
             final, record = MedicalReportGenerator(api_key='test').verify_synthesis(
                 'Draft [99]', ReviewRegressionTests.evidence,
             )

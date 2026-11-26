@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 sys.path.insert(0, str(ROOT / "tools"))
 from freeze_vision_baseline import freeze
-from vision.utils.runtime import clear_model_cache, load_model
+from modules.vision.utils.runtime import clear_model_cache, load_model
 
 
 class BaselineTests(unittest.TestCase):
@@ -19,7 +19,7 @@ class BaselineTests(unittest.TestCase):
         clear_model_cache()
         self.addCleanup(clear_model_cache)
         model_type = Mock()
-        with patch("vision.utils.runtime.AutoImageProcessor.from_pretrained") as processor:
+        with patch("modules.vision.utils.runtime.AutoImageProcessor.from_pretrained") as processor:
             load_model("model", model_type, "cpu", revision="a" * 40)
             load_model("model", model_type, "cpu", revision="a" * 40)
             load_model("model", model_type, "cpu", revision="b" * 40)

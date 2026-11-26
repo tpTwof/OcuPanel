@@ -6,8 +6,8 @@ from pathlib import Path
 from unittest.mock import Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from agents.tools.grounding import parse_grounding, report_statements, SOFTWARE_BOUNDARY
-from agents.verifier import CitationVerifier
+from modules.agent.tools.grounding import parse_grounding, report_statements, SOFTWARE_BOUNDARY
+from modules.agent.verifier import CitationVerifier
 
 
 class GroundingTests(unittest.TestCase):
@@ -167,14 +167,14 @@ class GroundingTests(unittest.TestCase):
 
     def test_redundant_unknown_marker_is_stripped_without_using_a_round(self):
         """句子另有有效引用时，多余的错误编号只是笔误，直接去掉，不占用修订轮数。"""
-        from agents.tools.evidence import strip_unknown_citations
+        from modules.agent.tools.evidence import strip_unknown_citations
         cleaned, removed = strip_unknown_citations('Finding [1][9].', self.evidence)
         self.assertEqual(cleaned, 'Finding [1].')
         self.assertEqual([item['number'] for item in removed], [9])
 
     def test_sole_unknown_marker_is_not_stripped(self):
         """整句只靠无效引用时不能去掉，否则会变成无出处的断言。"""
-        from agents.tools.evidence import strip_unknown_citations
+        from modules.agent.tools.evidence import strip_unknown_citations
         cleaned, removed = strip_unknown_citations('Unsupported [9].', self.evidence)
         self.assertEqual(cleaned, 'Unsupported [9].')
         self.assertEqual(removed, [])

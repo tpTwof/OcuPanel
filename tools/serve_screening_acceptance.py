@@ -20,12 +20,13 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.routing import APIRoute
 import uvicorn
 import main
-from report import assets, service as reports
-from report.models import ReportResult, ReportSubmission
-from report.utils import jobs
-from screening import service as screening
-from screening.models import CreateCase, Review
-from utils import auth, storage
+from modules.report import assets, service as reports
+from modules.report.models import ReportResult, ReportSubmission
+from modules.report.utils import jobs
+from modules.screening import service as screening
+from modules.screening.models import CreateCase, Review
+from common import auth
+from core import storage
 
 
 def seed_case(owner: dict, name: str) -> dict:

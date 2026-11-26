@@ -8,11 +8,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
-from main import app
-from screening import repository, service
-from screening.models import CreateCase
-from utils import storage
-from utils.auth import current_user
+from app.main import app
+from modules.screening import repository, service
+from modules.screening.models import CreateCase
+from core import storage
+from common.auth import current_user
 
 
 def examination() -> dict:
@@ -163,7 +163,7 @@ class ScreeningTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 422, response.text)
 
     def test_pdf_uses_exact_snapshot_and_cleans_temporary_files(self):
-        from report.pdf import PDFRenderer
+        from modules.report.pdf import PDFRenderer
         case = self.create()
         root = f"/api/screening/cases/{case['id']}"
         self.assertEqual(self.client.get(root + "/pdf?revision=1").status_code, 422)

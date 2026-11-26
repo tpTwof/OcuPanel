@@ -3,11 +3,14 @@ import json
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+import sys
 import numpy as np
 
-from graphrag import GraphRetriever, build_graph_from_corpus
-from knowledge.models import Chunk
-from knowledge.retrieval import CORPUS_DIR, DEMO_SOURCES, Retriever, VectorIndex
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from modules.knowledge.graphrag import GraphRetriever, build_graph_from_corpus
+from modules.knowledge.models import Chunk
+from modules.knowledge.retrieval import CORPUS_DIR, DEMO_SOURCES, Retriever, VectorIndex
 
 
 class GraphRetrievalTests(unittest.TestCase):
@@ -39,7 +42,7 @@ class GraphRetrievalTests(unittest.TestCase):
             batches.append(len(texts))
             return np.array([[int(text.splitlines()[-1])] for text in texts])
 
-        with patch("utils.config.RAG_VECTOR_STORE_PATH", ""), patch.object(
+        with patch("core.config_impl.RAG_VECTOR_STORE_PATH", ""), patch.object(
                 index, "_load"), patch.object(index, "_encode", side_effect=encode):
             index.ensure()
             index.ensure()
@@ -51,7 +54,7 @@ class GraphRetrievalTests(unittest.TestCase):
         """语料变化时只重编码改动过的条目，删除的条目不再保留。"""
         chunks = [Chunk(str(i), "test", "title", "section", str(i)) for i in range(3)]
         with tempfile.TemporaryDirectory() as directory, patch(
-            "utils.config.RAG_VECTOR_STORE_PATH", str(Path(directory) / "store"),
+            "core.config_impl.RAG_VECTOR_STORE_PATH", str(Path(directory) / "store"),
         ), patch.object(VectorIndex, "_load"):
             def encode(texts):
                 return np.array([[float(text.splitlines()[-1]), 1.0] for text in texts])
@@ -177,7 +180,7 @@ class GraphRetrievalTests(unittest.TestCase):
         self.assertEqual(graph.search("停车收费"), [])
 
     def test_graph_and_flat_channels_fuse_without_losing_provenance(self):
-        with patch("utils.config.GRAPH_RAG_ENABLED", True):
+        with patch("core.config_impl.GRAPH_RAG_ENABLED", True):
             retriever = Retriever.from_corpus(mode="bm25")
         sources = {chunk.source for chunk in retriever.chunks}
         # 草稿语料参与检索（正式条款不覆盖随访、目标眼压与视野判读），
@@ -208,7 +211,7 @@ class GraphRetrievalTests(unittest.TestCase):
         self.assertIn("nice-ng81-1.2.1", {item["id"] for item in diagnosis})
 
     def test_amd_symptom_and_referral_retrieve_scoped_evidence(self):
-        with patch("utils.config.GRAPH_RAG_ENABLED", True):
+        with patch("core.config_impl.GRAPH_RAG_ENABLED", True):
             retriever = Retriever.from_corpus(mode="bm25")
         for query in ("看直线是弯的，需要查什么？", "straight lines look wavy"):
             with self.subTest(query=query):
@@ -222,7 +225,7 @@ class GraphRetrievalTests(unittest.TestCase):
         self.assertTrue(all(item["jurisdiction"] in ("US", "INT") for item in us_hits))
 
     def test_chinese_amd_queries_observe_evidence_scope(self):
-        with patch("utils.config.GRAPH_RAG_ENABLED", True):
+        with patch("core.config_impl.GRAPH_RAG_ENABLED", True):
             retriever = Retriever.from_corpus(mode="bm25")
         for query in ("中国医院怀疑湿性黄斑变性，怎样检查？", "国内怀疑新生血管性 AMD，能用 OCTA 吗？"):
             with self.subTest(query=query):
@@ -238,15 +241,15 @@ class GraphRetrievalTests(unittest.TestCase):
         self.assertEqual(retriever.search("英国停车收费是否有优惠？"), [])
 
     def test_amd_summary_remains_searchable_without_graph(self):
-        with patch("utils.config.GRAPH_RAG_ENABLED", False):
+        with patch("core.config_impl.GRAPH_RAG_ENABLED", False):
             retriever = Retriever.from_corpus(mode="bm25")
         results = retriever.search("年龄相关性黄斑变性 AMD 直线变弯 检查")
         self.assertEqual(results[0]["source"], "nei-amd")
 
     def test_chat_preference_uses_separate_indexes(self):
-        from knowledge.service import get_retriever
+        from modules.knowledge.service import get_retriever
 
-        with patch("knowledge.service._RETRIEVERS", {}), patch("utils.config.RAG_MODE", "bm25"):
+        with patch("modules.knowledge.service._RETRIEVERS", {}), patch("core.config_impl.RAG_MODE", "bm25"):
             graph = get_retriever(True)
             flat = get_retriever(False)
             self.assertTrue(graph.graph_available)
@@ -255,15 +258,15 @@ class GraphRetrievalTests(unittest.TestCase):
             self.assertIs(flat, get_retriever(False))
 
     def test_missing_graph_preserves_flat_retrieval(self):
-        from knowledge.service import retrieve_with_status
+        from modules.knowledge.service import retrieve_with_status
 
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / "test.md").write_text(
                 "# Evidence\n\n## Exam\n\nGlaucoma visual field assessment.\n", encoding="utf-8"
             )
-            with patch("utils.config.GRAPH_RAG_ENABLED", True), patch("utils.config.RAG_ENABLED", True):
+            with patch("core.config_impl.GRAPH_RAG_ENABLED", True), patch("core.config_impl.RAG_ENABLED", True):
                 retriever = Retriever.from_corpus(Path(directory), mode="bm25")
-                with patch("knowledge.service.get_retriever", return_value=retriever):
+                with patch("modules.knowledge.service.get_retriever", return_value=retriever):
                     hits, status = retrieve_with_status("visual field")
             self.assertEqual(hits[0]["id"], "test#1-1")
             self.assertEqual(status, {"result": "found", "graph": "unavailable"})

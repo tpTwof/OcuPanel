@@ -4,10 +4,10 @@ from pathlib import Path
 import unittest
 from unittest.mock import Mock
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from agents.verifier import CitationVerifier
-from agents.tools.text_revision import locate, apply_replacements
-from agents.tools.json_response import parse_json
-from report.utils.messages import reject_message
+from modules.agent.verifier import CitationVerifier
+from modules.agent.tools.text_revision import locate, apply_replacements
+from modules.agent.tools.json_response import parse_json
+from modules.report.utils.messages import reject_message
 
 class VerificationTests(unittest.TestCase):
     evidence=[{'index':1,'text':'Evidence'}]
@@ -169,7 +169,7 @@ class VerificationTests(unittest.TestCase):
         self.assertEqual(record['remaining_issues'][0]['impact'], 'core')
 
     def test_local_cleanup_does_not_delete_a_fragment_or_duplicate_match(self):
-        from agents.tools.text_revision import omit_local_issues
+        from modules.agent.tools.text_revision import omit_local_issues
         for draft, quote in (
             ('Diagnosis is not confirmed.', 'not'),
             ('Extra statement.\nExtra statement.', 'Extra statement.'),
@@ -180,7 +180,7 @@ class VerificationTests(unittest.TestCase):
                 self.assertEqual(omitted, [])
 
     def test_local_cleanup_removes_empty_section_and_list_marker(self):
-        from agents.tools.text_revision import omit_local_issues
+        from modules.agent.tools.text_revision import omit_local_issues
         draft = '## 病例\n眼压 26 mmHg。\n## 附加说明\n- 无关条款 [1]。'
         cleaned, omitted = omit_local_issues(draft, [{
             'quote': '无关条款 [1]。', 'impact': 'local', 'citations': [1],

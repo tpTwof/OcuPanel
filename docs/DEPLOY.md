@@ -280,7 +280,7 @@ Group=ocupanel
 WorkingDirectory=/opt/ocupanel/backend
 Environment=PYTHONUNBUFFERED=1
 Environment=HF_HOME=/opt/ocupanel/.cache/huggingface
-ExecStart=/opt/ocupanel/.venv/bin/python main.py
+ExecStart=/opt/ocupanel/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir backend
 Restart=always
 RestartSec=5
 TimeoutStopSec=30

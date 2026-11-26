@@ -11,16 +11,16 @@ sys.path[:0] = [str(ROOT / "tools"), str(ROOT / "backend")]
 from archive_maintenance import expire_originals, materialize
 from configure_screening_site import Site, configure
 from screening_operations import summarize
-from screening.access import check_endpoint
-from utils.errors import ApplicationError
+from modules.screening.access import check_endpoint
+from core.errors import ApplicationError
 from fastapi.testclient import TestClient
-from main import app
-from report import queue
-from report.models import ReportResult
-from screening import repository
+from app.main import app
+from modules.report import queue
+from modules.report.models import ReportResult
+from modules.screening import repository
 from test_screening import examination
-from utils import storage
-from utils.auth import current_user
+from core import storage
+from common.auth import current_user
 
 
 class DeliveryTests(unittest.TestCase):
@@ -29,8 +29,8 @@ class DeliveryTests(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         self.root = Path(folder.name)
         self.source = self.root / "source"
-        for target, path in [("utils.storage.DB_PATH", "ocupanel.db"), ("report.assets.ORIGINAL_STORE_DIR", "original_store"),
-                             ("report.service.IMG_STORE_DIR", "img_store")]:
+        for target, path in [("core.storage.DB_PATH", "ocupanel.db"), ("modules.report.assets.ORIGINAL_STORE_DIR", "original_store"),
+                             ("modules.report.service.IMG_STORE_DIR", "img_store")]:
             self.enterContext(patch(target, self.source / path))
         storage.init_db()
         self.owner = storage.create_user("nurse", "fixture-password")
@@ -51,8 +51,8 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(jobs[0], jobs[1])
         self.assertEqual(self.post_job(image=b"different").status_code, 409)
         job = jobs[0]
-        with patch("report.service._load_generator", new_callable=AsyncMock), patch(
-            "report.service._run_report_pipeline", new_callable=AsyncMock,
+        with patch("modules.report.service._load_generator", new_callable=AsyncMock), patch(
+            "modules.report.service._run_report_pipeline", new_callable=AsyncMock,
             return_value=ReportResult("fixture", {"status": "pass"}, None, "", [], {})
         ) as inference:
             self.assertTrue(queue.run_one())
@@ -70,7 +70,7 @@ class DeliveryTests(unittest.TestCase):
         original, = (restored / "original_store").glob("*.bin")
         self.assertEqual(original.read_bytes(), b"synthetic-fixture")
         self.assertEqual(expire_originals(restored, 1, True), 0)
-        with patch("report.assets.time.time", return_value=storage.now() + 3 * 86400):
+        with patch("modules.report.assets.time.time", return_value=storage.now() + 3 * 86400):
             self.assertEqual(expire_originals(restored, 1, False), 1)
             self.assertTrue(original.is_file())
             self.assertEqual(expire_originals(restored, 1, True), 1)

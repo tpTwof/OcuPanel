@@ -4,16 +4,16 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from knowledge.models import Chunk
-from knowledge.retrieval import Retriever
-from utils import config
+from modules.knowledge.models import Chunk
+from modules.knowledge.retrieval import Retriever
+from core import config
 
 
 class ReportRetrievalTests(unittest.TestCase):
     def test_sample_glaucoma_query_keeps_diagnostic_reference(self):
-        from knowledge.report_focus import disease_focus
-        from report.context import build_context
-        from vision.models import DiseaseResult
+        from modules.knowledge.report_focus import disease_focus
+        from modules.report.context import build_context
+        from modules.vision.models import DiseaseResult
         retriever = Retriever.from_corpus(mode='bm25', graph_enabled=False)
         note = (Path(__file__).resolve().parents[2] / 'samples' / 'clinical_note.txt').read_text(encoding='utf-8')
         hits = retriever.search(build_context({'glaucoma': DiseaseResult(probability=.9)}, note),
@@ -24,10 +24,10 @@ class ReportRetrievalTests(unittest.TestCase):
 
     def test_report_retrieval_covers_treatment_and_followup_topics(self):
         """报告必须同时取得诊断、治疗目标与随访依据，否则撰稿只能写无依据的处置句。"""
-        from knowledge.report_focus import disease_focus
-        from knowledge.service import retrieve_report_evidence
-        from report.context import build_context
-        from vision.models import DiseaseResult
+        from modules.knowledge.report_focus import disease_focus
+        from modules.knowledge.service import retrieve_report_evidence
+        from modules.report.context import build_context
+        from modules.vision.models import DiseaseResult
         note = (Path(__file__).resolve().parents[2] / 'samples' / 'clinical_note.txt').read_text(encoding='utf-8')
         hits = retrieve_report_evidence(
             build_context({'glaucoma': DiseaseResult(probability=.9)}, note),

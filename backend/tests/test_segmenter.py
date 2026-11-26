@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 import numpy as np
 
-SOURCE = Path(__file__).resolve().parents[1] / 'vision' / 'anatomy' / 'optic_disc_cup.py'
+SOURCE = Path(__file__).resolve().parents[1] / 'modules' / 'vision' / 'anatomy' / 'optic_disc_cup.py'
 tree = ast.parse(SOURCE.read_text(encoding='utf-8'))
 helpers = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in {'overlay', 'cup_to_disc_ratio'}]
 namespace = {'np': np}

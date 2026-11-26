@@ -3,7 +3,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from screening.evaluation import evaluate, metrics, validate_rows
+from modules.screening.evaluation import evaluate, metrics, validate_rows
 
 
 def row(patient, reference="refer", old="no_refer", candidate="refer", **kwargs):

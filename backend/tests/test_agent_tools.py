@@ -3,9 +3,9 @@ from pathlib import Path
 import unittest
 from unittest.mock import Mock
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from agents.models import SpecialistRole
-from agents.specialist import SpecialistAgent
-from agents.tools.evidence import EvidenceTools
+from modules.agent.models import SpecialistRole
+from modules.agent.specialist import SpecialistAgent
+from modules.agent.tools.evidence import EvidenceTools
 
 class AgentToolsTests(unittest.TestCase):
     def setUp(self):

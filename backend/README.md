@@ -10,7 +10,7 @@
 .\.venv\Scripts\python.exe .\backend\main.py
 ```
 
-Linux 使用 `./.venv/bin/python backend/main.py`。默认监听 `127.0.0.1:8000`。存在 `frontend/dist/index.html` 时同时托管前端，否则只提供 API。服务启动后可访问 `/docs`（Swagger UI）和 `/redoc`。
+Linux 使用 `./.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir backend`。默认监听 `127.0.0.1:8000`。存在 `frontend/dist/index.html` 时同时托管前端，否则只提供 API。服务启动后可访问 `/docs`（Swagger UI）和 `/redoc`。
 
 ## 模块与流程
 

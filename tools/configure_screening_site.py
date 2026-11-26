@@ -7,8 +7,8 @@ from typing import Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from pydantic import Field
-from screening.models import Contract, Text
-from utils import storage
+from modules.screening.models import Contract, Text
+from core import storage
 
 
 class Site(Contract):

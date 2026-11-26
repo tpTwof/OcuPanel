@@ -35,15 +35,15 @@ for _name in ("NO_PROXY", "no_proxy"):
 from dotenv import load_dotenv  # noqa: E402
 load_dotenv(ROOT / "backend" / ".env")
 
-from utils import config  # noqa: E402
+from core.config_impl as config  # noqa: E402
 
 # 核查与改写提示词约 6k 字符，deepseek-v4.1-flash 实测单次 40-60s，偶发超过默认
 # 120s。这里放宽到 300s，使实验测的是「轮数上限」而不是「超时阈值」。
 config.LLM_TIMEOUT = float(os.getenv("EXP_LLM_TIMEOUT", "300"))
 
-from report.generation import MedicalReportGenerator  # noqa: E402
-from report.context import format_visual_findings  # noqa: E402
-from agents.tools.text_revision import content_len  # noqa: E402
+from modules.report.generation import MedicalReportGenerator  # noqa: E402
+from modules.report.context import format_visual_findings  # noqa: E402
+from modules.agent.tools.text_revision import content_len  # noqa: E402
 
 ROUNDS = [2, 3, 4, 5, 6, 7]
 IMAGE = ROOT / "samples" / "fundus_right_eye.png"

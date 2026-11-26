@@ -11,7 +11,7 @@ import tempfile
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend'))
-from report import assets
+from modules.report import assets
 
 
 def checksum(path: Path) -> str:

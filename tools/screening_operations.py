@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-from utils import storage
+from core import storage
 
 
 def percentile95(values):

@@ -5,11 +5,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from chat.context import select_history
-from chat import service
-from chat.models import SendMessageRequest
-from llm.client import LLMClient
-from utils.errors import ApplicationError
+from modules.chat.context import select_history
+from modules.chat import service
+from modules.chat.schemas import SendMessageRequest
+from core.llm.client import LLMClient
+from core.errors import ApplicationError
 
 class ContextWindowTests(unittest.TestCase):
     def select(self, history, current='Q', **overrides):
@@ -56,13 +56,13 @@ class ContextWindowTests(unittest.TestCase):
                 return FakeRunnable()
 
         with patch.object(LLMClient, '_build_client', return_value=FakeClient()), \
-                patch('utils.config.CHAT_MAX_OUTPUT_TOKENS', 123):
+                patch('core.config_impl.CHAT_MAX_OUTPUT_TOKENS', 123):
             LLMClient(api_key='test').chat_with_history([], 'Question')
         self.assertEqual(bound.get('max_tokens'), 123)
 
 class ContextRejectionTests(unittest.IsolatedAsyncioTestCase):
     async def test_oversized_question_is_not_saved_or_sent(self):
-        with patch('chat.service.storage.get_conversation',return_value={'mode':'general','title':'Case'}), patch('chat.service.storage.load_llm_config',return_value={'api_key':'x','model':'x','base_url':''}), patch('chat.service.storage.list_messages',return_value=[]), patch('chat.service.storage.add_message') as save, patch('chat.service.LLMClient') as client, patch('utils.config.CHAT_CONTEXT_MAX_CHARS',5):
+        with patch('modules.chat.repository.get_conversation',return_value={'mode':'general','title':'Case'}), patch('modules.chat.repository.load_llm_config',return_value={'api_key':'x','model':'x','base_url':''}), patch('modules.chat.repository.list_messages',return_value=[]), patch('modules.chat.repository.add_message') as save, patch('modules.chat.service.LLMClient') as client, patch('core.config_impl.CHAT_CONTEXT_MAX_CHARS',5):
             with self.assertRaises(ApplicationError) as caught:
                 await service.send_message({'id':'u'},'c',SendMessageRequest(message='x'*10))
             self.assertEqual(caught.exception.status_code,413)
