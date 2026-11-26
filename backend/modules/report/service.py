@@ -7,7 +7,7 @@ import hashlib
 import json
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from modules.account.models import User
 from modules.report.models import ReportSubmission, ReportDownload, ReportContent, ReportResult
 from modules.vision.analysis import DEFAULT_DISEASES
@@ -50,14 +50,17 @@ async def _run_report_pipeline(
     note: str,
     job_dir: Path,
     diseases: tuple[str, ...] = DEFAULT_DISEASES,
+    on_stage: Callable[[str], None] | None = None,
 ) -> ReportResult:
     """运行所选病种的影像分析、专科报告、综合和引用校验。
 
     未通过的诊疗草稿不能当成功返回；limited 只保留病例输入，不能导出诊断 PDF。
+    on_stage 只上报进度阶段，不影响判断逻辑。
     """
     try:
         return await run_in_threadpool(
-            generator.generate, io.BytesIO(contents), note, job_dir, diseases=diseases,
+            generator.generate, io.BytesIO(contents), note, job_dir,
+            diseases=diseases, on_stage=on_stage,
         )
     except FundusImageDecodeError as exc:
         raise ApplicationError(status_code=400, detail="图片无法解析，请换一张") from exc
@@ -155,10 +158,17 @@ async def _generate_and_store(
     await _activate_analysis_mode(user, request.conversation_id)
     generator = await _load_generator(user)
 
+    # 队列里跑的任务会把阶段写进数据库，供前端显示进度；同步接口没有任务号则跳过。
+    on_stage = None
+    if report_id:
+        from modules.report.queue import set_progress
+        on_stage = lambda name: set_progress(report_id, name)  # noqa: E731
+
     job_dir = new_job_dir("content")
     try:
         result = await _run_report_pipeline(
             generator, request.image_bytes, request.note, job_dir, request.diseases,
+            on_stage=on_stage,
         )
         return await run_in_threadpool(_archive_result, user["id"], request, result, append_to_chat, report_id)
     finally:

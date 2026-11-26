@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from typing import Any
 from common import auth
 from modules.chat.schemas import (

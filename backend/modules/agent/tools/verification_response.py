@@ -2,6 +2,11 @@
 from typing import Any
 from modules.agent.tools.grounding import BASES
 
+# 表示「该句没问题」的写法。正常应当在 claims 里省略，这里容忍
+# ok/pass 这类明显的肯定写法；supported 之类保留严格校验，
+# 因为按 basis 也有 supported 的语义，容易混淆。
+PASSING_VERDICTS = {"ok", "pass", "passed"}
+
 
 def parse_claims(data: Any) -> list[dict[str, Any]]:
     if not isinstance(data, dict) or not isinstance(data.get("claims"), list):
@@ -15,8 +20,15 @@ def parse_claims(data: Any) -> list[dict[str, Any]]:
         if not isinstance(quote, str) or not quote.strip():
             raise ValueError(f"{path}.quote must be a non-empty string")
         verdict = item.get("verdict")
-        if not isinstance(verdict, str) or verdict.strip().lower() not in {"partial", "unsupported", "uncited"}:
+        normalized = verdict.strip().lower() if isinstance(verdict, str) else ""
+        # 模型偶尔把「这句没问题」也列进 claims，用 ok/pass/supported 表示。
+        # 提示词要求省略，但这是个无害的表达方式，跳过该条继续处理即可，
+        # 不必让整次核查报 invalid_claims 而丢掉整份报告。
+        if normalized in PASSING_VERDICTS:
+            continue
+        if normalized not in {"partial", "unsupported", "uncited"}:
             raise ValueError(f"{path}.verdict must be partial, unsupported or uncited; omit supported claims")
+        verdict = normalized
         citations = item.get("citations", [])
         if not isinstance(citations, list) or any(type(number) is not int for number in citations):
             raise ValueError(f"{path}.citations must be an array of integers")

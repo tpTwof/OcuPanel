@@ -18,7 +18,6 @@
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import hmac
 import json
@@ -30,7 +29,6 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-from core import config_impl as config
 from core.errors import ApplicationError
 DB_PATH = Path(__file__).resolve().parents[1] / "ocupanel.db"
 
@@ -135,7 +133,9 @@ def init_db() -> None:
         from modules.screening.repository import init_schema
         init_schema(conn)
         job_fields = {row["name"] for row in conn.execute("PRAGMA table_info(report_jobs)")}
-        for field, kind in (("organization", "TEXT"), ("started_at", "REAL"), ("finished_at", "REAL")):
+        for field, kind in (("organization", "TEXT"), ("started_at", "REAL"),
+                            ("finished_at", "REAL"),
+                            ("progress", "TEXT NOT NULL DEFAULT ''")):
             if field not in job_fields:
                 conn.execute(f"ALTER TABLE report_jobs ADD COLUMN {field} {kind}")
         report_columns = {row["name"] for row in conn.execute("PRAGMA table_info(reports)")}

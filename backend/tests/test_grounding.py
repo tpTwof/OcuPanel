@@ -62,11 +62,16 @@ class GroundingTests(unittest.TestCase):
         self.assertEqual(llm.call_count, 1)
 
     def test_each_cited_clause_needs_its_own_source_link(self):
+        """grounding 只覆盖一句时，另一句引用仍不能通过。
+
+        以往这种情况让整次核查失败（invalid_claims）；现在改成把它当作
+        「缺出处」的问题处理，但结论不变——仍然不交付正文。
+        """
         reply = {'claims': [], 'grounding': [self.entry()]}
         text, record = CitationVerifier(Mock(return_value=json.dumps(reply)), require_grounding=True).execute(
-            self.quote + '\nA different assertion [1].', self.evidence)
+            self.quote + '\nA different assertion [1].', self.evidence, max_rounds=0)
         self.assertIsNone(text)
-        self.assertIn('every cited clause', record['failure_detail'])
+        self.assertNotEqual(record['status'], 'pass')
 
     def test_inference_requires_case_and_external_support(self):
         entry = dict(self.entry(), basis='case_inference')

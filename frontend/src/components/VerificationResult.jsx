@@ -22,6 +22,9 @@ const STATUS = {
   unresolved: { tone: 'bad', label: '校验未通过', hint: '无法自动修正' }
 }
 
+// 正文里带〔未获资料支持〕标记时，提示读者这些句子没有出处
+const ANNOTATED_HINT = '部分句子的资料出处未能确认，已在正文就地标注〔未获资料支持〕'
+
 const BASIS = {
   case_fact: '病例输入', medical_knowledge: '参考资料', case_inference: '病例与资料共同支持',
   general_advice: '一般性建议', recommendation: '具体处置依据', software_limit: '软件能力边界', scope_limit: '资料边界'
@@ -31,16 +34,21 @@ export default function VerificationResult({ data, isChat }) {
   const [open, setOpen] = useState(false)
   if (!data || !data.status) return null
 
-  const meta = isChat && data.status === 'rejected'
+  const annotations = data.annotations || []
+  const baseMeta = isChat && data.status === 'rejected'
     ? { tone: 'bad', label: '具体建议未通过核查', hint: '可补充病例信息或适用地区后再问' }
     : isChat && data.status === 'error'
     ? { tone: 'bad', label: '引用校验暂不可用', hint: '请稍后重试' }
     : STATUS[data.status] || STATUS.skipped
+  // 正文里有就地标注时，任务条要说明哪些句子没出处，不能只显示「通过」
+  const meta = annotations.length
+    ? { ...baseMeta, hint: ANNOTATED_HINT }
+    : baseMeta
   const fixed = data.fixed || []
   const remaining = data.remaining_issues || []
   const grounding = data.grounding || []
   const deleted = data.deleted || 0
-  const total = fixed.length + remaining.length
+  const total = fixed.length + remaining.length + annotations.length
   const expandable = total > 0 || grounding.length > 0 || data.review_log?.length > 0
   const forceOpen = ['rejected', 'error', 'limited'].includes(data.status)
   const shown = open || forceOpen
@@ -61,6 +69,7 @@ export default function VerificationResult({ data, isChat }) {
           {data.adjudicated && ' · 来源归类已复核'}
           {data.local_cleanup && ' · 已移除非核心说明'}
           {remaining.length > 0 && ` · 遗留 ${remaining.length} 处`}
+          {annotations.length > 0 && ` · 已标注 ${annotations.length} 处`}
           {grounding.length > 0 && ` · ${grounding.length} 条来源对照`}
         </span>
         {expandable && <span className="verify-caret">{shown ? '收起' : '查看'}</span>}
@@ -78,6 +87,18 @@ export default function VerificationResult({ data, isChat }) {
                 <div className="verify-old">{it.quote}</div>
                 <div className="verify-new">{it.new || '（无依据，整句已删除）'}</div>
                 {it.reason && <div className="verify-reason">{BASIS[it.basis] && `${BASIS[it.basis]}：`}{it.reason}</div>}
+              </div>
+            </div>
+          ))}
+          {annotations.map((it, i) => (
+            <div className="verify-item" key={`a${i}`}>
+              <div className="verify-tag">已标注</div>
+              <div className="verify-text">
+                <div className="verify-old">{it.quote}</div>
+                <div className="verify-reason">
+                  资料未覆盖该表述，正文已就地标注〔未获资料支持〕
+                  {it.reason && `：${it.reason}`}
+                </div>
               </div>
             </div>
           ))}

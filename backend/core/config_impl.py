@@ -95,6 +95,10 @@ RAG_MAX_PER_SOURCE = int(os.getenv("RAG_MAX_PER_SOURCE", "2"))
 VERIFY_ENABLED = (os.getenv("VERIFY_ENABLED", "1") != "0")
 # 打回重写的轮数上限。每轮 = 核查 + 重写，最坏每轮 2 次 LLM 调用。
 VERIFY_MAX_ROUNDS = int(os.getenv("VERIFY_MAX_ROUNDS", "2"))
+# 修订轮数用尽后，把「资料未覆盖」的断言就地标注后交付，而不是整份扣留。
+# 数值或表述与资料冲突这类可修正的问题仍必须改对，改不对才拒答。
+# 标注文字为「〔未获资料支持〕」，页面与 PDF 另行列出，不冒充已核实结论。
+VERIFY_SOFT_DELIVERY = (os.getenv("VERIFY_SOFT_DELIVERY", "1") != "0")
 # 正文被删到低于此字数（或原稿的 40%，取较大者）判定为「不成文」，
 # 触发整篇重新生成；重生成后仍不合格就拒答，不输出报告。
 VERIFY_MIN_CHARS = int(os.getenv("VERIFY_MIN_CHARS", "300"))

@@ -4,9 +4,11 @@
 病例数据无需外部文献引用，其真实性需要与原始病例核对，不由本模块保证。
 """
 from __future__ import annotations
+import re
 import sys
 from typing import Any, Callable
 from core.llm.models import LLMCall
+from core import config_impl as config
 from .prompts.verification import (
     VERIFIER_SYSTEM,
     REWRITER_SYSTEM,
@@ -15,11 +17,12 @@ from .prompts.verification import (
 )
 from .tools.json_response import parse_json
 from .tools.verification_response import parse_claims
-from .tools.grounding import audit_grounding, covers_citations
+from .tools.grounding import audit_grounding, uncovered_citations
 from .tools.verification_audit import (
     case_fragments, contains_case_fragment, match_case_facts, reference_links, source_manifest, text_digest,
 )
 from .tools.evidence import strip_unknown_citations, unknown_citation_issues
+from .tools.annotation import annotate_unverified, unannotated
 from .tools.text_revision import apply_replacements, content_len, locate, omit_local_issues
 
 MAX_ISSUES_PER_ROUND = 12
@@ -128,8 +131,17 @@ class CitationVerifier:
                 issues.extend(item for item in source_issues if item["quote"] not in known_quotes)
                 issues, matches = self._ground_issues(text, evidence, issues)
                 if self.require_grounding and not issues:
-                    if not covers_citations(text, grounding):
-                        raise ValueError("grounding must account for every cited clause, not only every number")
+                    # grounding 漏列某个引用时，不再让整次核查失败（invalid_claims），
+                    # 而是把这些分句当作「需要补充出处」的问题交给修订轮次处理。
+                    # 标记为 impact=core：未给出出处的引用不能靠标注降级交付。
+                    missing = uncovered_citations(text, grounding)
+                    if missing:
+                        issues.extend({
+                            "quote": clause, "verdict": "uncited", "citations": [],
+                            "impact": "core", "basis": "medical_knowledge",
+                            "reason": "grounding 未列出该引用对应的资料原文",
+                            "origin": "grounding_gap",
+                        } for clause in missing)
                 break
             except ValueError as exc:
                 self._failure_kind = "invalid_json" if data is None else "invalid_claims"
@@ -369,6 +381,30 @@ class CitationVerifier:
             return current, report
 
         report["remaining_issues"] = issues
+        # 到这里仍未消解：区分「资料未覆盖」与「与资料冲突」。
+        # 前者标注后照常交付，后者一律拒答——改个数值就能修好的错误不该放行。
+        if config.VERIFY_SOFT_DELIVERY:
+            blocking = unannotated(issues, self.case_context)
+            if not blocking:
+                unknown_numbers = {int(m.group(1)) for m in re.finditer(r"\[(-?\d+)\]", current)} - {
+                    item.get("index", i) for i, item in enumerate(evidence, 1)}
+                annotated_text, marked = annotate_unverified(
+                    current, issues, self.case_context, unknown=unknown_numbers)
+                if marked:
+                    report.update(
+                        status="rewritten", reason="delivered_with_annotations",
+                        final_text_sha256=text_digest(annotated_text),
+                        reference_links=reference_links(annotated_text),
+                        grounding=self._grounding,
+                        annotations=marked,
+                        annotated_count=len(marked),
+                    )
+                    report["remaining_issues"] = []
+                    print(
+                        f"[VERIFY] 交付：仍有 {len(marked)} 处资料未覆盖，已就地标注",
+                        file=sys.stderr,
+                    )
+                    return annotated_text, report
         report["status"] = "rejected"
         report["reason"] = "unverified_claims_remain"
         print(

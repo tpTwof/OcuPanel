@@ -59,9 +59,15 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
         note: str,
         job_dir: Path,
         diseases: tuple[str, ...] = DEFAULT_DISEASES,
+        on_stage: Callable[[str], None] | None = None,
     ) -> ReportResult:
+        """生成报告。on_stage 用于上报进度阶段，不改变生成逻辑。"""
         import imageio.v2 as imageio
         from modules.vision import analyze_fundus
+
+        def stage(name: str) -> None:
+            if on_stage is not None:
+                on_stage(name)
 
         job_dir = Path(job_dir)
         job_dir.mkdir(parents=True, exist_ok=True)
@@ -70,6 +76,7 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
             image_path.write_bytes(image.read())
         else:
             image_path = image
+        stage("影像分析")
         analysis: EyeAnalysis = analyze_fundus(image_path, diseases=diseases)
         glaucoma = analysis.diseases.get("glaucoma")
         ratio = glaucoma.measurements.get("area_equivalent_cdr") if glaucoma else None
@@ -104,6 +111,7 @@ class MedicalReportGenerator(LLMClient, PDFRenderer):
             disease: asdict(finding) for disease, finding in analysis.diseases.items()
         }
         case_context = build_context(analysis.diseases, note)
+        stage("撰稿与核查")
         summary, verification = generate_verified_draft(
             agents, DirectorAgent(self.chat_with_gpt), contexts,
             case_context, evidence_by_role, evidence,

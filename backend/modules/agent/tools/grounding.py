@@ -48,12 +48,22 @@ def report_statements(text: str) -> list[dict[str, str]]:
     return [{"id": f"R{index}", "text": clause} for index, clause in enumerate(clauses, 1)]
 
 
-def covers_citations(text: str, entries: list[dict]) -> bool:
+def uncovered_citations(text: str, entries: list[dict]) -> list[str]:
+    """返回带有引用、但 grounding 没给出对应资料原文的分句。
+
+    grounding 漏列某个引用时，以往会让整次核查失败（invalid_claims），
+    用户看到的是「校验故障」而不是「这句没核实」。这里改为逐句返回，
+    由调用方当作普通问题交给修订或标注，链路不再因此中断。
+
+    坐标系统一用 visible_text（去空白与 Markdown 标记后的文本），
+    避免原文位置与可见位置混用导致漏判。
+    """
     normalized = visible_text(text)
-    expected = {match.start() for match in re.finditer(r"\[-?\d+\]", normalized)}
-    covered = set()
+    covered: set[int] = set()
     for entry in entries:
-        quote = visible_text(entry["quote"])
+        quote = visible_text(entry.get("quote", ""))
+        if not quote:
+            continue
         start = normalized.find(quote)
         while start >= 0:
             end = start + len(quote)
@@ -61,10 +71,29 @@ def covers_citations(text: str, entries: list[dict]) -> bool:
             if trailing:
                 end += len(trailing[0])
             for match in re.finditer(r"\[(-?\d+)\]", normalized[start:end]):
-                if int(match[1]) in entry["citations"]:
+                if int(match[1]) in entry.get("citations", []):
                     covered.add(start + match.start())
             start = normalized.find(quote, start + 1)
-    return expected.issubset(covered)
+
+    missing: list[str] = []
+    # 按句末标点与换行分段。不能用 visible_text 的结果分段：它已去掉空白，
+    # 相邻两句会粘连成一句，导致漏判。
+    for match in re.finditer(r"[^。！？!?；;\n]+[。！？!?；;]?", text):
+        clause = match.group(0)
+        if not clause.strip() or not re.search(r"\[-?\d+\]", clause):
+            continue
+        # 定位该句在可见文本中的起点，与 covered 的坐标系统对齐
+        prefix = visible_text(text[:match.start()])
+        offset = len(prefix)
+        span = len(visible_text(clause))
+        if any(offset <= pos < offset + span for pos in covered):
+            continue
+        missing.append(clause.strip())
+    return missing
+
+
+def covers_citations(text: str, entries: list[dict]) -> bool:
+    return not uncovered_citations(text, entries)
 
 
 def parse_grounding(data: dict, text: str, evidence: list[dict], case_context: str, *, required: bool) -> list[dict]:
@@ -126,7 +155,10 @@ def parse_grounding(data: dict, text: str, evidence: list[dict], case_context: s
                 supported_numbers.add(source["index"])
                 evidence_sources += 1
             else:
-                raise ValueError(f"{path}.sources must identify case, policy or cited evidence")
+                # 来源无法归类（模型给了个既非 case/policy 也不对应引用编号的条目）。
+                # 跳过该条继续处理其余条目：条目本身格式不对，不该让它把整次
+                # 核查变成 invalid_claims，从而丢掉整份报告。
+                continue
             if not _contains(content, source.get("quote", "")):
                 if (kind in {"case", "policy"} or basis == 'scope_limit') and content:
                     source = {**source, "quote": content, "excerpt_kind": "source_snapshot",

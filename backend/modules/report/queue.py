@@ -42,9 +42,26 @@ def submit(user: dict, request: ReportSubmission, key: str) -> dict:
     return {"id": job_id, "state": "queued"}
 
 
+def set_progress(job_id: str, stage: str, detail: str = "") -> None:
+    """记录任务当前阶段，供前端显示进度。
+
+    报告生成需要数分钟，且核查可能中途判定不可交付。这里只暴露「进行到哪一步」，
+    不推送正文片段：流式输出正文后若最终核查不通过，用户已经读到的内容会被撤回，
+    反而更难处理。阶段进度既能缓解等待焦虑，也不会给出错误的完成暗示。
+    """
+    try:
+        with storage.connect() as conn:
+            conn.execute("UPDATE report_jobs SET progress=? WHERE id=?",
+                         (f"{stage}|{detail}" if detail else stage, job_id))
+    except Exception:  # noqa: BLE001 - 进度上报失败不应影响主流程
+        pass
+
+
 def status(user_id: str, job_id: str) -> dict:
     with storage.connect() as conn:
-        row = conn.execute("SELECT id,state,error FROM report_jobs WHERE user_id=? AND id=?", (user_id, job_id)).fetchone()
+        row = conn.execute(
+            "SELECT id,state,error,progress FROM report_jobs WHERE user_id=? AND id=?",
+            (user_id, job_id)).fetchone()
         if row is None:
             raise ApplicationError(404, "任务不存在")
         result = dict(row)
