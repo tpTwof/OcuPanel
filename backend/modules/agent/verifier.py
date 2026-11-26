@@ -23,7 +23,9 @@ from .tools.verification_audit import (
 )
 from .tools.evidence import strip_unknown_citations, unknown_citation_issues
 from .tools.annotation import annotate_unverified, unannotated
-from .tools.text_revision import apply_replacements, content_len, locate, omit_local_issues
+from .tools.text_revision import (
+    apply_replacements, content_len, locate, omit_local_issues, snap_to_sentence,
+)
 
 MAX_ISSUES_PER_ROUND = 12
 
@@ -123,8 +125,15 @@ class CitationVerifier:
             try:
                 issues = parse_claims(data)
                 for index, item in enumerate(issues):
-                    if locate(text, item["quote"]) is None:
-                        raise ValueError(f"claims[{index}].quote must uniquely match the current report")
+                    if locate(text, item["quote"]) is not None:
+                        continue
+                    # 模型改写了措辞而不是逐字复制：先对齐到最接近的正文原句，
+                    # 对齐后仍能定点修订或标注；对不上才按格式错误重试。
+                    snapped = snap_to_sentence(text, item["quote"])
+                    if snapped is None:
+                        raise ValueError(
+                            f"claims[{index}].quote must uniquely match the current report")
+                    item["quote"] = snapped
                 grounding, source_issues = audit_grounding(data, text, evidence, self.case_context,
                                                           required=self.require_grounding)
                 known_quotes = {item["quote"] for item in issues}
@@ -132,12 +141,13 @@ class CitationVerifier:
                 issues, matches = self._ground_issues(text, evidence, issues)
                 if self.require_grounding and not issues:
                     # grounding 漏列某个引用时，不再让整次核查失败（invalid_claims），
-                    # 而是把这些分句当作「需要补充出处」的问题交给修订轮次处理。
-                    # 标记为 impact=core：未给出出处的引用不能靠标注降级交付。
+                    # 而是把这些分句当作「需要补充出处」的问题交给后续处理。
                     missing = uncovered_citations(text, grounding)
                     if missing:
                         issues.extend({
-                            "quote": clause, "verdict": "uncited", "citations": [],
+                            "quote": clause, "verdict": "uncited",
+                            # 带上该句的编号，降级交付时要把这些编号去掉
+                            "citations": [int(n) for n in re.findall(r"\[(-?\d+)\]", clause)],
                             "impact": "core", "basis": "medical_knowledge",
                             "reason": "grounding 未列出该引用对应的资料原文",
                             "origin": "grounding_gap",

@@ -69,14 +69,37 @@ class VerificationTests(unittest.TestCase):
         self.assertEqual(record['review_log'][0]['issue_count'], 0)
 
     def test_case_fact_label_does_not_bypass_missing_source_or_unknown_reference(self):
-        for context, quote, citations in (('其他病例资料。', '左眼尚未见明确损害。', []),
-                                           ('左眼尚未见明确损害。', '左眼尚未见明确损害。[99]', [99])):
-            issue = {'claims': [{'quote': quote, 'verdict': 'unsupported', 'citations': citations,
-                                 'impact': 'core', 'basis': 'case_fact'}]}
-            text, record = CitationVerifier(Mock(return_value=json.dumps(issue)), case_context=context).execute(
-                quote, self.evidence, max_rounds=0)
-            self.assertIsNone(text)
-            self.assertEqual(record['status'], 'rejected')
+        # 带不存在的编号：无论怎么标 basis 都不能交付
+        issue = {'claims': [{'quote': '左眼尚未见明确损害。[99]', 'verdict': 'unsupported',
+                             'citations': [99], 'impact': 'core', 'basis': 'case_fact'}]}
+        text, record = CitationVerifier(Mock(return_value=json.dumps(issue)),
+                                        case_context='左眼尚未见明确损害。').execute(
+            '左眼尚未见明确损害。[99]', self.evidence, max_rounds=0)
+        self.assertIsNone(text)
+        self.assertEqual(record['status'], 'rejected')
+
+    def test_invented_case_measurements_cannot_be_annotated_away(self):
+        """标成病例事实却凭空给出检查数值：编造患者数据，必须改掉。"""
+        quote = '左眼眼压 18 mmHg，杯盘比 0.5。'
+        issue = {'claims': [{'quote': quote, 'verdict': 'unsupported', 'citations': [],
+                             'impact': 'core', 'basis': 'case_fact'}]}
+        text, record = CitationVerifier(Mock(return_value=json.dumps(issue)),
+                                        case_context='右眼眼压 26 mmHg。').execute(
+            quote, self.evidence, max_rounds=0)
+        self.assertIsNone(text)
+        self.assertEqual(record['status'], 'rejected')
+
+    def test_qualitative_case_claim_is_annotated_not_dropped(self):
+        """没有数值的定性复述（资料恰好没写到）标注后交付，不整份扣留。"""
+        quote = '左眼尚未见明确损害。'
+        issue = {'claims': [{'quote': quote, 'verdict': 'unsupported', 'citations': [],
+                             'impact': 'core', 'basis': 'case_fact'}]}
+        text, record = CitationVerifier(Mock(return_value=json.dumps(issue)),
+                                        case_context='其他病例资料。').execute(
+            quote, self.evidence, max_rounds=0)
+        self.assertIsNotNone(text)
+        self.assertIn('〔未获资料支持〕', text)
+        self.assertEqual(record['annotations'][0]['quote'], quote)
 
     def test_final_reference_links_and_review_versions_are_preserved(self):
         text, record = CitationVerifier(Mock(return_value='{"claims":[]}'), case_context='Case data.').execute(

@@ -42,6 +42,39 @@ def is_false_dodge(
     return False
 
 
+def snap_to_sentence(text: str, quote: str, *, threshold: float = 0.5) -> str | None:
+    """把模型改写过的引文对齐到正文原句。
+
+    核查模型有时会改写措辞而不是逐字复制，导致定位失败。若整体判定为失败，
+    用户会丢整份报告；这里找出与引文最接近的句子，重合度够高就认作同一句，
+    交给后续修订或标注。重合度不足仍返回 None，由调用方按格式错误重试。
+    """
+    target = visible_text(quote)
+    if not target:
+        return None
+    best, best_score = None, 0.0
+    for match in re.finditer(r"[^。！？!?；;\n]+[。！？!?；;]?", text):
+        sentence = match.group(0)
+        head = visible_text(sentence)
+        if not head:
+            continue
+        score = _overlap(target, head)
+        if score > best_score:
+            best, best_score = sentence.strip(), score
+    return best if best_score >= threshold else None
+
+
+def _overlap(left: str, right: str) -> float:
+    """按 2-gram 重合率衡量相似度，对语序调整不敏感。"""
+    if len(left) < 2 or len(right) < 2:
+        return 0.0
+    normalize = str.maketrans({"–": "-", "—": "-", "‐": "-", "’": "'"})
+    left, right = left.translate(normalize), right.translate(normalize)
+    a = {left[i:i + 2] for i in range(len(left) - 1)}
+    b = {right[i:i + 2] for i in range(len(right) - 1)}
+    return len(a & b) / max(len(a), 1)
+
+
 def _norm_index(text: str) -> tuple[str, list[int]]:
     """忽略空白及成对的简单 Markdown 标记，保留可见字符到原文的映射。"""
     markers = set()

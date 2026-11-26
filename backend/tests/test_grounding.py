@@ -52,26 +52,36 @@ class GroundingTests(unittest.TestCase):
         self.assertEqual(parsed[0]['quote'], '**模型概率来自右眼照片，')
 
     def test_citation_number_alone_is_not_enough_to_pass(self):
+        """编造出处不能让句子通过：去掉编号并就地标注，而不是当作已核实。"""
         entry = self.entry()
         entry['sources'][0]['quote'] = 'Invented source text'
         llm = Mock(return_value=json.dumps({'claims': [], 'grounding': [entry]}))
         text, record = CitationVerifier(llm, require_grounding=True).execute(self.quote, self.evidence, max_rounds=0)
-        self.assertIsNone(text)
-        self.assertEqual(record['status'], 'rejected')
-        self.assertEqual(record['remaining_issues'][0]['origin'], 'source_audit')
+        self.assertIsNotNone(text)
+        self.assertEqual(record['reason'], 'delivered_with_annotations')
+        self.assertEqual(record['annotations'][0]['origin'], 'source_audit')
+        self.assertIn('〔未获资料支持〕', text)
+        # 查无实据的编号不能留在正文里
+        self.assertNotIn('[1]', text)
         self.assertEqual(llm.call_count, 1)
 
     def test_each_cited_clause_needs_its_own_source_link(self):
-        """grounding 只覆盖一句时，另一句引用仍不能通过。
+        """grounding 只覆盖一句时，另一句引用不能被当作已核实。
 
-        以往这种情况让整次核查失败（invalid_claims）；现在改成把它当作
-        「缺出处」的问题处理，但结论不变——仍然不交付正文。
+        以往这种情况让整次核查失败（invalid_claims）；现在把缺出处的分句
+        去掉编号并就地标注，读者能看出哪句没有来源。
         """
         reply = {'claims': [], 'grounding': [self.entry()]}
         text, record = CitationVerifier(Mock(return_value=json.dumps(reply)), require_grounding=True).execute(
             self.quote + '\nA different assertion [1].', self.evidence, max_rounds=0)
-        self.assertIsNone(text)
+        self.assertIsNotNone(text)
         self.assertNotEqual(record['status'], 'pass')
+        self.assertEqual({a['origin'] for a in record['annotations']}, {'grounding_gap'})
+        self.assertIn('A different assertion', text)
+        self.assertIn('〔未获资料支持〕', text)
+        # 缺出处的那个编号被移除，有来源的那句保持原样
+        self.assertNotIn('A different assertion [1]', text)
+        self.assertIn(self.quote, text)
 
     def test_inference_requires_case_and_external_support(self):
         entry = dict(self.entry(), basis='case_inference')

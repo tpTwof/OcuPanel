@@ -54,9 +54,10 @@ def _looks_like_conflict(issue: dict[str, Any]) -> bool:
 # 临床上的保守表述与资料边界声明：即使资料没逐字写，也不构成误导，
 # 反而是应有的谨慎。这类被判「无依据」时可以直接标注交付。
 _CAUTIOUS = re.compile(
-    r"尚不能|不能据此|不能由|不足以|无法据此|需进一步|有待|由临床医师|"
-    r"不能排除|缺乏.*证据|依据病情|应结合|仅供参考|"
-    r"证据不足|未见明确|非分级依据", re.U)
+    r"尚不能|不能(?:据此|由|从|仅凭|单独)|不足以|无法(?:据此|从)|需进一步|有待|"
+    r"由(?:临床医师|接诊医师|医师)决定|不能排除|缺乏.*证据|依据病情|应结合|仅供参考|"
+    r"证据不足|未见明确|非分级依据|尚在正常|大致正常|"
+    r"可疑|需继续观察|需要随访观察|可在", re.U)
 
 # 指南适用性说明：指出某条引用出自哪个地区/体系。这不是医学断言，
 # 而是帮助读者判断条款适用范围的注解，标为「无依据」没有意义。
@@ -71,68 +72,70 @@ def is_annotation_only(issue: dict[str, Any], case_context: str = "") -> bool:
     「不要把个体诊断或治疗建议标成 local」，模型因此几乎总标 core。
     以它作判据时降级交付形同虚设（实测交付率不足 1/4）。
 
-    改为看四类客观信号，任一不满足即阻断：
-    1. 不是引用本身的错误——citation_control（编号不存在）、
-       grounding_gap（未给出处）、source_audit（来源原文查无实据）；
-    2. 不是与资料冲突——资料写 5–6 个月、正文写 2 个月这类必须改对；
-    3. 不含具体处置——剂量、时限、复查频率、手术用药都要核对依据；
-    4. 若标为病例复述，内容必须确实取自病例输入，否则等于绕开核查。
+    仍然阻断交付的（必须回模型改对）：
+    - citation_control：引用了不存在的编号，报告不能带着查不到的编号发出去；
+    - 数值冲突：资料写 5–6 个月、正文写 2 个月，改个数字就能修好；
+    - 整句无依据（unsupported）的处置建议：剂量、时限、复查频率、手术用药；
+    - 标为病例复述却不在病例输入里：等于把话塞进患者记录；
+    - partial 且无法归因为引用不当、也不属于收窄结论的表述。
 
-    剩下的（资料恰好没写到、句子在收窄结论或说明适用范围）标注后交付：
-    读者看到〔未获资料支持〕即可自行判断，比整份扣留更有用。
+    其余（资料恰好没写到、引文被模型改写导致查无实据、保守表述、
+    指南适用性说明）标注〔未获资料支持〕后交付，由审计记录逐条列出。
     """
     verdict = issue.get("verdict")
     origin = issue.get("origin")
-    # 这三类都是引用本身的错误，不是「资料没覆盖到」：
-    # citation_control 编号不存在、grounding_gap 未给出处、
-    # source_audit 声称的来源原文查无实据。一律不降级。
-    if origin in {"citation_control", "grounding_gap", "source_audit"}:
+    if origin == "citation_control":
         return False
     if _looks_like_conflict(issue):
         return False
     if verdict not in {"uncited", "unsupported", "partial"}:
         return False
     quote = issue.get("quote", "")
-    # 带具体处置的句子一律不降级：剂量、时限、复查频率、手术用药都要核对依据
+
+    if verdict == "partial":
+        # 部分成立、部分与资料对不上。以下情形降级标注：
+        # - 能确认是引用不当（内容成立、编号挂错）；
+        # - 句子本身在收窄结论或说明适用范围；
+        # - 带着有效引用编号——那是指南条款类表述，编号本身是真实存在的，
+        #   只是措辞略有出入，标注后读者可回查原文。
+        return bool(_CITATION_MISMATCH.search(issue.get("reason", ""))
+                    or _CAUTIOUS.search(quote) or _SCOPE_NOTE.search(quote)
+                    or _citations_in(quote))
+
+    # 整句无依据的处置建议（剂量、时限、复查频率、手术用药）必须补依据。
+    # 不能因为句子里恰好带着 [n] 就放过：问题正是该编号支持不了这句话。
     if _ACTIONABLE.search(quote):
         return False
-    # 标为病例复述的，内容必须真的来自病例输入；否则模型可以用这个标签绕过核查
-    if issue.get("basis") == "case_fact" and not _matches_case(quote, case_context):
+    # 标为病例复述却凭空给出患者数值：那是编造检查结果，必须改掉。
+    # 只对具体数字设防——「尚不能判定」这类定性表述标注后交付即可。
+    if issue.get("basis") == "case_fact" and _invented_numbers(quote, case_context):
         return False
-    # partial 表示句中一部分与资料对不上：只有能确认是「引用不当」或
-    # 句子本身在收窄结论时才降级，否则仍要回模型改对
-    if verdict == "partial":
-        return bool(_CITATION_MISMATCH.search(issue.get("reason", ""))
-                    or _CAUTIOUS.search(quote) or _SCOPE_NOTE.search(quote))
     return True
 
 
-# 含有具体处置的句子：剂量、时限、复查频率、手术或用药。这类必须核对依据，
-# 不能因为句子前半段是病例复述就整句放行。
+def _citations_in(quote: str) -> bool:
+    """句子里是否带着引用编号。"""
+    return bool(re.search(r"\[\s*-?\d+\s*\]", quote))
+
+
+def _invented_numbers(quote: str, case_context: str) -> bool:
+    """句中的数值是否确实无从病例输入而来。
+
+    病例复述里的具体数值若在原始输入中找不到，说明模型编造了检查结果，
+    这比措辞不严谨严重得多，不能靠标注放行。
+    """
+    if not case_context:
+        return bool(re.findall(r"\d+(?:\.\d+)?", quote))
+    case_numbers = set(re.findall(r"\d+(?:\.\d+)?", case_context))
+    return any(number not in case_numbers
+               for number in re.findall(r"\d+(?:\.\d+)?", quote))
+
+
+# 含有具体处置的句子：剂量、时限、复查频率、手术或用药。
+# 整句无依据时必须补依据，不能靠标注放行。
 _ACTIONABLE = re.compile(
     r"应每周|应每\d|每日|每次\d|剂量|mg|ml|手术|用药|滴眼|激光|注射|"
     r"\d+\s*[-–~]\s*\d+\s*(?:天|周|个月|月|年)|每\s*\d+\s*(?:天|周|个月|月)", re.U)
-
-
-def _matches_case(quote: str, case_context: str) -> bool:
-    """句子的实词是否确实出现在病例输入里。
-
-    用去标点的字面包含判断：病例复述通常就是改写自输入，
-    要求逐字相同会把「主诉视物模糊」与「患者诉视物模糊」这类误判。
-    """
-    if not case_context:
-        return False
-    stripped = re.sub(r"[\s，。；：、,.;:（）()\[\]【】]", "", quote)
-    if not stripped:
-        return False
-    case = re.sub(r"[\s，。；：、,.;:（）()\[\]【】]", "", case_context)
-    # 取句子最长的若干片段做包含判断，容忍少量改写
-    for size in (12, 9, 6):
-        for start in range(0, max(1, len(stripped) - size + 1)):
-            fragment = stripped[start:start + size]
-            if len(fragment) == size and fragment in case:
-                return True
-    return False
 
 
 def annotate_unverified(
@@ -141,8 +144,8 @@ def annotate_unverified(
 ) -> tuple[str, list[dict[str, Any]]]:
     """给可标注的问题句加上标记，返回新正文与已标注的记录。
 
-    引用不当的情况（句子内容成立、只是挂的编号不涉及）会同时去掉该编号，
-    避免标注后仍留着一条对不上的引用。无法唯一定位的句子跳过，不猜测位置。
+    引用不当或引文查无实据的情况会同时去掉对应编号：既然无法确认该编号
+    支持这句话，就不该把它留在报告里。无法唯一定位的句子跳过，不猜测位置。
     unknown 为正文里不存在的引用编号，带这类编号的句子不标注。
     """
     annotated: list[dict[str, Any]] = []
@@ -159,10 +162,12 @@ def annotate_unverified(
             continue
         start, end = span
         segment = text[start:end]
-        if issue.get("verdict") == "partial":
+        if issue.get("verdict") == "partial" or issue.get("origin") in {
+                "source_audit", "grounding_gap"}:
             # 只去掉被指出的编号，保留句子其余部分
             for number in issue.get("citations") or []:
                 segment = re.sub(rf"\[\s*{number}\s*\]", "", segment)
+            segment = re.sub(r"[ \t]{2,}", " ", segment)
         body = segment.rstrip()
         tail = ""
         if body and body[-1] in "。！？.!?":
@@ -173,6 +178,7 @@ def annotate_unverified(
         annotated.append({
             "quote": quote, "reason": issue.get("reason", ""),
             "basis": issue.get("basis", ""), "verdict": issue.get("verdict", ""),
+            "origin": issue.get("origin", ""),
         })
     return text, annotated
 
