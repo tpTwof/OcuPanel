@@ -22,10 +22,6 @@ from modules.agent.tools.text_revision import locate
 # 不能在句末加标注的句子：标题、列表项以外的结构不宜改动
 MARK = "〔未获资料支持〕"
 
-# 这些 verdict 表示「资料里没有」，可以标注后交付；
-# partial 表示「一部分成立、一部分与资料冲突」，属于需要改对的错误。
-UNSUPPORTED_VERDICTS = {"uncited"}
-
 
 # 疑似「数值/表述与资料冲突」的特征：句子里出现具体数字、时间或剂量，
 # 而判定理由提到资料中的不同数值。这类必须回模型改对，不能标注放行。
@@ -71,27 +67,26 @@ _SCOPE_NOTE = re.compile(
 def is_annotation_only(issue: dict[str, Any], case_context: str = "") -> bool:
     """该问题是否属于「资料未覆盖、可标注交付」的类别。
 
-    需要同时满足：
-    1. 属于「资料没覆盖到」而非「与资料冲突」——与资料里的数值或结论
-       对不上（如资料 5–6 个月、正文 2 个月）必须回模型改对；
-    2. 引用编号问题（citation_control / grounding_gap）一律阻断，
-       那是引用错误而不是缺出处；
-    3. 满足以下任一条件：
-       - 影响被判为 local；
-       - 句子是保守表述或资料边界声明（_CAUTIOUS）；
-       - 句子是指南适用性说明（_SCOPE_NOTE）；
-       - 句中标为病例复述（basis=case_fact），且内容确实取自病例输入。
+    判据刻意不看 impact 字段：提示词写着「无法判断影响时也用 core」、
+    「不要把个体诊断或治疗建议标成 local」，模型因此几乎总标 core。
+    以它作判据时降级交付形同虚设（实测交付率不足 1/4）。
 
-    第 3 条为什么不能只看 impact：该字段由模型主观填写，实测它把大量
-    「恰好资料没写到」的句子也标成 core，导致降级交付形同虚设。这些句子
-    要么在收窄结论，要么在说明适用范围，要么在复述病例，标注后交付不会误导。
+    改为看四类客观信号，任一不满足即阻断：
+    1. 不是引用本身的错误——citation_control（编号不存在）、
+       grounding_gap（未给出处）、source_audit（来源原文查无实据）；
+    2. 不是与资料冲突——资料写 5–6 个月、正文写 2 个月这类必须改对；
+    3. 不含具体处置——剂量、时限、复查频率、手术用药都要核对依据；
+    4. 若标为病例复述，内容必须确实取自病例输入，否则等于绕开核查。
 
-    case_fact 必须核对病例输入：否则模型可以把任意断言标成「病例事实」
-    绕过核查，那等于关掉了校验。
+    剩下的（资料恰好没写到、句子在收窄结论或说明适用范围）标注后交付：
+    读者看到〔未获资料支持〕即可自行判断，比整份扣留更有用。
     """
     verdict = issue.get("verdict")
     origin = issue.get("origin")
-    if origin in {"citation_control", "grounding_gap"}:
+    # 这三类都是引用本身的错误，不是「资料没覆盖到」：
+    # citation_control 编号不存在、grounding_gap 未给出处、
+    # source_audit 声称的来源原文查无实据。一律不降级。
+    if origin in {"citation_control", "grounding_gap", "source_audit"}:
         return False
     if _looks_like_conflict(issue):
         return False
@@ -101,16 +96,15 @@ def is_annotation_only(issue: dict[str, Any], case_context: str = "") -> bool:
     # 带具体处置的句子一律不降级：剂量、时限、复查频率、手术用药都要核对依据
     if _ACTIONABLE.search(quote):
         return False
-    if issue.get("impact") == "local":
-        if verdict == "partial":
-            return bool(_CITATION_MISMATCH.search(issue.get("reason", "")))
-        return True
     # 标为病例复述的，内容必须真的来自病例输入；否则模型可以用这个标签绕过核查
-    if issue.get("basis") == "case_fact":
-        return _matches_case(quote, case_context)
-    if _CAUTIOUS.search(quote) or _SCOPE_NOTE.search(quote):
-        return True
-    return False
+    if issue.get("basis") == "case_fact" and not _matches_case(quote, case_context):
+        return False
+    # partial 表示句中一部分与资料对不上：只有能确认是「引用不当」或
+    # 句子本身在收窄结论时才降级，否则仍要回模型改对
+    if verdict == "partial":
+        return bool(_CITATION_MISMATCH.search(issue.get("reason", ""))
+                    or _CAUTIOUS.search(quote) or _SCOPE_NOTE.search(quote))
+    return True
 
 
 # 含有具体处置的句子：剂量、时限、复查频率、手术或用药。这类必须核对依据，

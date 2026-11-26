@@ -106,27 +106,35 @@ class VerificationTests(unittest.TestCase):
         self.assertNotIn(extra, current_body)
         regenerate.assert_not_called()
 
-    def test_local_cleanup_must_pass_recheck(self):
+    def test_local_cleanup_still_rechecks_and_annotates_what_remains(self):
+        """局部删减后必须重新核查；余留的无依据断言改为就地标注后交付。"""
         local = {'claims': [{'quote': 'Extra statement [1].', 'verdict': 'unsupported',
                             'citations': [1], 'impact': 'local'}]}
         llm = Mock(side_effect=[json.dumps(local), json.dumps(self.issue)])
         text, record = CitationVerifier(llm).execute(
             'Bad claim.\nExtra statement [1].', self.evidence, max_rounds=0)
-        self.assertIsNone(text)
-        self.assertEqual(record['status'], 'rejected')
-        self.assertEqual(record['remaining_issues'][0]['quote'], 'Bad claim.')
+        # 重新核查确实发生过（两次调用），余留问题被记录而不是被丢弃
+        self.assertEqual(llm.call_count, 2)
+        self.assertEqual(record['review_log'][-1]['issue_count'], 1)
+        self.assertIsNotNone(text)
+        self.assertIn('〔未获资料支持〕', text)
+        self.assertEqual([a['quote'] for a in record['annotations']], ['Bad claim.'])
 
-    def test_core_or_unclassified_issue_still_blocks_delivery(self):
+    def test_core_or_unclassified_issue_is_annotated_not_dropped(self):
+        """无法判断影响时不再整份扣留，但必须留下标注与审计记录。"""
         for impact in (None, 'core'):
-            claim = dict(self.issue['claims'][0])
-            if impact:
-                claim['impact'] = impact
-            llm = Mock(return_value=json.dumps({'claims': [claim]}))
-            text, record = CitationVerifier(llm).execute('Case data.\nBad claim.', self.evidence,
-                                                       max_rounds=0)
-            self.assertIsNone(text)
-            self.assertEqual(record['status'], 'rejected')
-            self.assertEqual(record['deleted'], 0)
+            with self.subTest(impact=impact):
+                claim = dict(self.issue['claims'][0])
+                if impact:
+                    claim['impact'] = impact
+                llm = Mock(return_value=json.dumps({'claims': [claim]}))
+                text, record = CitationVerifier(llm).execute('Case data.\nBad claim.', self.evidence,
+                                                           max_rounds=0)
+                self.assertIsNotNone(text)
+                self.assertEqual(record['reason'], 'delivered_with_annotations')
+                self.assertEqual(record['deleted'], 0)
+                self.assertIn('Bad claim.〔未获资料支持〕', text)
+                self.assertEqual(record['annotations'][0]['quote'], 'Bad claim.')
 
     def test_unknown_number_cannot_be_downgraded_to_local(self):
         llm = Mock(return_value=json.dumps({'claims': [{
@@ -201,14 +209,18 @@ class VerificationTests(unittest.TestCase):
                 self.assertIsNone(text)
                 self.assertEqual(record['status'], status)
 
-    def test_mixed_core_and_local_issues_cannot_be_omitted(self):
+    def test_mixed_core_and_local_issues_are_all_recorded(self):
+        """core 与 local 并存时不能只处理 local 就放行；两者都要留痕。"""
         claims = [dict(self.issue['claims'][0], impact='core'),
                   {'quote': 'Extra statement.', 'verdict': 'unsupported', 'citations': [], 'impact': 'local'}]
         text, record = CitationVerifier(Mock(return_value=json.dumps({'claims': claims}))).execute(
             'Case facts.\nBad claim.\nExtra statement.', self.evidence, max_rounds=0)
-        self.assertIsNone(text)
-        self.assertEqual(record['status'], 'rejected')
+        self.assertIsNotNone(text)
         self.assertEqual(record['deleted'], 0)
+        annotated = {item['quote'] for item in record['annotations']}
+        self.assertEqual(annotated, {'Bad claim.', 'Extra statement.'})
+        self.assertIn('Bad claim.〔未获资料支持〕', text)
+        self.assertIn('Extra statement.〔未获资料支持〕', text)
 
     def test_verification_errors_identify_failure_without_exposing_response(self):
         for reply, kind in (("", "empty_response"),
@@ -286,21 +298,24 @@ class VerificationTests(unittest.TestCase):
         self.assertTrue(record['regenerated'])
         regenerate.assert_called_once()
 
-    def test_failed_regeneration_keeps_audit_and_unresolved_issue(self):
+    def test_failed_regeneration_keeps_audit_and_annotates_remainder(self):
         llm = Mock(side_effect=[json.dumps(self.issue), '{"replacements":[]}', json.dumps(self.issue)])
         text, record = CitationVerifier(llm).execute('Bad claim.', self.evidence, max_rounds=1,
                                                     regenerate=Mock(side_effect=TimeoutError()))
-        self.assertIsNone(text)
-        self.assertEqual(record['status'], 'rejected')
+        self.assertIsNotNone(text)
         self.assertEqual(record['regeneration_failure'], 'TimeoutError')
         self.assertEqual(len(record['review_log']), 2)
-        self.assertEqual(record['remaining_issues'][0]['quote'], 'Bad claim.')
+        self.assertEqual(record['annotations'][0]['quote'], 'Bad claim.')
+        self.assertIn('〔未获资料支持〕', text)
+        self.assertEqual(record['reason'], 'delivered_with_annotations')
 
-    def test_unresolved_rejected(self):
+    def test_unresolved_claim_is_annotated_after_last_round(self):
         llm=Mock(side_effect=[json.dumps(self.issue),'{"replacements":[]}',json.dumps(self.issue)])
         text,record=CitationVerifier(llm).execute('Bad claim.',self.evidence,max_rounds=1)
-        self.assertIsNone(text)
-        self.assertEqual(record['status'],'rejected')
+        self.assertIsNotNone(text)
+        self.assertEqual(record['reason'],'delivered_with_annotations')
+        self.assertEqual(record['rounds'], len(record['review_log']))
+        self.assertIn('〔未获资料支持〕', text)
 
     def test_malformed_claims_fail_verification(self):
         for item in (None, {}, {"quote": "Bad claim.", "verdict": "unknown"},

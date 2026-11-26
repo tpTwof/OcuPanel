@@ -31,13 +31,20 @@ class AnnotationTests(unittest.TestCase):
         _, marked = annotate_unverified("建议每 2 个月复查。", [issue])
         self.assertEqual(marked, [])
 
-    def test_core_impact_blocks_annotation(self):
-        """core 或未分类的问题不得降级交付：可能是本例的诊断依据或处置。"""
-        for impact in ("core", None):
+    def test_core_impact_alone_does_not_block(self):
+        """impact 是模型主观估计（提示词写明「无法判断时也用 core」），
+        单凭它不能决定是否阻断；真正阻挡的是内容性质。"""
+        for impact in ("core", "local", None):
             issue = {"quote": "这些与开角型青光眼的损害方向一致。",
                      "verdict": "unsupported", "impact": impact,
                      "reason": "资料未覆盖该表述"}
-            self.assertFalse(is_annotation_only(issue), impact)
+            self.assertTrue(is_annotation_only(issue), impact)
+
+    def test_actionable_content_blocks_even_without_conflict(self):
+        """含具体处置（时限/剂量/复查频率）必须核对依据，不能标注放行。"""
+        issue = {"quote": "建议每 2 个月复查眼压。", "verdict": "uncited",
+                 "impact": "core", "reason": "资料未覆盖"}
+        self.assertFalse(is_annotation_only(issue))
 
     def test_citation_mismatch_partial_is_annotated_and_number_removed(self):
         """句子内容成立、只是挂错编号：标注并把该编号去掉。"""
