@@ -6,7 +6,7 @@ OcuPanel 是一个基于 React 和 FastAPI 的眼科问答与眼底影像分析�
 
 青光眼分析可输出分类概率、视杯视盘分割图和面积等效杯盘比。示例数据用于演示，报告仅供研究和开发参考。引用校验核查外部知识陈述的出处，临床结论仍需专业人员判断。
 
-本地工作区另有 DR（糖尿病视网膜病变）和 AMD（年龄相关性黄斑变性）的 FLAIR 研究性图文匹配、GraphRAG 和历史报告导出。FLAIR 缺少影像质量判断、临床阈值和独立病例验证，暂用于研究评估。[可选依赖](backend/vision/README.md#糖网与年龄相关性黄斑变性) · [模型验证计划](docs/research/retinal-disease-model-selection.md#当前实现的缺陷) · [图检索配置](backend/README.md#graphrag)
+本地工作区另有 DR（糖尿病视网膜病变）和 AMD（年龄相关性黄斑变性）的 FLAIR 研究性图文匹配、GraphRAG 和历史报告导出。FLAIR 缺少影像质量判断、临床阈值和独立病例验证，暂用于研究评估。[可选依赖](backend/modules/vision/README.md#糖网与年龄相关性黄斑变性) · [模型验证计划](docs/research/retinal-disease-model-selection.md#当前实现的缺陷) · [图检索配置](backend/README.md#graphrag)
 
 ## 安装指南
 
@@ -42,14 +42,14 @@ OcuPanel 是一个基于 React 和 FastAPI 的眼科问答与眼底影像分析�
 
 ## 使用说明
 
-新增「病例工作台 · 合成演练」入口，无需 LLM 配置即可演练成人双眼采集、补拍、人工复核、模拟签发、转诊与回执。逐眼状态、历史版本、幂等重试与账号隔离已接入；以合成病例验证流程，不接入真实病例或临床签发。[升级交付与验收](docs/升级验收.md) · [模块与接口](backend/screening/README.md) · [试点准备表](docs/试点准备表.md)
+新增「病例工作台 · 合成演练」入口，无需 LLM 配置即可演练成人双眼采集、补拍、人工复核、模拟签发、转诊与回执。逐眼状态、历史版本、幂等重试与账号隔离已接入；以合成病例验证流程，不接入真实病例或临床签发。[升级交付与验收](docs/升级验收.md) · [模块与接口](backend/modules/screening/README.md) · [试点准备表](docs/试点准备表.md)
 
 工作台「导入已有分析」与报告旁「用于病例草稿」可把当前账号的存档研究信息、采集元数据及可用原图带入草稿，先确认眼别与合并预览，再保存新版本。模型结果与人工评估分开保留，不自动签发。新分析原图会归档至 original_store，备份须包含该目录；历史缺原图继续明确标注。[导入实现与二次验收](docs/病例工作台导入实现与二次验收.md)
 
 在仓库根目录运行以下命令，并打开 [本地页面](http://127.0.0.1:8000)。FastAPI 同时托管前端和 API。
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir backend
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --app-dir backend
 ```
 
 1. 注册或登录。在「个人设置」填写自己的 LLM API Key、接口地址和模型，测试连通后保存。

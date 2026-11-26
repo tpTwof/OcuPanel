@@ -2,7 +2,7 @@ from __future__ import annotations
 import os
 import sys
 import threading
-from core import config_impl as config
+from core import config
 DEFAULT_MODEL = config.DEFAULT_MODEL
 def resolve_model(model: str | None = None) -> str:
     """模型名：显式入参 > 环境变量 OPENAI_MODEL > 默认值。统一由 config 读取。"""

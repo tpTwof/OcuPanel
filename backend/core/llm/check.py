@@ -2,7 +2,7 @@ r"""LLM 连通性自检。
 
 用法（必须用项目的 venv 解释器，在 backend/ 目录下执行）：
     cd backend
-    ../.venv/Scripts/python.exe -m llm.check     # Linux / macOS 用 ../.venv/bin/python
+    ../.venv/Scripts/python.exe -m core.llm.check     # Linux / macOS 用 ../.venv/bin/python
 
 只依赖 config + openai，不加载 torch/transformers，几秒内出结果。
 退出码：0 正常，1 失败。
@@ -16,13 +16,13 @@ def _fail_missing(exc):
     print(f"[FAIL] 当前 Python 缺少依赖：{name}")
     print(f"       解释器 = {sys.executable}")
     print("       你用的不是项目的虚拟环境。请改用：")
-    print(r"       ..\.venv\Scripts\python.exe -m llm.check")
+    print(r"       ..\.venv\Scripts\python.exe -m core.llm.check")
     print(r"       或先激活：..\.venv\Scripts\Activate.ps1")
     return 1
 
 
 try:
-    from core import config_impl as config
+    from core import config
 except ModuleNotFoundError as exc:
     sys.exit(_fail_missing(exc))
 

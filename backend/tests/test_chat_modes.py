@@ -10,10 +10,12 @@ from unittest.mock import AsyncMock, Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core import storage
 from modules.chat import service
-from modules.chat.schemas import SendMessageRequest, ChangeModeRequest
+from modules.chat.schemas import SendMessageRequest
+from modules.conversation.schemas import ChangeModeRequest
+from modules.conversation import service as conversations
 from modules.chat.prompts import CHAT_SYSTEM_PROMPT
 from core.llm.client import LLMClient
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 
 class ConversationModeStorageTests(unittest.TestCase):
     def setUp(self):
@@ -72,7 +74,7 @@ class ConversationModeStorageTests(unittest.TestCase):
 class ChatModeServiceTests(unittest.IsolatedAsyncioTestCase):
     async def test_mode_controls_only_system_prompt(self):
         for mode in ('general','ophthalmic'):
-            with self.subTest(mode=mode), patch('core.config_impl.RAG_ENABLED', False), patch('core.config_impl.VERIFY_ENABLED', False), patch('modules.knowledge.service.get_retriever') as get_retriever, patch('modules.chat.repository.get_conversation',return_value={'title':'Case','mode':mode}), patch('modules.chat.repository.load_llm_config',return_value={'api_key':'test','model':'test','base_url':''}), patch('modules.chat.repository.list_messages',return_value=[{'role':'user','content':'Analyze this'}, {'role':'assistant','content':'Saved report'}]), patch('modules.chat.repository.add_message',return_value={'id':'m'}), patch('modules.chat.service.LLMClient') as client:
+            with self.subTest(mode=mode), patch('core.config.RAG_ENABLED', False), patch('core.config.VERIFY_ENABLED', False), patch('modules.knowledge.service.get_retriever') as get_retriever, patch('modules.conversation.repository.get_conversation',return_value={'title':'Case','mode':mode}), patch('modules.user.service.load_llm_config',return_value={'api_key':'test','model':'test','base_url':''}), patch('modules.conversation.repository.list_messages',return_value=[{'role':'user','content':'Analyze this'}, {'role':'assistant','content':'Saved report'}]), patch('modules.conversation.repository.add_message',return_value={'id':'m'}), patch('modules.chat.service.LLMClient') as client:
                 client.return_value.chat_with_history.return_value='Reply'
                 result = await service.send_message({'id':'u'},'c',SendMessageRequest(message='Question'))
                 self.assertEqual(result['reply'],'Reply')
@@ -82,9 +84,9 @@ class ChatModeServiceTests(unittest.IsolatedAsyncioTestCase):
                 get_retriever.assert_not_called()
 
     async def test_other_users_mode_is_not_changed(self):
-        with patch('modules.chat.repository.set_conversation_mode',return_value=False):
+        with patch('modules.conversation.repository.set_conversation_mode',return_value=False):
             with self.assertRaises(ApplicationError) as caught:
-                await service.change_mode({'id':'other'},'c',ChangeModeRequest(mode='ophthalmic'))
+                await conversations.change_mode({'id':'other'},'c',ChangeModeRequest(mode='ophthalmic'))
             self.assertEqual(caught.exception.status_code,404)
 
 class TransportPromptTests(unittest.TestCase):

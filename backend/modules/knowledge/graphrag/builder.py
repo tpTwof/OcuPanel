@@ -14,7 +14,7 @@ from core.llm.models import LLMCall
 from modules.knowledge.corpus import evidence_chunks, load_guideline
 
 SEED_NAME = "ophthalmology-graph.json"
-DEFAULT_CORPUS = Path(__file__).resolve().parents[1] / "knowledge" / "corpus"
+from core.paths import CORPUS_DIR as DEFAULT_CORPUS
 
 
 def load_snapshot(data: dict) -> nx.DiGraph:

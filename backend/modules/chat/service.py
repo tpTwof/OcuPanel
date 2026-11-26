@@ -1,19 +1,14 @@
 from __future__ import annotations
 from typing import Any
-from modules.account.models import User
-from modules.chat.schemas import (
-    CreateConversationRequest,
-    SendMessageRequest,
-    RenameConversationRequest,
-    ChangeModeRequest,
-    GraphPreference,
-)
+from modules.user.models import User
+from modules.chat.schemas import SendMessageRequest
 
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 from starlette.concurrency import run_in_threadpool
 
-from core import config_impl as config
-from modules.chat import repository as repo
+from core import config
+from modules.conversation import service as conversations
+from modules.user import service as users
 from core.llm.client import LLMClient
 from modules.chat.prompts import CHAT_SYSTEM_PROMPT
 from modules.chat.context import select_history
@@ -66,50 +61,6 @@ def _verify_ophthalmic_reply(
     return reply, {"status": "no_claims"}
 
 
-async def list_conversations(user: User) -> dict[str, Any]:
-    items = await run_in_threadpool(repo.list_conversations, user["id"])
-    return {"items": items, "rag_enabled": config.RAG_ENABLED, "graph_default": config.GRAPH_RAG_ENABLED}
-
-
-async def create_conversation(
-    user: User,
-    body: CreateConversationRequest,
-) -> dict[str, Any]:
-    return await run_in_threadpool(repo.create_conversation, user["id"], body.title or "新对话", body.mode, body.graph_enabled)
-
-
-async def conversation_detail(user: User, conversation_id: str) -> dict[str, Any]:
-    conv = await run_in_threadpool(repo.get_conversation, user["id"], conversation_id)
-    if not conv:
-        # 别人的会话与不存在的会话返回同一个 404，不泄露"这条 id 存在"
-        raise ApplicationError(status_code=404, detail="会话不存在")
-    msgs = await run_in_threadpool(repo.list_messages, user["id"], conversation_id)
-    return {"conversation": conv, "messages": msgs}
-
-
-async def rename_conversation(
-    user: User,
-    conversation_id: str,
-    body: RenameConversationRequest,
-) -> dict[str, Any]:
-    conv = await run_in_threadpool(repo.get_conversation, user["id"], conversation_id)
-    if not conv:
-        raise ApplicationError(status_code=404, detail="会话不存在")
-    await run_in_threadpool(repo.rename_conversation, user["id"], conversation_id, body.title)
-    return {"ok": True}
-
-
-async def delete_conversation(user: User, conversation_id: str) -> dict[str, Any]:
-    deleted = await run_in_threadpool(
-        repo.delete_conversation, user["id"], conversation_id
-    )
-    # 与 GET / PATCH 保持一致：别人的会话和不存在的会话都是同一个 404。
-    # 不能因为"删除是幂等的"就一律回 200——那样越权尝试会伪装成成功。
-    if not deleted:
-        raise ApplicationError(status_code=404, detail="会话不存在")
-    return {"ok": True}
-
-
 async def send_message(
     user: User,
     conversation_id: str,
@@ -119,7 +70,7 @@ async def send_message(
 
     这样重启服务、换台机器登录，上下文都还在——这是引入数据库最直接的收益。
     """
-    conv = await run_in_threadpool(repo.get_conversation, user["id"], conversation_id)
+    conv = await run_in_threadpool(conversations.get_conversation, user["id"], conversation_id)
     if not conv:
         raise ApplicationError(status_code=404, detail="会话不存在")
 
@@ -127,11 +78,11 @@ async def send_message(
     if not text:
         raise ApplicationError(status_code=400, detail="消息不能为空")
 
-    cfg = await run_in_threadpool(repo.load_llm_config, user["id"])
+    cfg = await run_in_threadpool(users.load_llm_config, user["id"])
     if not cfg:
         raise ApplicationError(status_code=409, detail="尚未配置 LLM API，请先在「个人设置」中填写")
 
-    history = await run_in_threadpool(repo.list_messages, user["id"], conversation_id)
+    history = await run_in_threadpool(conversations.list_messages, user["id"], conversation_id)
     client = LLMClient(
         api_key=cfg["api_key"], model=cfg["model"], base_url=cfg["base_url"] or None,
     )
@@ -178,7 +129,7 @@ async def send_message(
         if evidence:
             retrieval["result"] = "graph" if any(item.get("graph_path") for item in evidence) else "text"
 
-    await run_in_threadpool(repo.add_message, user["id"], conversation_id, "user", text, None)
+    await run_in_threadpool(conversations.add_message, user["id"], conversation_id, "user", text, None)
 
     def _run() -> str:
         return client.chat_with_history(
@@ -201,33 +152,15 @@ async def send_message(
         if evidence:
             meta["evidence"] = evidence
     saved = await run_in_threadpool(
-        repo.add_message, user["id"], conversation_id, "assistant", reply, meta
+        conversations.add_message, user["id"], conversation_id, "assistant", reply, meta
     )
 
     # 首条消息用来给会话起名，避免侧边栏一水儿的「新对话」
     if conv["title"] in ("新对话", "", None):
         title = text[:20] + ("…" if len(text) > 20 else "")
-        await run_in_threadpool(repo.rename_conversation, user["id"], conversation_id, title)
+        await run_in_threadpool(conversations.rename_title, user["id"], conversation_id, title)
 
     result = {"reply": reply, "message_id": saved["id"]}
     if meta:
         result.update(meta)
     return result
-
-
-async def change_graph(user: User, conversation_id: str, body: GraphPreference) -> dict[str, bool]:
-    changed = await run_in_threadpool(repo.set_graph_enabled, user["id"], conversation_id, body.graph_enabled)
-    if not changed:
-        raise ApplicationError(status_code=404, detail="会话不存在")
-    return {"graph_enabled": body.graph_enabled}
-
-
-async def change_mode(
-    user: User, conversation_id: str, body: ChangeModeRequest,
-) -> dict[str, str]:
-    changed = await run_in_threadpool(
-        repo.set_conversation_mode, user["id"], conversation_id, body.mode,
-    )
-    if not changed:
-        raise ApplicationError(status_code=404, detail="会话不存在")
-    return {"mode": body.mode}

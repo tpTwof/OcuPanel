@@ -11,13 +11,13 @@ from typing import Any
 
 from starlette.concurrency import run_in_threadpool
 
-from common import auth
-from core.errors import ApplicationError
+from common import deps as auth
+from core.exceptions import ApplicationError
 from core.llm.client import describe_llm_error
-from modules.account import repository
-from modules.account.models import User
-from modules.account.schemas import LLMConfigRequest, LoginRequest, RegisterRequest
-from core import config_impl as config
+from modules.user import repository
+from modules.user.models import User
+from modules.user.schemas import LLMConfigRequest, LoginRequest, RegisterRequest
+from core import config
 
 # 预设几个常见端点，前端下拉直接选，省得用户手打
 PRESETS = [
@@ -110,7 +110,7 @@ async def test_llm(user: User, body: LLMConfigRequest) -> dict[str, Any]:
     api_key = await _resolve_api_key(user, body)
 
     def _run() -> dict:
-        from modules.account.llm_probe import probe_llm
+        from modules.user.llm_probe import probe_llm
         from modules.screening.access import check_endpoint
         from core import storage
 
@@ -142,3 +142,7 @@ async def usage(user: User) -> dict[str, Any]:
             datetime.fromtimestamp(last).isoformat(timespec="seconds") if last else None
         ),
     }
+
+def load_llm_config(user_id: str) -> dict[str, Any] | None:
+    """读取账号配置，供内部业务构造模型客户端。"""
+    return repository.load_llm_config(user_id)

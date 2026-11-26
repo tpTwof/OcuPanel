@@ -11,7 +11,7 @@ from modules.report import service
 from modules.report.context import format_visual_findings
 from modules.report.models import ReportSubmission
 from core import storage
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 from modules.screening.access import analysis_site
 
 

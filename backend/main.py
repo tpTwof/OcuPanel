@@ -19,14 +19,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from common import auth
+from common import deps as auth
 from core import config, paths
-from core.errors import ApplicationError
-from modules.account.router import router as account_router
+from core.exceptions import ApplicationError
+from modules.user.router import router as account_router
+from modules.conversation.router import router as conversation_router
 from modules.chat.router import router as chat_router
 from modules.report.router import router as report_router
 from modules.report.utils.jobs import purge_stale_job_dirs
-from modules.screening.api import screening_router
+from modules.screening.router import screening_router
 from core import storage
 
 load_dotenv()
@@ -134,6 +135,7 @@ app.add_middleware(
 app.include_router(account_router, prefix="/api")
 app.include_router(report_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+app.include_router(conversation_router, prefix="/api")
 app.include_router(screening_router, prefix="/api")
 
 
@@ -175,7 +177,7 @@ _mount_frontend()
 
 if __name__ == "__main__":
     uvicorn.run(
-        "app.main:app",
+        "main:app",
         host=config.HOST,
         port=config.PORT,
         reload=config.RELOAD,

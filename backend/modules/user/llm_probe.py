@@ -9,7 +9,7 @@ from __future__ import annotations
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 
-from core import config_impl as config
+from core import config
 
 
 def probe_llm(api_key: str, base_url: str | None, model: str) -> dict:

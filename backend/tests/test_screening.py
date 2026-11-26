@@ -8,11 +8,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
-from app.main import app
+from main import app
 from modules.screening import repository, service
-from modules.screening.models import CreateCase
+from modules.screening.schemas import CreateCase
 from core import storage
-from common.auth import current_user
+from common.deps import current_user
 
 
 def examination() -> dict:

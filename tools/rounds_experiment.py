@@ -35,7 +35,7 @@ for _name in ("NO_PROXY", "no_proxy"):
 from dotenv import load_dotenv  # noqa: E402
 load_dotenv(ROOT / "backend" / ".env")
 
-from core.config_impl as config  # noqa: E402
+from core import config  # noqa: E402
 
 # 核查与改写提示词约 6k 字符，deepseek-v4.1-flash 实测单次 40-60s，偶发超过默认
 # 120s。这里放宽到 300s，使实验测的是「轮数上限」而不是「超时阈值」。

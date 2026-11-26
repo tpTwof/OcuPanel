@@ -2,7 +2,7 @@
 import sqlite3
 import json
 
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 
 
 def check_endpoint(conn: sqlite3.Connection, user_id: str, base_url: str | None) -> None:

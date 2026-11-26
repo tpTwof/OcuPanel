@@ -10,12 +10,12 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
-from app.main import app
+from main import app
 from modules.report import assets, service as reports
 from modules.report.models import ReportResult, ReportSubmission
 from modules.screening import repository
 from core import storage
-from common.auth import current_user
+from common.deps import current_user
 from test_screening import examination
 
 

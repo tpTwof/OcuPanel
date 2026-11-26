@@ -42,7 +42,7 @@ class GraphRetrievalTests(unittest.TestCase):
             batches.append(len(texts))
             return np.array([[int(text.splitlines()[-1])] for text in texts])
 
-        with patch("core.config_impl.RAG_VECTOR_STORE_PATH", ""), patch.object(
+        with patch("core.config.RAG_VECTOR_STORE_PATH", ""), patch.object(
                 index, "_load"), patch.object(index, "_encode", side_effect=encode):
             index.ensure()
             index.ensure()
@@ -54,7 +54,7 @@ class GraphRetrievalTests(unittest.TestCase):
         """语料变化时只重编码改动过的条目，删除的条目不再保留。"""
         chunks = [Chunk(str(i), "test", "title", "section", str(i)) for i in range(3)]
         with tempfile.TemporaryDirectory() as directory, patch(
-            "core.config_impl.RAG_VECTOR_STORE_PATH", str(Path(directory) / "store"),
+            "core.config.RAG_VECTOR_STORE_PATH", str(Path(directory) / "store"),
         ), patch.object(VectorIndex, "_load"):
             def encode(texts):
                 return np.array([[float(text.splitlines()[-1]), 1.0] for text in texts])
@@ -180,7 +180,7 @@ class GraphRetrievalTests(unittest.TestCase):
         self.assertEqual(graph.search("停车收费"), [])
 
     def test_graph_and_flat_channels_fuse_without_losing_provenance(self):
-        with patch("core.config_impl.GRAPH_RAG_ENABLED", True):
+        with patch("core.config.GRAPH_RAG_ENABLED", True):
             retriever = Retriever.from_corpus(mode="bm25")
         sources = {chunk.source for chunk in retriever.chunks}
         # 草稿语料参与检索（正式条款不覆盖随访、目标眼压与视野判读），
@@ -211,7 +211,7 @@ class GraphRetrievalTests(unittest.TestCase):
         self.assertIn("nice-ng81-1.2.1", {item["id"] for item in diagnosis})
 
     def test_amd_symptom_and_referral_retrieve_scoped_evidence(self):
-        with patch("core.config_impl.GRAPH_RAG_ENABLED", True):
+        with patch("core.config.GRAPH_RAG_ENABLED", True):
             retriever = Retriever.from_corpus(mode="bm25")
         for query in ("看直线是弯的，需要查什么？", "straight lines look wavy"):
             with self.subTest(query=query):
@@ -225,7 +225,7 @@ class GraphRetrievalTests(unittest.TestCase):
         self.assertTrue(all(item["jurisdiction"] in ("US", "INT") for item in us_hits))
 
     def test_chinese_amd_queries_observe_evidence_scope(self):
-        with patch("core.config_impl.GRAPH_RAG_ENABLED", True):
+        with patch("core.config.GRAPH_RAG_ENABLED", True):
             retriever = Retriever.from_corpus(mode="bm25")
         for query in ("中国医院怀疑湿性黄斑变性，怎样检查？", "国内怀疑新生血管性 AMD，能用 OCTA 吗？"):
             with self.subTest(query=query):
@@ -241,7 +241,7 @@ class GraphRetrievalTests(unittest.TestCase):
         self.assertEqual(retriever.search("英国停车收费是否有优惠？"), [])
 
     def test_amd_summary_remains_searchable_without_graph(self):
-        with patch("core.config_impl.GRAPH_RAG_ENABLED", False):
+        with patch("core.config.GRAPH_RAG_ENABLED", False):
             retriever = Retriever.from_corpus(mode="bm25")
         results = retriever.search("年龄相关性黄斑变性 AMD 直线变弯 检查")
         self.assertEqual(results[0]["source"], "nei-amd")
@@ -249,7 +249,7 @@ class GraphRetrievalTests(unittest.TestCase):
     def test_chat_preference_uses_separate_indexes(self):
         from modules.knowledge.service import get_retriever
 
-        with patch("modules.knowledge.service._RETRIEVERS", {}), patch("core.config_impl.RAG_MODE", "bm25"):
+        with patch("modules.knowledge.service._RETRIEVERS", {}), patch("core.config.RAG_MODE", "bm25"):
             graph = get_retriever(True)
             flat = get_retriever(False)
             self.assertTrue(graph.graph_available)
@@ -264,7 +264,7 @@ class GraphRetrievalTests(unittest.TestCase):
             (Path(directory) / "test.md").write_text(
                 "# Evidence\n\n## Exam\n\nGlaucoma visual field assessment.\n", encoding="utf-8"
             )
-            with patch("core.config_impl.GRAPH_RAG_ENABLED", True), patch("core.config_impl.RAG_ENABLED", True):
+            with patch("core.config.GRAPH_RAG_ENABLED", True), patch("core.config.RAG_ENABLED", True):
                 retriever = Retriever.from_corpus(Path(directory), mode="bm25")
                 with patch("modules.knowledge.service.get_retriever", return_value=retriever):
                     hits, status = retrieve_with_status("visual field")

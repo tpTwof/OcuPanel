@@ -7,10 +7,10 @@ from starlette.background import BackgroundTask
 from modules.report.utils.jobs import cleanup_job_dir
 
 from modules.screening import repository, service, imports
-from modules.screening.models import Command, CreateCase, ImportPreview, ConfirmImport
-from common import auth
+from modules.screening.schemas import Command, CreateCase, ImportPreview, ConfirmImport
+from common import deps as auth
 from core import storage
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 from modules.report import assets, service as reports
 
 screening_router = APIRouter(prefix="/screening", tags=["screening rehearsal"])

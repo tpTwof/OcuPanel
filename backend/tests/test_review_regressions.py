@@ -50,7 +50,7 @@ class ConfigurationRegressionTests(unittest.TestCase):
     def test_unknown_citation_rejected_when_llm_verification_disabled(self):
         from unittest.mock import patch
         from modules.report.generation import MedicalReportGenerator
-        with patch('core.config_impl.VERIFY_ENABLED', False):
+        with patch('core.config.VERIFY_ENABLED', False):
             final, record = MedicalReportGenerator(api_key='test').verify_synthesis(
                 'Draft [99]', ReviewRegressionTests.evidence,
             )

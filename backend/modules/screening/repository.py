@@ -4,7 +4,7 @@ import sqlite3
 from typing import Any
 
 from core import storage
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 from modules.screening import access
 
 

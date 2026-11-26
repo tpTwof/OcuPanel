@@ -3,12 +3,12 @@ import hashlib
 from typing import Any
 
 from modules.screening import access, repository
-from modules.screening.models import Command, CreateCase, Followup, Handoff, Receipt, Refer, Review, Revise, Revoke, Sign
+from modules.screening.schemas import Command, CreateCase, Followup, Handoff, Receipt, Refer, Review, Revise, Revoke, Sign
 from modules.screening.presentation import describe
 from modules.report.models import ReportDownload
-from modules.account.models import User
+from modules.user.models import User
 from core import storage
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 
 SOFTWARE_VERSION = "screening-rehearsal-v3"
 

@@ -19,11 +19,10 @@ from pathlib import Path
 
 import numpy as np
 
-from core import config_impl as config
+from core import config
 # 语料是数据而非代码，保留在 backend/knowledge/corpus，便于直接编辑与审阅；
 # 这里按 backend 根目录定位，不随模块搬迁而移动。
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-CORPUS_DIR = BACKEND_DIR / "knowledge" / "corpus"
+from core.paths import CORPUS_DIR
 # Markdown 草稿语料，标题里自带「示例语料」声明。以前一旦收录了正式条款就把它们
 # 整份丢弃，结果全库只剩 2 条青光眼条款：报告要写的随访、目标眼压、视野判读
 # 一句都查不到，Verifier 只能全部判无依据，最后只剩病例摘要。现在保留它们参与

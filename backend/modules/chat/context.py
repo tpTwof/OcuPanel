@@ -1,6 +1,6 @@
 """选择聊天输入窗口，不修改数据库记录，不调用 LLM 生成摘要。"""
 from typing import Any
-from modules.chat.models import ChatMode
+from modules.conversation.models import ChatMode
 
 
 def select_history(

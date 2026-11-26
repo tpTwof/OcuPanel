@@ -22,7 +22,7 @@
 
 ## 0.5 小内存部署与并发
 
-旧版本逐次加载模型得到的 550MB 常驻、1.3GB 峰值等数字不再作为当前版本的容量指标。当前视觉模型由 `backend/vision/utils/runtime.py` 按设备缓存，加载和推理共用进程内锁，多个请求复用权重；每个 Uvicorn worker 仍各自持有一份缓存。
+旧版本逐次加载模型得到的 550MB 常驻、1.3GB 峰值等数字不再作为当前版本的容量指标。当前视觉模型由 `backend/modules/vision/utils/runtime.py` 按设备缓存，加载和推理共用进程内锁，多个请求复用权重；每个 Uvicorn worker 仍各自持有一份缓存。
 
 - 建议先运行单个 worker，在目标硬件上分别测量冷启动、首次推理、重复请求和多用户请求的内存峰值。
 - 视觉锁只限制模型加载和推理，不限制整个报告任务。上传解码、知识检索、并发 LLM 调用和 PDF 仍会消耗资源。
@@ -30,7 +30,7 @@
 - CPU 小机器可在 systemd 设置 `OMP_NUM_THREADS=2`、`MKL_NUM_THREADS=2`；分配器与 swap 是否调整应结合实际操作系统和测量结果。
 - 在 2GB 机器上不能仅凭代码缓存就承诺安全运行，优先测量后再决定容量。
 
-本地单张样本的 CPU 推理验证见 `backend/vision/README.md`；它验证执行和输出结构，不是生产容量测试或临床验证。
+本地单张样本的 CPU 推理验证见 `backend/modules/vision/README.md`；它验证执行和输出结构，不是生产容量测试或临床验证。
 
 ## 1. 服务器初始化
 
@@ -166,7 +166,7 @@ HF_ENDPOINT=https://hf-mirror.com
 chmod 600 .env            # 含密钥，收紧权限
 ```
 
-> `backend/utils/config.py` 会自己加载 `backend/.env`，不依赖启动目录，所以 **systemd 里不需要 EnvironmentFile**
+> `backend/core/config.py` 会自己加载 `backend/.env`，不依赖启动目录，所以 **systemd 里不需要 EnvironmentFile**
 > ——那样反而容易被带空格的值弄出语法错误。
 
 ---
@@ -280,7 +280,7 @@ Group=ocupanel
 WorkingDirectory=/opt/ocupanel/backend
 Environment=PYTHONUNBUFFERED=1
 Environment=HF_HOME=/opt/ocupanel/.cache/huggingface
-ExecStart=/opt/ocupanel/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir backend
+ExecStart=/opt/ocupanel/.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000 --app-dir backend
 Restart=always
 RestartSec=5
 TimeoutStopSec=30
@@ -475,7 +475,7 @@ sudo systemctl restart ocupanel
 
 ## 当前行为与备份范围
 
-普通聊天与眼科追问只调用 LLM，提交影像分析才运行 vision、Agents 与 report。聊天默认上下文与输出限制见 [chat/README](../backend/chat/README.md)。PDF 下载会重新生成并可能额外计费，刷新后暂不能直接导出已存报告。
+普通聊天与眼科追问只调用 LLM，提交影像分析才运行 vision、Agents 与 report。聊天默认上下文与输出限制见 [chat/README](../backend/modules/chat/README.md)。PDF 下载会重新生成并可能额外计费，刷新后暂不能直接导出已存报告。
 
 完整恢复需要 SQLite、原图、叠加图和原加密密钥。停写后使用 [离线归档工具](../tools/README.md) 生成快照。密钥由部署负责人另行保管并恢复。
 

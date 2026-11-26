@@ -1,7 +1,7 @@
 """诊疗解释未完成核查时，保留输入资料的只读摘要，不交付失败草稿。"""
 import re
 from modules.agent.tools.verification_audit import text_digest
-from core import config_impl as config
+from core import config
 
 
 def case_source_summary(note: str, verification: dict) -> tuple[str | None, dict]:

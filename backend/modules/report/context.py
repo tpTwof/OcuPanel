@@ -1,7 +1,7 @@
 """把分析事实和临床记录组织成请求内上下文，不复制分析数据结构。"""
 from typing import Any
 from modules.vision.models import DiseaseResult
-from core.config_impl import REPORT_LANGUAGE
+from core.config import REPORT_LANGUAGE
 
 DISEASE_LABELS = {
     "glaucoma": ("青光眼", "Glaucoma"),

@@ -66,7 +66,7 @@ class ReportTests(unittest.TestCase):
              patch('modules.vision.analyze_fundus', return_value=analysis), \
              patch('modules.report.generation.retrieve_evidence', return_value=[{'id': 'guide', 'text': 'Evidence'}]), \
              patch('modules.report.generation.get_retriever', return_value=Mock(similarity=lambda a, b: 0)), \
-             patch('core.config_impl.VERIFY_ENABLED', True), patch('core.config_impl.VERIFY_MAX_ROUNDS', 1):
+             patch('core.config.VERIFY_ENABLED', True), patch('core.config.VERIFY_MAX_ROUNDS', 1):
             result = generator.generate(io.BytesIO(b'fixture-image'), fact, folder)
         self.assertEqual(result.summary, fact)
         self.assertEqual(result.cup_to_disc_ratio, .6)
@@ -86,7 +86,7 @@ class ReportTests(unittest.TestCase):
              patch('modules.vision.analyze_fundus', return_value=analysis), \
              patch('modules.report.generation.retrieve_evidence', return_value=evidence), \
              patch('modules.report.generation.get_retriever', return_value=Mock(similarity=lambda a, b: 0)), \
-             patch('core.config_impl.VERIFY_ENABLED', True):
+             patch('core.config.VERIFY_ENABLED', True):
             result = generator.generate(io.BytesIO(b'fixture-image'), note, folder)
         self.assertEqual(result.summary, 'Case findings [1].')
         self.assertEqual(result.verification['status'], 'pass')
@@ -105,7 +105,7 @@ class ReportTests(unittest.TestCase):
             self.assertEqual(Path(path).read_bytes(), b'uploaded-image')
             self.assertEqual(diseases, ('glaucoma',))
             return analysis
-        with tempfile.TemporaryDirectory() as folder, patch('modules.vision.analyze_fundus', side_effect=analyze), patch('modules.report.generation.retrieve_evidence', return_value=evidence), patch('modules.report.generation.get_retriever', return_value=Mock(similarity=lambda a,b: 0)), patch('core.config_impl.VERIFY_ENABLED', True), patch('core.config.MULTI_AGENT_MODE','parallel'):
+        with tempfile.TemporaryDirectory() as folder, patch('modules.vision.analyze_fundus', side_effect=analyze), patch('modules.report.generation.retrieve_evidence', return_value=evidence), patch('modules.report.generation.get_retriever', return_value=Mock(similarity=lambda a,b: 0)), patch('core.config.VERIFY_ENABLED', True), patch('core.config.MULTI_AGENT_MODE','parallel'):
             result = generator.generate(io.BytesIO(b'uploaded-image'), 'clinical note', folder)
             self.assertIsNotNone(result.summary)
             self.assertEqual(result.verification['status'], 'pass')
@@ -135,7 +135,7 @@ class ReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, \
              patch("modules.vision.analyze_fundus", return_value=analysis) as analyze, \
              patch("modules.report.generation.retrieve_evidence", side_effect=[[common], [common, dr_only], []]) as retrieve, \
-             patch("core.config_impl.VERIFY_ENABLED", False):
+             patch("core.config.VERIFY_ENABLED", False):
             result = generator.generate(io.BytesIO(b"image"), "Case note", folder, diseases)
         analyze.assert_called_once()
         self.assertEqual(analyze.call_args.kwargs["diseases"], diseases)
@@ -220,7 +220,7 @@ class ReportTests(unittest.TestCase):
              patch('modules.vision.analyze_fundus', return_value=analysis) as analyze, \
              patch('modules.report.generation.retrieve_evidence', return_value=[]), \
              patch.object(generator, 'chat_with_gpt', return_value='Assessment'), \
-             patch('core.config_impl.VERIFY_ENABLED', False):
+             patch('core.config.VERIFY_ENABLED', False):
             result = generator.generate(io.BytesIO(b'input'), '',
                                         Path(folder), diseases=(disease,))
             self.assertEqual(analyze.call_args.kwargs['diseases'], (disease,))
@@ -263,7 +263,7 @@ class ReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, \
              patch("modules.vision.analyze_fundus", return_value=analysis), \
              patch("modules.report.generation.retrieve_evidence", return_value=[]), \
-             patch("core.config_impl.VERIFY_ENABLED", True), patch.object(generator, "chat_with_gpt") as llm:
+             patch("core.config.VERIFY_ENABLED", True), patch.object(generator, "chat_with_gpt") as llm:
             result = generator.generate(io.BytesIO(b"image"), "", folder, diseases)
         llm.assert_not_called()
         self.assertIsNone(result.summary)

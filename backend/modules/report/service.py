@@ -8,13 +8,13 @@ import json
 import uuid
 from pathlib import Path
 from typing import Any, Callable
-from modules.account.models import User
+from modules.user.models import User
 from modules.report.models import ReportSubmission, ReportDownload, ReportContent, ReportResult
 from modules.vision.analysis import DEFAULT_DISEASES
 from modules.vision.models import FundusImageDecodeError, FundusImageUnusable
 from modules.vision.diseases.retinal import RetinalModelUnavailable
 
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 from PIL import Image
 from starlette.concurrency import run_in_threadpool
 

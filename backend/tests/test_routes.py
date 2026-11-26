@@ -4,9 +4,9 @@ import unittest
 from unittest.mock import AsyncMock, patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
-from app.main import app
-from common.auth import current_user
-from core.errors import ApplicationError
+from main import app
+from common.deps import current_user
+from core.exceptions import ApplicationError
 from modules.report.models import ReportSubmission, ReportDownload
 from modules.knowledge.retrieval import Retriever
 import tempfile
@@ -276,17 +276,17 @@ class RouteTests(unittest.TestCase):
         )
         for graph_enabled, question, evidence_id, source_text, retrieval_result in cases:
             with self.subTest(question=question), ExitStack() as stack:
-                stack.enter_context(patch("core.config_impl.GRAPH_RAG_ENABLED", graph_enabled))
-                stack.enter_context(patch("core.config_impl.RAG_ENABLED", True))
-                stack.enter_context(patch("core.config_impl.VERIFY_ENABLED", True))
+                stack.enter_context(patch("core.config.GRAPH_RAG_ENABLED", graph_enabled))
+                stack.enter_context(patch("core.config.RAG_ENABLED", True))
+                stack.enter_context(patch("core.config.VERIFY_ENABLED", True))
                 retriever = Retriever.from_corpus(mode="bm25")
                 stack.enter_context(patch("modules.knowledge.service.get_retriever", return_value=retriever))
-                stack.enter_context(patch("modules.chat.repository.get_conversation",
+                stack.enter_context(patch("modules.conversation.repository.get_conversation",
                                           return_value={"title": "Case", "mode": "ophthalmic"}))
-                stack.enter_context(patch("modules.chat.repository.load_llm_config",
+                stack.enter_context(patch("modules.user.service.load_llm_config",
                                           return_value={"api_key": "test", "model": "test", "base_url": ""}))
-                stack.enter_context(patch("modules.chat.repository.list_messages", return_value=[]))
-                save = stack.enter_context(patch("modules.chat.repository.add_message", return_value={"id": "m"}))
+                stack.enter_context(patch("modules.conversation.repository.list_messages", return_value=[]))
+                save = stack.enter_context(patch("modules.conversation.repository.add_message", return_value={"id": "m"}))
                 llm = stack.enter_context(patch("modules.chat.service.LLMClient")).return_value
                 llm.chat_with_history.return_value = "可参考眼科检查 [1]"
                 llm.chat_with_gpt.return_value = '{"claims": []}'

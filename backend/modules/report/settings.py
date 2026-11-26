@@ -1,5 +1,5 @@
 from modules.report.models import ReportLabels
-from core import config_impl as config
+from core import config
 USE_CHINESE = config.REPORT_LANGUAGE.startswith("zh")
 LABELS: ReportLabels = (
     ReportLabels(

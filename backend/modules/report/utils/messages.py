@@ -1,5 +1,5 @@
 from __future__ import annotations
-from core import config_impl as config
+from core import config
 from typing import Any
 USE_CHINESE = config.REPORT_LANGUAGE.startswith("zh")
 def reject_message(verification: dict[str, Any]) -> str:

@@ -11,7 +11,7 @@ from modules.vision.analysis import DEFAULT_DISEASES
 from core.llm.models import LLMConfiguration
 from modules.report.models import ReportResult
 from modules.agent.roles import DISEASE_ROLES
-from core import config_impl as config
+from core import config
 from core.llm.client import LLMClient
 from modules.knowledge.service import get_retriever, retrieve_evidence
 from modules.knowledge.report_focus import disease_focus

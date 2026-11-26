@@ -24,8 +24,8 @@ from modules.report import assets, service as reports
 from modules.report.models import ReportResult, ReportSubmission
 from modules.report.utils import jobs
 from modules.screening import service as screening
-from modules.screening.models import CreateCase, Review
-from common import auth
+from modules.screening.schemas import CreateCase, Review
+from common import deps as auth
 from core import storage
 
 

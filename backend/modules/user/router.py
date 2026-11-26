@@ -7,9 +7,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from common import auth
-from modules.account import service
-from modules.account.schemas import LLMConfigRequest, LoginRequest, RegisterRequest
+from common import deps as auth
+from modules.user import service
+from modules.user.schemas import LLMConfigRequest, LoginRequest, RegisterRequest
 
 router = APIRouter()
 

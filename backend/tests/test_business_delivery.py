@@ -12,15 +12,15 @@ from archive_maintenance import expire_originals, materialize
 from configure_screening_site import Site, configure
 from screening_operations import summarize
 from modules.screening.access import check_endpoint
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 from fastapi.testclient import TestClient
-from app.main import app
+from main import app
 from modules.report import queue
 from modules.report.models import ReportResult
 from modules.screening import repository
 from test_screening import examination
 from core import storage
-from common.auth import current_user
+from common.deps import current_user
 
 
 class DeliveryTests(unittest.TestCase):

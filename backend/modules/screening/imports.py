@@ -7,10 +7,11 @@ from typing import Any
 
 from modules.report import assets
 from modules.screening import repository, service
-from modules.screening.models import ConfirmImport, Examination, ImportPreview, TaskAssessment
-from modules.account.models import User
+from modules.screening.models import Examination, TaskAssessment
+from modules.screening.schemas import ConfirmImport, ImportPreview
+from modules.user.models import User
 from core import storage
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 
 SUPPORTED = {"glaucoma", "diabetic_retinopathy", "age_related_macular_degeneration"}
 

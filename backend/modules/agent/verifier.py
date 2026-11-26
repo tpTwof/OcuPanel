@@ -8,7 +8,7 @@ import re
 import sys
 from typing import Any, Callable
 from core.llm.models import LLMCall
-from core import config_impl as config
+from core import config
 from .prompts.verification import (
     VERIFIER_SYSTEM,
     REWRITER_SYSTEM,

@@ -1,5 +1,5 @@
 """仅在眼科助手形态中注入的会话指令。"""
-from core import config_impl as config
+from core import config
 
 CHAT_SYSTEM_ZH = (
     "你是 OcuPanel 眼科辅助诊疗助手，服务于眼底疾病的影像解读辅助与临床答疑。"

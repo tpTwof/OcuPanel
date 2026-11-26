@@ -13,7 +13,7 @@ from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException
 
-from modules.account.models import User
+from modules.user.models import User
 from core import storage
 
 # token 有效期：7 天。演示/内部使用足够，过期后重新登录即可。

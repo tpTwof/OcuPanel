@@ -4,11 +4,11 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, UploadFile, Query, Response
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
-from common import auth
+from common import deps as auth
 from modules.report.models import ReportSubmission, ReportContent
 from modules.report import service
 from modules.report.utils.jobs import cleanup_job_dir
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 from modules.vision.analysis import DEFAULT_DISEASES, validate_diseases
 
 router = APIRouter()

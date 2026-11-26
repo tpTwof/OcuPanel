@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / "backend" / ".env")
 
 import json
-from core import config_impl as config
+from core import config
 
 config.LLM_TIMEOUT = 300.0
 

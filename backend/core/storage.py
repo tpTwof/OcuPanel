@@ -29,7 +29,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 DB_PATH = Path(__file__).resolve().parents[1] / "ocupanel.db"
 
 # PBKDF2 迭代次数：600k 是 OWASP 2023 对 SHA256 的建议值。

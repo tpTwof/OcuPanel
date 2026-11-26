@@ -34,7 +34,7 @@ Markdown 渲染用 Showdown（**已显式开启 `tables: true`**，默认是关�
 
 `components/screening/CaseForm.jsx` 负责病例与任务编辑，`CaseActions.jsx` 负责复核、模拟签发、移交及回执表单，`CaseDetails.jsx` 负责结果、释义和历史；`src/screening/caseForm.js` 保存任务目录、非破坏性表单操作及跨任务校验。任务状态变化不会删除原图引用，也不会自动添加采集或判为可疑。每例的操作表单独立，不沿用其他病例的计划。病例编辑切换、取消、离开工作台和刷新有未保存提示；临时输入不作为持久草稿保存。
 
-请求统一经过 `api.js`，认证失效回登录。写请求重试保留原幂等键，旧版本只读。提交成功会显示操作结果与版本；后续同步失败保留已保存结果并提示刷新，不误报整个操作失败。版本冲突时保留填写内容，不能覆盖新状态。[接口与限制](../backend/screening/README.md)
+请求统一经过 `api.js`，认证失效回登录。写请求重试保留原幂等键，旧版本只读。提交成功会显示操作结果与版本；后续同步失败保留已保存结果并提示刷新，不误报整个操作失败。版本冲突时保留填写内容，不能覆盖新状态。[接口与限制](../backend/modules/screening/README.md)
 
 表单回归：`npm.cmd --prefix frontend run test:screening`。覆盖补拍记录保留、多任务独立、空白采集状态、显式选择所见结论及未显示任务的校验。页面行为另用临时 SQLite 和实际 API 走读验证，不调用 LLM。
 
@@ -159,7 +159,7 @@ curl.exe -s -o NUL -w "%{http_code}\n" http://127.0.0.1:8000/api/account/llm-pre
 
 普通聊天和眼科助手均可通过提问栏左侧「+」打开「眼科影像分析」，欢迎页保留直接入口。上传图片与医疗报告/临床记录并提交后，进入当前聊天，自动切为眼科助手，显示生成状态和报告回复，随后可继续追问。未提交分析时只切换形态，不执行视觉模型、Agents 或产生报告费用。切回普通聊天保留已有消息。
 
-后端的 PATCH /api/chat/conversations/{id}/mode 负责持久化形态；旧数据库在启动时迁移，旧报告会话保留眼科助手语义。详细规则见 [会话说明](../backend/chat/README.md)。llm/ 不再包含眼科提示词，分析 Agent 与聊天各自管理指令。
+后端的 PATCH /api/chat/conversations/{id}/mode 负责持久化形态；旧数据库在启动时迁移，旧报告会话保留眼科助手语义。详细规则见 [会话说明](../backend/modules/chat/README.md)。llm/ 不再包含眼科提示词，分析 Agent 与聊天各自管理指令。
 
 ## 输入面板与上下文
 

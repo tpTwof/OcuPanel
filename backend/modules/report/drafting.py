@@ -4,7 +4,7 @@ from typing import Any
 
 from modules.agent import DirectorAgent, ParallelOrchestrator, SpecialistAgent
 from modules.agent.verifier import CitationVerifier
-from core import config_impl as config
+from core import config
 
 Issues = list[dict[str, Any]]
 VerifiedDraft = tuple[str | None, dict[str, Any]]

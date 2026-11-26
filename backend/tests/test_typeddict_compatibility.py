@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from pydantic import TypeAdapter
 from core.llm.models import LLMConfiguration
 from modules.report.models import ReportContent
-from modules.account.models import User
+from modules.user.models import User
 
 class TypedDictCompatibilityTests(unittest.TestCase):
     def test_schema_generation_on_pre_312_branch(self):

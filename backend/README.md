@@ -10,33 +10,39 @@
 .\.venv\Scripts\python.exe .\backend\main.py
 ```
 
-Linux 使用 `./.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir backend`。默认监听 `127.0.0.1:8000`。存在 `frontend/dist/index.html` 时同时托管前端，否则只提供 API。服务启动后可访问 `/docs`（Swagger UI）和 `/redoc`。
+Linux 使用 `./.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000 --app-dir backend`。默认监听 `127.0.0.1:8000`。存在 `frontend/dist/index.html` 时同时托管前端，否则只提供 API。服务启动后可访问 `/docs`（Swagger UI）和 `/redoc`。
 
 ## 模块与流程
 
-新增 [`screening/`](screening/README.md) 合成病例演练模块：逐眼任务状态、补拍、模拟复核签发、版本快照、幂等收据、转诊和回执。`/api/screening/cases` 入口不调用模型、不接入真实病例，沿用账号隔离。状态、释义、JSON 及演练 PDF 均可绑定历史版本；原研究报告生成接口保持现有行为。
+新增 [`screening/`](modules/screening/README.md) 合成病例演练模块：逐眼任务状态、补拍、模拟复核签发、版本快照、幂等收据、转诊和回执。`/api/screening/cases` 入口不调用模型、不接入真实病例，沿用账号隔离。状态、释义、JSON 及演练 PDF 均可绑定历史版本；原研究报告生成接口保持现有行为。
 
-| 模块 | 职责 |
-|---|---|
-| `main.py` | 应用组装、生命周期、错误映射、静态托管 |
-| [`user/`](user/README.md) | 账户、用户 LLM 配置、用量 |
-| [`chat/`](chat/README.md) | 会话形态、消息存储、上下文选择和 LLM 问答 |
-| [`report/`](report/README.md) | 上传绑定、病例组织、分析生成、留痕、PDF |
-| [`vision/`](vision/README.md) | 青光眼分类、视杯视盘分割、面积等效 CDR |
-| [`agents/`](agents/README.md) | 病种专科、Director、Verifier 和受限工具 |
-| [`knowledge/`](knowledge/README.md) | 本地示例语料、BM25/向量检索、证据格式化 |
-| [`llm/`](llm/README.md) | 统一模型调用、超时、重试、错误描述和连通自检 |
-| `utils/` | 认证、配置、路径、SQLite、应用错误 |
-| [`graphrag/`](graphrag/README.md) | 装载和校验眼科图谱，返回有条款出处的多跳证据 |
-| [`tests/`](tests/README.md) | 离线回归测试 |
+```text
+backend/
+  main.py                 应用组装、路由注册、生命周期与前端托管
+  core/                   全局配置、异常、资源路径、SQLite 与 LLM 客户端
+    config.py exceptions.py paths.py storage.py llm/
+  common/
+    deps.py               当前用户依赖与登录态
+  modules/
+    user/                 账号、个人 LLM 配置和用量
+    conversation/         会话、消息存储、模式和图检索偏好
+    chat/                 聊天生成、上下文选择、眼科问答引用校验
+    report/               报告任务、分析编排、存档和 PDF
+    agent/                专科、Director、Verifier 和受限工具
+    knowledge/            语料读取、检索、向量存储与 graphrag/
+    vision/               青光眼与 DR/AMD 研究性影像分析
+    screening/            合成病例复核、版本、转诊和导入
+  knowledge/corpus/       可审阅语料数据（位置保持不变）
+  tests/                  离线回归
+```
 
-HTTP 路由位于各业务模块 `api.py`，应用业务位于 `service.py`，数据契约属于各模块 `models.py`。详见[架构](../docs/ARCHITECTURE.md)与[数据对象](../docs/DATA_MODELS.md)。
+HTTP 路由位于各业务模块 `router.py`，应用业务位于 `service.py`，领域类型位于 `models.py`，请求/响应契约位于 `schemas.py`。详见[架构](../docs/ARCHITECTURE.md)与[数据对象](../docs/DATA_MODELS.md)。
 
 ```mermaid
 flowchart TD
-  Chat[chat/api.py] --> CS[chat/service.py：形态与上下文]
+  Chat[modules/chat/router.py] --> CS[chat/service.py：形态与上下文]
   CS --> L[LLMClient] --> Reply[聊天回复]
-  R[report/api.py：multipart 绑定] --> RS[report/service.py：校验、任务目录与留痕]
+  R[modules/report/router.py：multipart 绑定] --> RS[report/service.py：校验、任务目录与留痕]
   RS --> G[report/generation.py]
   G --> V[vision.analyze_fundus：EyeAnalysis]
   V --> C[report/context.py：病例事实]
@@ -52,7 +58,7 @@ flowchart TD
   RS --> Output[JSON / PDF 响应]
 ```
 
-普通聊天和眼科追问通过聊天服务处理。眼科问答使用 `chat/prompts.py` 的系统指令，并按配置检索和校验引用。报告角色由所选病种决定，定义在 `agents/roles.py`。
+普通聊天和眼科追问通过聊天服务处理。眼科问答使用 `chat/prompts.py` 的系统指令，并按配置检索和校验引用。报告角色由所选病种决定，定义在 `modules/agent/roles.py`。
 
 ## API
 
@@ -78,7 +84,7 @@ flowchart TD
 | GET | `/api/reports/{report_id}/pdf` | 按当前账号导出已保存的报告，页面下载使用此接口 |
 | GET | `/api/get-report-image/{img_name}` | 按当前账号读取已保存报告的分割叠加图 |
 
-两个报告接口都接受 `multipart/form-data`。`file` 为 JPG/JPEG/PNG 彩色眼底图，`note` 为可选临床记录，`conversation_id` 为可选会话 ID。通过多个同名 `diseases` 字段选择病种，可用值为 `glaucoma`、`diabetic_retinopathy` 和 `age_related_macular_degeneration`。省略该字段时分析青光眼，未知或重复值返回 422。选了 DR 或 AMD 而 FLAIR 依赖或权重无法加载时返回 503。[启用 FLAIR](vision/README.md#糖网与年龄相关性黄斑变性)
+两个报告接口都接受 `multipart/form-data`。`file` 为 JPG/JPEG/PNG 彩色眼底图，`note` 为可选临床记录，`conversation_id` 为可选会话 ID。通过多个同名 `diseases` 字段选择病种，可用值为 `glaucoma`、`diabetic_retinopathy` 和 `age_related_macular_degeneration`。省略该字段时分析青光眼，未知或重复值返回 422。选了 DR 或 AMD 而 FLAIR 依赖或权重无法加载时返回 503。[启用 FLAIR](modules/vision/README.md#糖网与年龄相关性黄斑变性)
 
 PDF 只接受引用校验状态为 pass 或 rewritten 的存档。关闭校验或旧记录缺少校验状态时，正文仍可在原会话查看，PDF 接口返回 422。
 
@@ -94,11 +100,11 @@ PDF 只接受引用校验状态为 pass 或 rewritten 的存档。关闭校验�
 
 启动时后台执行 `knowledge.retrieval.selfcheck_gate()`，可能加载向量模型；失败只告警，不阻止服务启动。阈值基于语料和模型标定，替换后应重新验证。内置语料包含演示资料和带出处的图谱条款，完整指南见各条款的原文链接。
 
-Verifier 对外部知识核查引用语义，代码另行检测未知编号，经过有限修订与复核，必要时请求最终撰稿者重生成一次。单病种由专科重写，多病种由 Director 重写，均复用影像结果和证据。状态为 `pass`、`rewritten`、`rejected`、`error` 或 `disabled`；开启校验而证据为空时为 `rejected/no_evidence`，不会因缺证据放行。关闭 LLM 校验时仍拒绝未知引用编号。病例测量真实性不在引用校验范围内，详见 [Agents](agents/README.md)。
+Verifier 对外部知识核查引用语义，代码另行检测未知编号，经过有限修订与复核，必要时请求最终撰稿者重生成一次。单病种由专科重写，多病种由 Director 重写，均复用影像结果和证据。状态为 `pass`、`rewritten`、`rejected`、`error` 或 `disabled`；开启校验而证据为空时为 `rejected/no_evidence`，不会因缺证据放行。关闭 LLM 校验时仍拒绝未知引用编号。病例测量真实性不在引用校验范围内，详见 [Agents](modules/agent/README.md)。
 
 ## 配置
 
-配置来自 `utils/config.py` 和 `backend/.env`，修改后重启。模板见 [.env.example](.env.example)。
+配置来自 `core/config.py` 和 `backend/.env`，修改后重启。模板见 [.env.example](.env.example)。
 
 | 配置 | 默认值 | 用途 |
 |---|---|---|
@@ -153,7 +159,7 @@ $env:RAG_MODE = 'bm25'
 
 ## 数据与资源生命周期
 
-分析归档增加 `backend/original_store/` 和 reports.source_metadata，保存原图与来源哈希。备份须包含这个目录；当前没有自动原图清理器。历史缺原图不补造，按当前账号的报告归属和哈希读取。导入预览表、确认事务与缺项处理见[工作台](screening/README.md)。
+分析归档增加 `backend/original_store/` 和 reports.source_metadata，保存原图与来源哈希。备份须包含这个目录；当前没有自动原图清理器。历史缺原图不补造，按当前账号的报告归属和哈希读取。导入预览表、确认事务与缺项处理见[工作台](modules/screening/README.md)。
 
 SQLite 固定为 `backend/ocupanel.db`，原有 users、sessions、llm_configs、conversations、messages、reports 六张表，另有 screening_cases、screening_versions、screening_requests 和 screening_import_previews 四张合成演练及导入表。密码使用 PBKDF2-HMAC-SHA256，登录令牌有效期 7 天；会话形态启动时自动迁移，已有报告的旧会话初始化为 ophthalmic，之后主动切换的状态会保留。
 
@@ -170,9 +176,9 @@ SQLite 固定为 `backend/ocupanel.db`，原有 users、sessions、llm_configs�
 .\.venv\Scripts\python.exe -m unittest discover -s backend/tests
 
 # backend 下：真实服务连通自检，可能产生 API 调用费用
-..\.venv\Scripts\python.exe -m llm.check
+..\.venv\Scripts\python.exe -m core.llm.check
 ```
 
-离线回归与模拟 UI 验证不使用账户真实 Key；真实视觉样本结果见 [vision](vision/README.md)。未完成临床准确度、GPU、跨 Python 版本和生产并发容量验证。
+离线回归与模拟 UI 验证不使用账户真实 Key；真实视觉样本结果见 [vision](modules/vision/README.md)。未完成临床准确度、GPU、跨 Python 版本和生产并发容量验证。
 
 500 查看后端 traceback；502 检查聊天模型连接；409 去个人设置配置 LLM；413 检查聊天字符预算或反向代理上传上限；PDF 422 查看引用校验原因。首轮分析慢应检查模型下载、缓存与网络；中文 PDF 空框则配置 `REPORT_FONT_PATH`。模型下载、服务响应和引用修订都会影响报告耗时。

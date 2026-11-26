@@ -42,7 +42,7 @@ class GlaucomaReportCases(unittest.TestCase):
                  patch.object(analyzer, "predict_mask", return_value=mask), \
                  patch("modules.report.generation.retrieve_evidence", return_value=evidence), \
                  patch("modules.report.generation.get_retriever", return_value=Mock(similarity=lambda a, b: 0)), \
-                 patch("core.config_impl.VERIFY_ENABLED", True):
+                 patch("core.config.VERIFY_ENABLED", True):
                 result = generator.generate(path, "Synthetic case. Stage unknown.", folder)
 
             self.assertTrue(Path(result.image_path).is_file())

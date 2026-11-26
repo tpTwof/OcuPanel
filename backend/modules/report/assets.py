@@ -8,7 +8,7 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any
 
-ORIGINAL_STORE_DIR = Path(__file__).resolve().parents[1] / "original_store"
+from core.paths import ORIGINAL_STORE_DIR
 
 
 def original_path(metadata: dict[str, Any]) -> Path | None:

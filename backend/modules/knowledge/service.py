@@ -4,7 +4,7 @@ if TYPE_CHECKING:
     from modules.knowledge.retrieval import Retriever
 import threading
 import sys
-from core import config_impl as config
+from core import config
 _RETRIEVERS: dict[bool, Retriever] = {}
 _RETRIEVER_LOCK = threading.Lock()
 

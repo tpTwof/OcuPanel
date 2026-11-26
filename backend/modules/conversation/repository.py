@@ -43,7 +43,3 @@ def list_messages(user_id: str, conversation_id: str) -> list[dict[str, Any]]:
 def add_message(user_id: str, conversation_id: str, role: str, content: str,
                 meta: dict[str, Any] | None) -> dict[str, Any]:
     return storage.add_message(user_id, conversation_id, role, content, meta)
-
-
-def load_llm_config(user_id: str) -> dict[str, Any] | None:
-    return storage.load_llm_config(user_id)

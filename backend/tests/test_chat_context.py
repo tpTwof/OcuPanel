@@ -9,7 +9,7 @@ from modules.chat.context import select_history
 from modules.chat import service
 from modules.chat.schemas import SendMessageRequest
 from core.llm.client import LLMClient
-from core.errors import ApplicationError
+from core.exceptions import ApplicationError
 
 class ContextWindowTests(unittest.TestCase):
     def select(self, history, current='Q', **overrides):
@@ -56,13 +56,13 @@ class ContextWindowTests(unittest.TestCase):
                 return FakeRunnable()
 
         with patch.object(LLMClient, '_build_client', return_value=FakeClient()), \
-                patch('core.config_impl.CHAT_MAX_OUTPUT_TOKENS', 123):
+                patch('core.config.CHAT_MAX_OUTPUT_TOKENS', 123):
             LLMClient(api_key='test').chat_with_history([], 'Question')
         self.assertEqual(bound.get('max_tokens'), 123)
 
 class ContextRejectionTests(unittest.IsolatedAsyncioTestCase):
     async def test_oversized_question_is_not_saved_or_sent(self):
-        with patch('modules.chat.repository.get_conversation',return_value={'mode':'general','title':'Case'}), patch('modules.chat.repository.load_llm_config',return_value={'api_key':'x','model':'x','base_url':''}), patch('modules.chat.repository.list_messages',return_value=[]), patch('modules.chat.repository.add_message') as save, patch('modules.chat.service.LLMClient') as client, patch('core.config_impl.CHAT_CONTEXT_MAX_CHARS',5):
+        with patch('modules.conversation.repository.get_conversation',return_value={'mode':'general','title':'Case'}), patch('modules.user.service.load_llm_config',return_value={'api_key':'x','model':'x','base_url':''}), patch('modules.conversation.repository.list_messages',return_value=[]), patch('modules.conversation.repository.add_message') as save, patch('modules.chat.service.LLMClient') as client, patch('core.config.CHAT_CONTEXT_MAX_CHARS',5):
             with self.assertRaises(ApplicationError) as caught:
                 await service.send_message({'id':'u'},'c',SendMessageRequest(message='x'*10))
             self.assertEqual(caught.exception.status_code,413)
