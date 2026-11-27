@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import sys
@@ -10,9 +11,16 @@ from dataclasses import asdict
 from collections import Counter
 from modules.knowledge.graphrag import GraphRetriever
 from modules.knowledge.graphrag.builder import SEED_NAME
-from modules.knowledge.corpus import load_guideline, evidence_chunks
+from modules.knowledge.corpus import content_digest, load_guideline, evidence_chunks
 from modules.knowledge.chroma_store import ChromaVectorStore
-from modules.knowledge.report_focus import matches_disease
+from modules.knowledge.metadata import (
+    APPLICABILITY_LABELS,
+    MATERIAL_TYPE_LABELS,
+    REVIEW_STATUS_LABELS,
+    matches_case_disease,
+    resolve_material_type,
+    resolve_review_status,
+)
 from modules.knowledge.graphrag.retriever import query_regions
 from modules.knowledge.models import Chunk, SourcedChunk
 from pathlib import Path
@@ -65,6 +73,26 @@ def _tokenize(text: str) -> list[str]:
     return tokens
 
 
+def _markdown_metadata(path: Path) -> dict[str, str]:
+    """Markdown 语料同样标注材料类型与审核状态，避免草稿冒充正式条款。
+
+    `*-nei.md` 是美国国家眼科研究所的公众教育材料（患者教育、待复核）；
+    其余 Markdown（青光眼示例语料）是未替换成权威原文的草稿参考资料。
+    病种范围按文件名登记，未登记的文件不限制病种。
+    """
+    stem = path.stem
+    disease = ""
+    if stem.startswith("glaucoma"):
+        disease = "glaucoma"
+    elif stem.startswith("diabetic-retinopathy"):
+        disease = "diabetic_retinopathy"
+    elif stem.startswith("macular-degeneration"):
+        disease = "age_related_macular_degeneration"
+    if stem.endswith("-nei"):
+        return {"material_type": "patient_education", "review_status": "pending", "disease": disease}
+    return {"material_type": "reference_text", "review_status": "draft", "disease": disease}
+
+
 def load_chunks(corpus_dir: Path = CORPUS_DIR) -> list[Chunk]:
     """把 corpus 下的 Markdown 与 PDF 切成检索块。
 
@@ -81,6 +109,7 @@ def load_chunks(corpus_dir: Path = CORPUS_DIR) -> list[Chunk]:
     for path in sorted(corpus_dir.iterdir()):
         if path.suffix.lower() not in {".md", ".pdf"}:
             continue
+        metadata = _markdown_metadata(path)
         for title, sections in _document_sections(path, splitter):
             for idx, (section, body) in enumerate(sections):
                 for p_idx, para in enumerate(_pack_paragraphs(body)):
@@ -91,6 +120,10 @@ def load_chunks(corpus_dir: Path = CORPUS_DIR) -> list[Chunk]:
                         section=section,
                         text=para,
                         lang=detect_lang(f"{title} {section} {para}"),
+                        material_type=metadata["material_type"],
+                        review_status=metadata["review_status"],
+                        disease=metadata["disease"],
+                        content_hash=content_digest(para),
                     ))
     return chunks
 
@@ -235,12 +268,21 @@ class VectorIndex:
 
     @staticmethod
     def _metadata(chunk: Chunk) -> dict:
-        """写入 Chroma 的元数据。Chroma 只接受标量，缺失值用空串占位。"""
+        """写入 Chroma 的元数据。Chroma 只接受标量，缺失值用空串占位。
+
+        条款级适用条件本身是对象，序列化为 JSON 字符串保存；检索结果仍从
+        `Chunk`/`SourcedChunk` 取，不依赖从元数据反解。
+        """
         meta = {"source": chunk.source, "title": chunk.title, "section": chunk.section,
-                "lang": chunk.lang or ""}
+                "lang": chunk.lang or "", "topic": chunk.topic or "",
+                "material_type": chunk.material_type or "",
+                "review_status": chunk.review_status or "",
+                "content_hash": chunk.content_hash or ""}
         if isinstance(chunk, SourcedChunk):
             meta.update({key: getattr(chunk, key) or ""
-                         for key in ("url", "version", "jurisdiction", "scope")})
+                         for key in ("url", "version", "jurisdiction", "scope", "disease",
+                                     "chinese_summary", "context", "supersedes", "superseded_by")})
+            meta["applicability"] = json.dumps(chunk.applicability or {}, ensure_ascii=False)
         return meta
 
     def _encode_many(self, texts: list[str]) -> np.ndarray:
@@ -629,13 +671,14 @@ class Retriever:
                disease: str | None = None) -> list[dict]:
         """统一入口。模式由 RAG_MODE 控制，调用方无需关心。
 
-        disease 给出时，只保留登记为该病种或未登记病种的来源，避免跨病种污染。
+        disease 给出时，按条款级病种范围过滤（未登记范围的条款视为通用），
+        避免跨病种污染；明确登记为空集的来源（白内障相关）任何病种都不入选。
         """
         if k <= 0:
             return []
         hits = self._search_channels(query, k, min_score, boost, boost_weight)
         if disease:
-            hits = [item for item in hits if matches_disease(item.get("source"), disease)]
+            hits = [item for item in hits if matches_case_disease(item, disease)]
         return hits[:k]
 
     def _search_channels(self, query: str, k: int, min_score: float,
@@ -693,11 +736,36 @@ class Retriever:
         )
 
 
+def _applicability_text(item: dict) -> str:
+    applicability = item.get("applicability") or {}
+    if not isinstance(applicability, dict):
+        return ""
+    parts = [
+        f"{APPLICABILITY_LABELS.get(key, key)}：{value}"
+        for key, value in applicability.items() if value
+    ]
+    unknown = item.get("applicability_unknown") or []
+    if unknown:
+        parts.append("未核实（不能默认满足）：" + "、".join(
+            APPLICABILITY_LABELS.get(key, key) for key in unknown))
+    return "；".join(parts)
+
+
 def format_evidence_entry(item: dict, number: int) -> str:
     provenance = " · ".join(item[key] for key in ("version", "jurisdiction", "scope") if item.get(key))
     section = f" · {item['section']}" if item.get("section") else ""
     citation = f"[{number}] 《{item.get('title', '')}》{section}（来源：{item.get('source', '')}）"
-    return "\n".join(filter(None, (citation, provenance, item.get("text", ""))))
+    material_type = resolve_material_type(item)
+    review_status = resolve_review_status(item)
+    labels = [MATERIAL_TYPE_LABELS[material_type], REVIEW_STATUS_LABELS[review_status]]
+    applicability = _applicability_text(item)
+    if applicability:
+        labels.append(applicability)
+    if item.get("superseded_by"):
+        labels.append(f"已被 {item['superseded_by']} 替代")
+    return "\n".join(filter(None, (
+        citation, provenance, " · ".join(labels), item.get("text", ""),
+    )))
 
 
 def format_evidence_block(
@@ -719,8 +787,20 @@ def format_evidence_block(
         "【引用要求】1) 凡结论依赖上述资料的，句末必须标注编号，例如「建议每 3–4 个月复查眼压 [2]」；"
         "2) 资料未覆盖的内容不要编造，直接写「资料未涵盖」；3) 不要在报告正文里复述资料原文。"
     )
-    if any(item.get("scope") for item in evidence):
-        lines.append("【条款适用性】注明适用地区及场景，核对缺失条件。检索关联仅用于定位资料，病例事实以输入所见为准。")
+    lines.append(
+        "【条款状态】每条资料标注材料类型与审核状态。材料类型为患者教育、参考资料或草稿时，"
+        "只能用于通俗解释，不能当作具体诊疗决策依据；审核状态不是「已完成」时，"
+        "相应结论要保留不确定性，不能写成已核实结论。引用校验只确认正文与资料对应，"
+        "不等于条款本身已通过临床审核。"
+    )
+    if any(item.get("scope") or item.get("applicability")
+           or item.get("applicability_unknown") for item in evidence):
+        lines.append(
+            "【条款适用性】注明适用地区及场景，保留条款写明的前提与例外。"
+            "标注「未核实（不能默认满足）」的适用条件没有在本次筛选中核对过，"
+            "引用该条款的结论与建议必须把它写成前提，不能当作已经满足；"
+            "检索关联仅用于定位资料，病例事实以输入所见为准。"
+        )
     return "\n".join(lines)
 
 

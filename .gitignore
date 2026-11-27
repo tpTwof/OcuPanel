@@ -25,6 +25,9 @@ backend/output/
 backend/img_store/
 backend/original_store/
 data/
+# 真实路径由 core/paths.py 解析到 backend 下；这两条挡住误生成在别处的副本
+img_store/
+backend/modules/original_store/
 
 # ---- 本地数据库（含账户与加密后的 API Key，绝不提交）----
 backend/knowledge/.cache/

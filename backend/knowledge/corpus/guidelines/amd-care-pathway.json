@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "cn-amd-2023-care": {
+      "title": "中国年龄相关性黄斑变性临床诊疗指南（2023年）检查、鉴别与处置条款摘要",
+      "jurisdiction": "CN",
+      "version": "中华眼科杂志 2023，59(5)，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://www.ddzxhospital.com/library/up_f/file/20230802/202308020837477207.pdf",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "age_related_macular_degeneration"
+      ]
+    },
+    "aao-amd-2023-care": {
+      "title": "AAO 年龄相关性黄斑变性指南（PPP）检查与鉴别条款摘要",
+      "jurisdiction": "US",
+      "version": "2023 年版摘要，临床专家复核状态为待复核",
+      "url": "https://www.aao.org/preferred-practice-pattern/age-related-macular-degeneration-ppp",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "age_related_macular_degeneration"
+      ]
+    },
+    "nice-ng82-care": {
+      "title": "NICE NG82 年龄相关性黄斑变性，诊断与监测条款摘要",
+      "jurisdiction": "UK",
+      "version": "2018 年版，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://www.nice.org.uk/guidance/ng82/chapter/recommendations",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "age_related_macular_degeneration"
+      ]
+    }
+  },
+  "evidence": [
+    {
+      "id": "cn-amd-interpretation",
+      "source": "cn-amd-2023-care",
+      "section": "影像判读",
+      "scope": "年龄相关性黄斑变性的结构与活动性判读",
+      "topic": "interpretation",
+      "disease": [
+        "age_related_macular_degeneration"
+      ],
+      "applicability": {
+        "population": "疑似或确诊年龄相关性黄斑变性患者",
+        "care_stage": "诊断与治疗",
+        "preconditions": "具备可比较的 OCT 与眼底影像"
+      },
+      "text": "玻璃膜疣数量与大小、色素改变与地图样萎缩范围用于描述非新生血管型病变程度；新生血管活动性依据视网膜内液、视网膜下液、出血与渗漏判断。判读应与既往影像比较，单次表现不能确定进展速度；OCT 与眼底所见不一致时需结合血管造影复核。"
+    },
+    {
+      "id": "cn-amd-exam-oct",
+      "source": "cn-amd-2023-care",
+      "section": "OCT 检查的目的",
+      "scope": "年龄相关性黄斑变性的结构评估",
+      "topic": "examination",
+      "disease": [
+        "age_related_macular_degeneration"
+      ],
+      "applicability": {
+        "population": "疑似或确诊年龄相关性黄斑变性患者",
+        "care_stage": "诊断与治疗",
+        "preconditions": "OCT 图像可判读并记录中心凹结构"
+      },
+      "text": "OCT 用于识别视网膜内液、视网膜下液、玻璃膜疣与地图样萎缩，是判断新生血管活动性与治疗反应的主要影像手段。单次 OCT 正常不能排除早期或非活动期病变，也不能替代眼底检查与病史；判读应结合视力与病程。"
+    },
+    {
+      "id": "cn-amd-exam-fa",
+      "source": "cn-amd-2023-care",
+      "section": "血管造影的适应证",
+      "scope": "年龄相关性黄斑变性中血管造影的使用",
+      "topic": "examination",
+      "disease": [
+        "age_related_macular_degeneration"
+      ],
+      "applicability": {
+        "population": "需要确认新生血管或鉴别黄斑病变者",
+        "care_stage": "诊断",
+        "preconditions": "已评估过敏史与肾功能等禁忌",
+        "exclusions": "不作为常规随访项目"
+      },
+      "text": "荧光素眼底血管造影，必要时联合吲哚菁绿造影，用于确认新生血管及其类型、评估渗漏范围。该检查有创，需先评估过敏史与肾功能等禁忌，不作为常规随访项目；造影结果需与 OCT 和眼底检查对照解读。"
+    },
+    {
+      "id": "cn-amd-exam-amsler",
+      "source": "cn-amd-2023-care",
+      "section": "阿姆斯勒方格表检查",
+      "scope": "黄斑功能的门诊筛查与家庭监测",
+      "topic": "examination",
+      "disease": [
+        "age_related_macular_degeneration"
+      ],
+      "applicability": {
+        "population": "年龄相关性黄斑变性患者或高危人群",
+        "care_stage": "筛查与随访",
+        "preconditions": "已向患者演示正确使用方法并单眼分别检查"
+      },
+      "text": "阿姆斯勒方格表用于家庭自我监测与门诊粗筛，可发现中心视野变形或暗点。阳性结果不能确定病因，需进一步行眼底检查与 OCT 评估；单眼分别检查、固定阅读距离并记录变化时间，结果才便于比较。"
+    },
+    {
+      "id": "aao-amd-differential",
+      "source": "aao-amd-2023-care",
+      "section": "Differential diagnosis / Macular findings",
+      "scope": "美国年龄相关性黄斑变性的鉴别考虑",
+      "topic": "differential",
+      "disease": [
+        "age_related_macular_degeneration"
+      ],
+      "applicability": {
+        "population": "黄斑区出现玻璃膜疣、渗出或视力下降的患者",
+        "care_stage": "诊断",
+        "preconditions": "具备眼底与 OCT 的完整评估"
+      },
+      "text": "黄斑区玻璃膜疣需与药物沉积、视网膜色素上皮改变等区分；视物变形与视力下降还需考虑近视性新生血管、中心性浆液性脉络膜视网膜病变、视网膜前膜与黄斑裂孔等其他黄斑疾病。病因不明确时应追加检查，而不是直接按 AMD 处理。"
+    },
+    {
+      "id": "nice-ng82-differential",
+      "source": "nice-ng82-care",
+      "section": "1.2 诊断与鉴别",
+      "scope": "英国疑似新生血管性 AMD 的诊断路径",
+      "topic": "differential",
+      "disease": [
+        "age_related_macular_degeneration"
+      ],
+      "applicability": {
+        "population": "出现新发视物变形或中心视力下降的老年人",
+        "care_stage": "诊断"
+      },
+      "text": "新发视物变形或中心视力下降者应尽快完成眼底与 OCT 评估以区分新生血管性与非新生血管性病变。仅有玻璃膜疣而中心视力正常者不需要紧急转诊；出现视网膜下液、视网膜内液或出血时按新生血管性病变处理。"
+    },
+    {
+      "id": "cn-amd-postdiagnosis",
+      "source": "cn-amd-2023-care",
+      "section": "确诊后的处置路径",
+      "scope": "年龄相关性黄斑变性确诊后的分层管理",
+      "topic": "treatment",
+      "disease": [
+        "age_related_macular_degeneration"
+      ],
+      "applicability": {
+        "population": "已确诊年龄相关性黄斑变性患者",
+        "care_stage": "治疗",
+        "preconditions": "已完成分型与活动性评估"
+      },
+      "text": "确诊后先区分非新生血管型与新生血管型：非新生血管型以监测、危险因素管理与必要的营养补充为主；新生血管型需尽快启动抗 VEGF 治疗并制定随访计划。抗 VEGF 通常需多次注射，具体方案与间隔由眼底医师依据活动性调整。"
+    },
+    {
+      "id": "cn-amd-followup-dry",
+      "source": "cn-amd-2023-care",
+      "section": "非新生血管型的随访",
+      "scope": "非新生血管性年龄相关性黄斑变性患者的复查",
+      "topic": "followup",
+      "disease": [
+        "age_related_macular_degeneration"
+      ],
+      "applicability": {
+        "population": "非新生血管性年龄相关性黄斑变性患者",
+        "care_stage": "随访",
+        "preconditions": "已记录基线视力、眼底与 OCT"
+      },
+      "text": "非新生血管型患者应定期复查视力、眼底与 OCT，并教会自我监测。出现新发视物变形或视力下降提示可能转为新生血管型，应尽快评估；随访间隔依据病变程度与风险确定，不能仅凭一次稳定的检查结果长期不再复查。"
+    },
+    {
+      "id": "cn-amd-education",
+      "source": "cn-amd-2023-care",
+      "section": "患者教育",
+      "scope": "年龄相关性黄斑变性患者的自我管理与就医指引",
+      "topic": "education",
+      "disease": [
+        "age_related_macular_degeneration"
+      ],
+      "applicability": {
+        "population": "年龄相关性黄斑变性患者及其照护者",
+        "care_stage": "治疗与随访"
+      },
+      "text": "应向患者说明戒烟、控制血压与合理营养对风险管理的意义。已确诊者应每日单眼使用阿姆斯勒表自我监测，出现视物变形或视力骤降时立即就医，不要等待下一次常规复查；正在接受抗 VEGF 治疗者不应自行延长随访。"
+    },
+    {
+      "id": "nice-ng82-education",
+      "source": "nice-ng82-care",
+      "section": "1.6 患者信息与自我监测",
+      "scope": "英国 AMD 患者的自我监测指导",
+      "topic": "education",
+      "disease": [
+        "age_related_macular_degeneration"
+      ],
+      "applicability": {
+        "population": "确诊或疑似 AMD 的患者",
+        "care_stage": "随访"
+      },
+      "text": "应告知患者单眼自我监测的方法与需要立即就诊的症状，包括新发或加重的视物变形、中心暗点与视力快速下降。教育内容需记录在病历中，并确认患者能够正确复述使用方法。"
+    }
+  ]
+}

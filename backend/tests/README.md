@@ -52,3 +52,30 @@
 全路线回归新增合成机构与账号、报告任务、按版本调阅原图及叠加图、签发后随访、到期清理与损坏快照。测试在临时目录执行，使用受控推理结果覆盖任务中断前后的归档行为。评估 CLI 复用仓库中的四病种合成输入。[2026-11-25 验收记录](../../docs/升级验收.md)
 
 `test_layout.py` 检查数据库、报告输出、原图及语料路径在模块迁移后仍定位到 backend；文本检索和图检索共用已有语料目录。
+
+## 运行时迁移的回归
+
+- `test_agent_contract.py`：固定引用核查返回的键集合（基础字段、交付字段、拒答原因、故障分类），迁移后不得多出前端不认识的键。
+- `test_verify_graph.py`：核查状态机的边界——轮数等于 `max_rounds`、整篇重生成最多一次、核查故障必落 `error`、干净草稿不进入循环。
+- `test_llm_gateway.py`：`complete()` 抛带排查提示的 `LLMUnavailable`；报告链路把它翻成 503「模型服务不可用」，不再落到队列兜底文案；`chat_with_gpt` 仍保留 `Error:` 字符串契约。
+- `test_agent_tools.py`：专科一次成稿、提示词里不再有工具协议、模型返回工具动作时直接报错而不是重试。
+
+迁移决策见 [ADR-0002](../../docs/adr/0002-agent-runtime-langgraph.md)。
+
+## 按需检索与统一报告流程
+
+- `test_report_pipeline_v2.py`：按方案验收清单覆盖不检索、正常检索、补检、无结果、工具故障、规划格式错误、预算耗尽、证据冲突、不适用来源、多病种、左右眼混淆与未知引用编号；「重复检查建议」以提示词约束的形式断言（专科与 Director 提示词必须禁止重复已记录完成的检查），没有单独的行为用例。另验证病例事实的稳定 ID、缺失与冲突、提示词版本、检索记录字段、v2/legacy 流程开关及非法开关值启动失败。全部使用固定工具结果与固定模型回复。
+- `test_corpus_metadata.py`：旧条款缺失元数据时审核状态为 unknown、非法取值加载即失败、条款级病种优先、患者教育材料不能支撑诊疗主题、缺失的适用条件记为 unknown 而不是默认满足；`clause_fit` 只把**明确矛盾**的适用条件判为不可用，条款写明的前提与例外照常采用并随证据带走。
+- `test_report_retrieval.py` 的四方面覆盖用例此前因治疗与随访条款排序失败，扩充正式语料后通过；改动检索排序或语料时应重跑。
+- 评估病例集位于 [`fixtures/report_eval_cases.json`](fixtures/report_eval_cases.json)，覆盖三病种典型病例、缺失信息、仅病例输入与多病种。它只固定输入与期望主题，不锁定模型措辞。
+- 语料覆盖与缺口由 `backend/tools/corpus_coverage.py` 生成[语料覆盖矩阵](../../docs/语料覆盖矩阵.md)；基线与评估口径见[报告流程基线](../../docs/报告流程基线.md)。
+
+```powershell
+# 仓库根目录
+.\.venv\Scripts\python.exe -m unittest discover -s backend/tests -p test_report_pipeline_v2.py -v
+.\.venv\Scripts\python.exe -m unittest discover -s backend/tests -p test_corpus_metadata.py -v
+.\.venv\Scripts\python.exe backend\tools\corpus_coverage.py --write docs\语料覆盖矩阵.md
+```
+
+这些回归检查软件契约与固定输入下的状态，不代表真实病例或模型的临床验证；临床解释质量与建议适用性仍需专业复核。
+

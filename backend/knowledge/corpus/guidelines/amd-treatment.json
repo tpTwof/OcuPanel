@@ -1,47 +1,148 @@
 {
   "schema_version": 1,
   "concepts": {
-    "dry_amd": {"label": "干性（非新生血管性）AMD", "aliases": ["干性AMD", "非新生血管性", "dry AMD", "non-neovascular"]},
-    "intermediate_amd": {"label": "中期 AMD", "aliases": ["中期AMD", "intermediate AMD"]},
-    "drusen": {"label": "玻璃膜疣", "aliases": ["玻璃膜疣", "drusen"]},
-    "geographic_atrophy": {"label": "地图样萎缩", "aliases": ["地图样萎缩", "geographic atrophy", "GA"]},
-    "amd_supplement": {"label": "AMD 营养补充", "aliases": ["叶黄素", "玉米黄质", "AREDS", "抗氧化维生素", "lutein", "zeaxanthin"]},
-    "amd_followup": {"label": "AMD 随访与自我监测", "aliases": ["Amsler", "阿姆斯勒表", "自我监测", "AMD 复查", "AMD follow-up"]},
-    "amd_risk": {"label": "AMD 危险因素", "aliases": ["吸烟", "年龄相关风险", "AMD 危险因素"]}
+    "dry_amd": {
+      "label": "干性（非新生血管性）AMD",
+      "aliases": [
+        "干性AMD",
+        "非新生血管性",
+        "dry AMD",
+        "non-neovascular"
+      ]
+    },
+    "intermediate_amd": {
+      "label": "中期 AMD",
+      "aliases": [
+        "中期AMD",
+        "intermediate AMD"
+      ]
+    },
+    "drusen": {
+      "label": "玻璃膜疣",
+      "aliases": [
+        "玻璃膜疣",
+        "drusen"
+      ]
+    },
+    "geographic_atrophy": {
+      "label": "地图样萎缩",
+      "aliases": [
+        "地图样萎缩",
+        "geographic atrophy",
+        "GA"
+      ]
+    },
+    "amd_supplement": {
+      "label": "AMD 营养补充",
+      "aliases": [
+        "叶黄素",
+        "玉米黄质",
+        "AREDS",
+        "抗氧化维生素",
+        "lutein",
+        "zeaxanthin"
+      ]
+    },
+    "amd_followup": {
+      "label": "AMD 随访与自我监测",
+      "aliases": [
+        "Amsler",
+        "阿姆斯勒表",
+        "自我监测",
+        "AMD 复查",
+        "AMD follow-up"
+      ]
+    },
+    "amd_risk": {
+      "label": "AMD 危险因素",
+      "aliases": [
+        "吸烟",
+        "年龄相关风险",
+        "AMD 危险因素"
+      ]
+    }
   },
   "relations": [
-    ["drusen", "提示评估", "amd"],
-    ["intermediate_amd", "分型属于", "dry_amd"],
-    ["dry_amd", "分型属于", "amd"],
-    ["geographic_atrophy", "分型属于", "dry_amd"],
-    ["amd_supplement", "适用对象", "intermediate_amd"],
-    ["amd_followup", "随访对象", "amd"],
-    ["amd_risk", "关联", "amd"]
+    [
+      "drusen",
+      "提示评估",
+      "amd"
+    ],
+    [
+      "intermediate_amd",
+      "分型属于",
+      "dry_amd"
+    ],
+    [
+      "dry_amd",
+      "分型属于",
+      "amd"
+    ],
+    [
+      "geographic_atrophy",
+      "分型属于",
+      "dry_amd"
+    ],
+    [
+      "amd_supplement",
+      "适用对象",
+      "intermediate_amd"
+    ],
+    [
+      "amd_followup",
+      "随访对象",
+      "amd"
+    ],
+    [
+      "amd_risk",
+      "关联",
+      "amd"
+    ]
   ],
   "sources": {
     "cn-amd-treat-2023": {
       "title": "中国年龄相关性黄斑变性临床诊疗指南（2023年）随访与干预条款摘要",
       "jurisdiction": "CN",
       "version": "中华眼科杂志 2023，59(5)，本文件为章节摘要，临床专家复核状态为待复核",
-      "url": "https://www.ddzxhospital.com/library/up_f/file/20230802/202308020837477207.pdf"
+      "url": "https://www.ddzxhospital.com/library/up_f/file/20230802/202308020837477207.pdf",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "age_related_macular_degeneration"
+      ]
     },
     "nice-ng82-followup": {
       "title": "NICE NG82 年龄相关性黄斑变性，随访与监测章节条款摘要",
       "jurisdiction": "UK",
       "version": "2018 年版，本文件为章节摘要，临床专家复核状态为待复核",
-      "url": "https://www.nice.org.uk/guidance/ng82/chapter/recommendations#monitoring"
+      "url": "https://www.nice.org.uk/guidance/ng82/chapter/recommendations#monitoring",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "age_related_macular_degeneration"
+      ]
     },
     "aao-amd-2023": {
       "title": "AAO 年龄相关性黄斑变性指南（PPP）分级与营养补充条款摘要",
       "jurisdiction": "US",
       "version": "2023 年版摘要，临床专家复核状态为待复核",
-      "url": "https://www.aao.org/preferred-practice-pattern/age-related-macular-degeneration-ppp"
+      "url": "https://www.aao.org/preferred-practice-pattern/age-related-macular-degeneration-ppp",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "age_related_macular_degeneration"
+      ]
     },
     "nei-amd-dry": {
       "title": "美国国家眼科研究所（NEI）干性 AMD 与营养补充公众教育",
       "jurisdiction": "US",
       "version": "网页核对于 2026-11-16，面向公众的健康教育材料",
-      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/age-related-macular-degeneration"
+      "url": "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/age-related-macular-degeneration",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "age_related_macular_degeneration"
+      ]
     }
   },
   "evidence": [
@@ -50,7 +151,10 @@
       "source": "cn-amd-treat-2023",
       "section": "随访与监测",
       "scope": "中国已确诊非新生血管性年龄相关性黄斑变性患者的随访",
-      "anchors": ["amd_followup", "dry_amd"],
+      "anchors": [
+        "amd_followup",
+        "dry_amd"
+      ],
       "text": "非新生血管性年龄相关性黄斑变性患者应定期随访，建议通过阿姆斯勒表自我监测视物变形与新发中心暗点。一旦出现视力下降、视物变形或中心暗点进展，应及时复查，以排查是否转为新生血管性。"
     },
     {
@@ -58,7 +162,10 @@
       "source": "cn-amd-treat-2023",
       "section": "营养补充与生活方式",
       "scope": "中国中期及以上年龄相关性黄斑变性患者",
-      "anchors": ["amd_supplement", "intermediate_amd"],
+      "anchors": [
+        "amd_supplement",
+        "intermediate_amd"
+      ],
       "text": "对中期或晚期年龄相关性黄斑变性患者，可参考 AREDS 配方补充抗氧化维生素、叶黄素与玉米黄质，以降低进展风险；对早期或无症状者尚无充分证据支持常规补充。补充前应结合饮食与全身情况由医生评估，不能替代戒烟。"
     },
     {
@@ -66,7 +173,9 @@
       "source": "cn-amd-treat-2023",
       "section": "危险因素与预防",
       "scope": "年龄相关性黄斑变性的风险咨询",
-      "anchors": ["amd_risk"],
+      "anchors": [
+        "amd_risk"
+      ],
       "text": "年龄、吸烟、遗传易感性与心血管疾病是年龄相关性黄斑变性的主要危险因素。戒烟是唯一有明确证据支持可干预的生活方式措施。"
     },
     {
@@ -74,7 +183,9 @@
       "source": "cn-amd-treat-2023",
       "section": "地图样萎缩",
       "scope": "中国地图样萎缩患者的识别与随访",
-      "anchors": ["geographic_atrophy"],
+      "anchors": [
+        "geographic_atrophy"
+      ],
       "text": "地图样萎缩表现为黄斑区视网膜色素上皮与外层视网膜进行性萎缩，病程通常缓慢进展并伴中心视力逐渐下降。其处理以定期随访、延缓进展和低视力康复为主。"
     },
     {
@@ -82,7 +193,10 @@
       "source": "nei-amd-dry",
       "section": "Dry AMD / What is dry AMD?",
       "scope": "美国 NEI 面向公众的干性 AMD 健康教育",
-      "anchors": ["dry_amd", "drusen"],
+      "anchors": [
+        "dry_amd",
+        "drusen"
+      ],
       "text": "干性年龄相关性黄斑变性占该病的大多数，特征为视网膜下出现玻璃膜疣与黄斑区视网膜色素上皮萎缩。早期可能没有明显症状，随病程进展出现中心视力下降或视物变形。"
     },
     {
@@ -90,7 +204,9 @@
       "source": "nei-amd-dry",
       "section": "Dry AMD / Can diet prevent AMD?",
       "scope": "美国 NEI 面向公众的干性 AMD 营养咨询",
-      "anchors": ["amd_supplement"],
+      "anchors": [
+        "amd_supplement"
+      ],
       "text": "富含叶黄素与玉米黄质的深绿色蔬菜及鱼类饮食与较低的 AMD 进展风险相关。是否使用营养补充剂应由医生根据分期决定，不能自行长期大剂量服用。"
     },
     {
@@ -98,7 +214,10 @@
       "source": "aao-amd-2023",
       "section": "Classification / Dry AMD severity",
       "scope": "美国 AMD 分期与玻璃膜疣判读",
-      "anchors": ["intermediate_amd", "drusen"],
+      "anchors": [
+        "intermediate_amd",
+        "drusen"
+      ],
       "text": "AMD 依据玻璃膜疣大小、数量及色素上皮改变进行分期：多个中等大小玻璃膜疣或至少一个较大玻璃膜疣、伴或不伴色素改变者属于中期 AMD；存在地图样萎缩或新生血管者属于晚期。玻璃膜疣大小与数量是判断进展风险的重要依据。"
     },
     {
@@ -106,7 +225,10 @@
       "source": "aao-amd-2023",
       "section": "Prevention / AREDS supplementation",
       "scope": "美国中期或晚期 AMD 的营养补充建议",
-      "anchors": ["amd_supplement", "intermediate_amd"],
+      "anchors": [
+        "amd_supplement",
+        "intermediate_amd"
+      ],
       "text": "AREDS 与 AREDS2 配方适用于中期 AMD 或单眼晚期 AMD 患者，用以降低对侧眼进展风险。早期 AMD 患者缺乏获益证据。吸烟者不宜使用含 β-胡萝卜素的配方，可选用不含 β-胡萝卜素的 AREDS2 配方。"
     },
     {
@@ -114,7 +236,9 @@
       "source": "nice-ng82-followup",
       "section": "Monitoring / 随访",
       "scope": "英国非新生血管性年龄相关性黄斑变性患者的随访",
-      "anchors": ["amd_followup"],
+      "anchors": [
+        "amd_followup"
+      ],
       "text": "非新生血管性年龄相关性黄斑变性患者应与社区验光师或医院随访合作，定期检查视力并自我监测视物变形。出现新发视物变形或视力骤降时应尽快评估，以判断是否出现新生血管化并考虑 OCT。"
     }
   ]

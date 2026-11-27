@@ -4,6 +4,7 @@ import re
 from typing import Any
 from modules.agent.tools.text_revision import visible_text
 from modules.agent.tools.grounding import SOFTWARE_BOUNDARY
+from modules.knowledge.metadata import evidence_metadata
 
 
 def text_digest(text: str) -> str:
@@ -11,6 +12,11 @@ def text_digest(text: str) -> str:
 
 
 def source_manifest(case_context: str, evidence: list[dict]) -> dict[str, Any]:
+    """本次核查所用来源的清单：正文快照哈希、证据编号、版本与审核状态。
+
+    保存内容哈希与来源版本，报告存档才能复核「当时引用的是哪一版条款」。
+    审核状态与引用校验结果分开记录——引用有效不等于条款已通过临床审核。
+    """
     return {
         "case_sha256": text_digest(case_context), "case_available": bool(case_context.strip()),
         "case_context": case_context,
@@ -19,6 +25,7 @@ def source_manifest(case_context: str, evidence: list[dict]) -> dict[str, Any]:
             "index": item.get("index", index), "id": item.get("id"),
             "source": item.get("source"), "section": item.get("section"),
             "text_sha256": text_digest(item.get("text", "")),
+            **evidence_metadata(item),
         } for index, item in enumerate(evidence, 1)],
     }
 

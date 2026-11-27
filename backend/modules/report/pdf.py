@@ -11,6 +11,12 @@ from fpdf.fonts import FontFace
 from PIL import Image
 
 from core.paths import OUTPUT_DIR
+from modules.knowledge.metadata import (
+    MATERIAL_TYPE_LABELS,
+    REVIEW_STATUS_LABELS,
+    resolve_material_type,
+    resolve_review_status,
+)
 from modules.report.settings import LABELS, USE_CHINESE, _FONT_CANDIDATES
 
 _TABLE_SEPARATOR = re.compile(r":?-{3,}:?")
@@ -205,6 +211,14 @@ class PDFRenderer:
                 url = item.get("url") or ""
                 write_text(f"[{item.get('index', index)}] {title}{section}", size=10, style="B",
                            link=url if url.startswith(("https://", "http://")) else "")
+                # 出处之外同时标注材料类型与审核状态：引用校验通过不等于条款已通过临床审核。
+                provenance = " · ".join(filter(None, (
+                    item.get("version"),
+                    MATERIAL_TYPE_LABELS.get(resolve_material_type(item)),
+                    REVIEW_STATUS_LABELS.get(resolve_review_status(item)),
+                )))
+                if provenance:
+                    write_text(provenance, height=4, size=8)
                 snippet = " ".join((item.get("text") or "").split())
                 if snippet:
                     write_text(snippet[:120] + ("…" if len(snippet) > 120 else ""), height=5, size=9)

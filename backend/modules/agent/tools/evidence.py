@@ -1,7 +1,12 @@
-"""请求内只读证据工具，不访问其他病例或任意文件。"""
+"""请求内只读证据工具，不访问其他病例或任意文件。
+
+专科成稿现在一次调用完成（证据全文已在提示词里），这里只剩两类确定性工作：
+引用编号的结构校验，以及报告链路里"未知编号"的识别与清理——它们本该由代码
+判定，不该交给模型。
+"""
 from __future__ import annotations
-from typing import Any
 import re
+from typing import Any
 
 
 def citation_state(text: str) -> tuple[set[int], bool]:
@@ -20,30 +25,6 @@ class EvidenceTools:
     def __init__(self, evidence: list[dict[str, Any]], numbers: dict[str, int]) -> None:
         self.items = {item['id']: item for item in evidence if item['id'] in numbers}
         self.numbers = numbers
-
-    def search(self, query: str) -> list[dict[str, Any]]:
-        if not isinstance(query, str) or not query.strip() or len(query) > 1000:
-            raise ValueError('query must contain 1–1000 characters')
-        terms = set(re.findall(r'\w+', query.lower()))
-        def relevance(item: dict) -> int:
-            text = (item.get("title", "") + " " + item.get("text", "")).lower()
-            return sum(term in text for term in terms)
-
-        ranked = sorted(self.items.values(), key=relevance, reverse=True)
-        return [
-            {
-                "id": item["id"],
-                "citation": self.numbers[item["id"]],
-                "title": item.get("title", ""),
-            }
-            for item in ranked[:5]
-        ]
-
-    def read(self, evidence_id: str) -> dict[str, Any]:
-        if evidence_id not in self.items:
-            raise ValueError('Unknown evidence id')
-        item = self.items[evidence_id]
-        return {'id':evidence_id,'citation':self.numbers[evidence_id], 'text':item.get('text','')}
 
     def validate_citations(self, text: str) -> None:
         cited, nonstandard = citation_state(text)

@@ -84,7 +84,7 @@ def is_annotation_only(issue: dict[str, Any], case_context: str = "") -> bool:
     """
     verdict = issue.get("verdict")
     origin = issue.get("origin")
-    if origin == "citation_control":
+    if origin in {"citation_control", "fabricated_value", "not_applicable", "lateral_mismatch"}:
         return False
     if _looks_like_conflict(issue):
         return False

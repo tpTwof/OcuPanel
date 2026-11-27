@@ -1,14 +1,17 @@
-"""引用校验 Agent：协调核查、修订、复核和最终状态。
+"""引用校验 Agent：核查单次调用、定点重写，控制流见 `graphs/verify.py`。
 
 提示词位于 prompts/verification.py；JSON 解析与文本修订位于 tools/。
 病例数据无需外部文献引用，其真实性需要与原始病例核对，不由本模块保证。
+
+这个类现在只负责"一次核查"和"一次重写"两件事，以及跨调用累积的现场
+（review_log / grounding / 失败分类）。首轮 → 仲裁 → 修订 → 重生成 → 标注
+这些状态流转都交给 LangGraph 图，`execute` 保持原签名作为对外契约。
 """
 from __future__ import annotations
 import re
 import sys
 from typing import Any, Callable
 from core.llm.models import LLMCall
-from core import config
 from .prompts.verification import (
     VERIFIER_SYSTEM,
     REWRITER_SYSTEM,
@@ -19,15 +22,11 @@ from .tools.json_response import parse_json
 from .tools.verification_response import parse_claims
 from .tools.grounding import audit_grounding, uncovered_citations
 from .tools.verification_audit import (
-    case_fragments, contains_case_fragment, match_case_facts, reference_links, source_manifest, text_digest,
+    case_fragments, contains_case_fragment, match_case_facts, text_digest,
 )
-from .tools.evidence import strip_unknown_citations, unknown_citation_issues
-from .tools.annotation import annotate_unverified, unannotated
-from .tools.text_revision import (
-    apply_replacements, content_len, locate, omit_local_issues, snap_to_sentence,
-)
-
-MAX_ISSUES_PER_ROUND = 12
+from .tools.evidence import unknown_citation_issues
+from .tools.applicability import applicability_issues
+from .tools.text_revision import content_len, locate, snap_to_sentence
 
 class CitationVerifier:
     """核查引用，有限轮修订并复核，必要时请求一次整篇重生成。
@@ -55,6 +54,8 @@ class CitationVerifier:
         sim_fn: Callable[[str, str], float] | None = None,
         case_context: str = "",
         require_grounding: bool = False,
+        case_facts: list[dict[str, Any]] | None = None,
+        diseases: tuple[str, ...] = (),
     ) -> None:
         self._llm = llm_call
         # 修订后仍有问题且正文低于阈值时，优先请求整篇重生成。
@@ -66,6 +67,9 @@ class CitationVerifier:
         self._failure_detail: str | None = None
         self._format_retries = 0
         self.case_context = case_context
+        # 结构化的病例事实与病种，用于确定性的眼别/适用性检查（可留空）
+        self.case_facts = case_facts or []
+        self.diseases = tuple(diseases)
         self._review_log: list[dict] = []
         self._case_fact_matches: list[dict] = []
         self.require_grounding = require_grounding
@@ -86,12 +90,22 @@ class CitationVerifier:
             if contains_case_fragment(item["quote"], fragments):
                 item["impact"] = "core"
         known = {(item["quote"], tuple(item["citations"])): item for item in issues}
-        for item in unknown_citation_issues(text, evidence):
+        # 编号错误、编造数值、左右眼错位与病种不适用都由代码确定性识别，
+        # 不依赖模型是否“看见”；同一句已有问题时只提升影响级别，不重复记录。
+        deterministic = [
+            *unknown_citation_issues(text, evidence),
+            *applicability_issues(
+                text, evidence, case_context=self.case_context,
+                case_facts=self.case_facts, diseases=self.diseases,
+            ),
+        ]
+        for item in deterministic:
             key = (item["quote"], tuple(item["citations"]))
             if key in known:
-                known[key]["impact"] = "core"
+                known[key].update(item)
             else:
                 issues.append(item)
+                known[key] = item
         return issues, matches
 
     # -- 单步 ---------------------------------------------------------------
@@ -203,7 +217,7 @@ class CitationVerifier:
     def verify_and_rewrite(
         self,
         text: str,
-        evidence: list[dict],
+        evidence: list[dict[str, Any]],
         max_rounds: int = 2,
         regenerate: Callable[[list[dict[str, Any]]], str] | None = None,
     ) -> tuple[str | None, dict[str, Any]]:
@@ -211,214 +225,15 @@ class CitationVerifier:
 
         返回状态：pass（首次通过）、rewritten（修订后通过）、
         rejected（无证据、空正文或问题未消除）、error（校验调用失败）。
-        仅剩非核心说明时可尝试一次局部删除，随后重新核查全文。
-        regenerate 最多调用一次；仅在复核仍有问题，且正文过短或轮数用尽时触发。
+        分支细节见 `graphs/verify.py`：这里只重置本次核查的现场，然后把状态机
+        跑起来——迁移前这段逻辑是本方法里的 220 行嵌套。
         """
+        from .graphs.verify import run_verification
+
         self._review_log = []
         self._case_fact_matches = []
         self._grounding = []
-        report = {
-            "status": "skipped",
-            "rounds": 0,
-            "initial_issues": 0,
-            "remaining_issues": [],
-            "fixed": [],
-            "deleted": 0,
-            "format_retries": 0,
-            "policy_version": 2,
-            "source_manifest": source_manifest(self.case_context, evidence),
-            "draft_text_sha256": text_digest(text),
-            "review_log": self._review_log,
-            "case_fact_matches": self._case_fact_matches,
-        }
         self._format_retries = 0
-        if not content_len(text):
-            report["status"] = "rejected"
-            report["reason"] = "empty_text"
-            return None, report
-        if not evidence:
-            # 没有证据包就无法校验，返回拒答，不能把未校验正文当作成功结果
-            return None, self.no_evidence_result()
-
-        ev_text = "\n".join(item.get("text", "") for item in evidence)
-        ev_map = {
-            int(item.get("index", pos)): str(item.get("text", ""))
-            for pos, item in enumerate(evidence, 1)
-        }
-        min_len = max(self.min_chars, int(content_len(text) * self.min_ratio))
-
-        # 编号笔误先做确定性清理：指向不存在编号的 [n] 直接去掉，不占用修订轮数。
-        # 去掉后若该句另有依据会正常通过；确实无据的句子仍由下面的语义核查发现。
-        text, removed_markers = strip_unknown_citations(text, evidence)
-        if removed_markers:
-            report["stripped_citations"] = removed_markers
-            print(f"[VERIFY] 去掉 {len(removed_markers)} 处无效引用编号："
-                  f"{[m['marker'] for m in removed_markers]}", file=sys.stderr)
-            if not content_len(text):
-                report.update(status="rejected", reason="empty_text")
-                return None, report
-
-        issues = self.verify(text, evidence, stage="initial")
-        report["format_retries"] = self._format_retries
-        report["rounds"] = 1
-        if issues is None:
-            report["status"] = "error"
-            report["reason"] = "verify_call_failed"
-            report["failure_kind"] = self._failure_kind
-            report["failure_detail"] = self._failure_detail
-            return None, report
-
-        report["initial_issues"] = len(issues)
-        if max_rounds > 0 and any(item.get("origin") == "source_audit" for item in issues):
-            issues = self.verify(text, evidence, stage="source_adjudication")
-            report["adjudicated"] = True
-            report["format_retries"] = self._format_retries
-            report["rounds"] = len(self._review_log)
-            if issues is None:
-                report.update(status="error", reason="recheck_call_failed",
-                              failure_kind=self._failure_kind, failure_detail=self._failure_detail)
-                return None, report
-        if not issues:
-            report["status"] = "pass"
-            report["final_text_sha256"] = text_digest(text)
-            report["reference_links"] = reference_links(text)
-            report["grounding"] = self._grounding
-            return text, report
-
-        current = text
-        regen_used = False
-
-        for round_no in range(1, max(0, max_rounds) + 1):
-            replacements = self.rewrite(current, issues[:MAX_ISSUES_PER_ROUND], evidence)
-            if replacements:
-                current, applied, deleted = apply_replacements(
-                    current, replacements, ev_text, sim_fn=self.sim_fn, evidence_map=ev_map,
-                    allowed_quotes=[item["quote"] for item in issues[:MAX_ISSUES_PER_ROUND]],
-                    protected_facts=case_fragments(self.case_context),
-                )
-                issue_by_quote = {item["quote"]: item for item in issues}
-                for item in applied:
-                    issue = issue_by_quote.get(item["quote"], {})
-                    item.update({key: issue[key] for key in ("basis", "impact", "reason") if key in issue})
-                report["fixed"].extend(applied)
-                report["deleted"] += deleted
-                print(
-                    f"[VERIFY] 第 {round_no} 轮：{len(issues)} 处问题 → "
-                    f"改写 {len(applied)} 句（其中删除 {deleted} 句）",
-                    file=sys.stderr,
-                )
-
-            if not content_len(current):
-                report.update(status="rejected", reason="empty_text")
-                return None, report
-            issues = self.verify(current, evidence, stage="recheck")
-            report["format_retries"] = self._format_retries
-            report["rounds"] = len(self._review_log)
-            if issues is None:
-                report["status"] = "error"
-                report["reason"] = "recheck_call_failed"
-                report["failure_kind"] = self._failure_kind
-                report["failure_detail"] = self._failure_detail
-                return None, report
-            if not issues:
-                break
-
-            if all(item.get("impact", "core") == "local" for item in issues):
-                break
-
-            too_thin = content_len(current) < min_len
-            if regenerate and not regen_used and (too_thin or round_no == max_rounds):
-                regen_used = True
-                print(
-                    "[VERIFY] 改写无法收敛（{}），重新生成整篇报告".format(
-                        "正文已删至不成文" if too_thin else "轮数用尽仍有余留"
-                    ),
-                    file=sys.stderr,
-                )
-                try:
-                    regenerated = regenerate(issues)
-                except Exception as exc:
-                    regenerated = None
-                    report["regeneration_failure"] = type(exc).__name__
-                if regenerated and content_len(regenerated) and not regenerated.lstrip().startswith("Error:"):
-                    current = regenerated
-                    report["regenerated"] = True
-                    issues = self.verify(current, evidence, stage="regenerated")
-                    report["format_retries"] = self._format_retries
-                    report["rounds"] = len(self._review_log)
-                    if issues is None:
-                        report["status"] = "error"
-                        report["reason"] = "recheck_call_failed"
-                        report["failure_kind"] = self._failure_kind
-                        report["failure_detail"] = self._failure_detail
-                        return None, report
-                    if not issues:
-                        break
-                else:
-                    print("[VERIFY] 重新生成失败", file=sys.stderr)
-
-        if issues:
-            cleaned, omitted = omit_local_issues(current, issues)
-            if omitted:
-                report["fixed"].extend(omitted)
-                report["deleted"] += len(omitted)
-                report["local_cleanup"] = True
-                if not content_len(cleaned):
-                    report.update(status="rejected", reason="empty_text", remaining_issues=issues)
-                    return None, report
-                current = cleaned
-                issues = self.verify(current, evidence, stage="local_cleanup")
-                report["format_retries"] = self._format_retries
-                report["rounds"] = len(self._review_log)
-                if issues is None:
-                    report.update(
-                        status="error", reason="recheck_call_failed",
-                        failure_kind=self._failure_kind, failure_detail=self._failure_detail,
-                    )
-                    return None, report
-
-        if not issues:
-            report["status"] = "rewritten" if (report["fixed"] or report.get("regenerated")) else "pass"
-            report["final_text_sha256"] = text_digest(current)
-            report["reference_links"] = reference_links(current)
-            report["grounding"] = self._grounding
-            print(
-                f"[VERIFY] 通过：首轮 {report['initial_issues']} 处问题，"
-                f"改写 {len(report['fixed'])} 句（删 {report['deleted']}），"
-                f"重生成={'是' if report.get('regenerated') else '否'}",
-                file=sys.stderr,
-            )
-            return current, report
-
-        report["remaining_issues"] = issues
-        # 到这里仍未消解：区分「资料未覆盖」与「与资料冲突」。
-        # 前者标注后照常交付，后者一律拒答——改个数值就能修好的错误不该放行。
-        if config.VERIFY_SOFT_DELIVERY:
-            blocking = unannotated(issues, self.case_context)
-            if not blocking:
-                unknown_numbers = {int(m.group(1)) for m in re.finditer(r"\[(-?\d+)\]", current)} - {
-                    item.get("index", i) for i, item in enumerate(evidence, 1)}
-                annotated_text, marked = annotate_unverified(
-                    current, issues, self.case_context, unknown=unknown_numbers)
-                if marked:
-                    report.update(
-                        status="rewritten", reason="delivered_with_annotations",
-                        final_text_sha256=text_digest(annotated_text),
-                        reference_links=reference_links(annotated_text),
-                        grounding=self._grounding,
-                        annotations=marked,
-                        annotated_count=len(marked),
-                    )
-                    report["remaining_issues"] = []
-                    print(
-                        f"[VERIFY] 交付：仍有 {len(marked)} 处资料未覆盖，已就地标注",
-                        file=sys.stderr,
-                    )
-                    return annotated_text, report
-        report["status"] = "rejected"
-        report["reason"] = "unverified_claims_remain"
-        print(
-            f"[VERIFY] 拒答：仍有 {len(issues)} 处断言无法被资料支持，不输出报告",
-            file=sys.stderr,
+        return run_verification(
+            self, text, evidence, max_rounds=max_rounds, regenerate=regenerate,
         )
-        return None, report

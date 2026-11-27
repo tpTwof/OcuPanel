@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "cn-glaucoma-2020-care": {
+      "title": "中国青光眼指南（2020年）检查、鉴别与处置条款摘要",
+      "jurisdiction": "CN",
+      "version": "2020 年版，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://master.yiigle.com/uploads/guide_html/%E4%B8%AD%E5%9B%BD%E9%9D%92%E5%85%89%E7%9C%BC%E6%8C%87%E5%8D%97%EF%BC%882020%E5%B9%B4%EF%BC%89.html",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "glaucoma"
+      ]
+    },
+    "aao-poag-care": {
+      "title": "AAO 原发性开角型青光眼指南（PPP）诊断与鉴别条款摘要",
+      "jurisdiction": "US",
+      "version": "2020 年版摘要，临床专家复核状态为待复核",
+      "url": "https://www.aao.org/preferred-practice-pattern/primary-open-angle-glaucoma-ppp",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "glaucoma"
+      ]
+    },
+    "nice-ng81-care": {
+      "title": "NICE NG81 青光眼诊断和管理，诊断与监测条款摘要",
+      "jurisdiction": "UK",
+      "version": "2022-01-26，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://www.nice.org.uk/guidance/ng81/chapter/recommendations",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "glaucoma"
+      ]
+    }
+  },
+  "evidence": [
+    {
+      "id": "cn-glaucoma-exam-iop",
+      "source": "cn-glaucoma-2020-care",
+      "section": "眼压测量的注意事项",
+      "scope": "疑似或确诊原发性开角型青光眼的眼压评估",
+      "topic": "examination",
+      "disease": [
+        "glaucoma"
+      ],
+      "applicability": {
+        "population": "疑似或确诊原发性开角型青光眼患者",
+        "care_stage": "诊断与随访",
+        "preconditions": "使用经校准的眼压计并记录测量方式与时间",
+        "exclusions": "角膜厚度、角膜手术史或佩戴角膜接触镜等影响读数的情况需另行说明"
+      },
+      "text": "眼压测量是青光眼评估的基础项目，应记录双眼眼压、测量方式与测量时间。单次眼压正常不能排除青光眼，眼压升高也不等同于青光眼性视神经损害；角膜厚度、角膜曲率与角膜手术史均可影响读数，判读时需一并说明。"
+    },
+    {
+      "id": "cn-glaucoma-exam-gonioscopy",
+      "source": "cn-glaucoma-2020-care",
+      "section": "房角镜检查",
+      "scope": "青光眼分型前的房角评估",
+      "topic": "examination",
+      "disease": [
+        "glaucoma"
+      ],
+      "applicability": {
+        "population": "需要区分开角与闭角的青光眼或疑似患者",
+        "care_stage": "诊断",
+        "preconditions": "由具备房角检查经验的医师完成并记录可见范围"
+      },
+      "text": "房角镜检查用于区分开角与闭角、识别周边虹膜前粘连与色素沉着等改变，是青光眼分型与治疗选择的前提。检查结果应记录时间、方法与可见范围；眼压正常不能替代房角评估，房角关闭也不等于已经发生青光眼性损害。"
+    },
+    {
+      "id": "cn-glaucoma-exam-baseline",
+      "source": "cn-glaucoma-2020-care",
+      "section": "结构与功能检查的目的",
+      "scope": "青光眼视神经结构与视野基线检查",
+      "topic": "examination",
+      "disease": [
+        "glaucoma"
+      ],
+      "applicability": {
+        "population": "疑似或确诊青光眼患者",
+        "care_stage": "诊断与随访",
+        "preconditions": "记录设备、检查策略与可靠性指标"
+      },
+      "text": "视神经与视网膜神经纤维层成像、视野检查用于建立基线与纵向比较。首次检查的作用是记录基线与发现可重复的损害，单次可疑结果需结合重复检查与临床背景判断；检查结果应注明设备、策略与可靠性指标，可靠性差的检查不能作为确认或排除进展的依据。"
+    },
+    {
+      "id": "aao-poag-differential",
+      "source": "aao-poag-care",
+      "section": "Diagnosis / Differential diagnosis",
+      "scope": "美国开角型青光眼诊断中的鉴别考虑",
+      "topic": "differential",
+      "disease": [
+        "glaucoma"
+      ],
+      "applicability": {
+        "population": "视盘或视野异常、疑似开角型青光眼患者",
+        "care_stage": "诊断",
+        "preconditions": "具备视盘形态与视野的完整评估"
+      },
+      "text": "眼压升高但视盘与视野均正常者应按高眼压症随访，而非直接诊断为青光眼。视盘损害不典型、进展与眼压不匹配或伴神经科症状时，需考虑缺血性、压迫性等其他视神经病变并另行评估。生理性大视杯需结合盘沿形态与纵向变化与青光眼性损害区分。"
+    },
+    {
+      "id": "nice-ng81-definition-diff",
+      "source": "nice-ng81-care",
+      "section": "1.2 诊断 / 鉴别",
+      "scope": "英国慢性开角型青光眼的诊断依据",
+      "topic": "differential",
+      "disease": [
+        "glaucoma"
+      ],
+      "applicability": {
+        "population": "疑似慢性开角型青光眼患者",
+        "care_stage": "诊断"
+      },
+      "text": "诊断应基于视神经结构与功能损害的证据，而不是单一眼压阈值。视野检查可靠性差时应重复检查；仅凭一次不可靠的视野不能确认或排除青光眼。眼压、视盘形态与视野结果不一致时，应记录分歧并考虑其他诊断。"
+    },
+    {
+      "id": "cn-glaucoma-postdiagnosis",
+      "source": "cn-glaucoma-2020-care",
+      "section": "诊断后管理",
+      "scope": "中国开角型青光眼确诊后的管理目标",
+      "topic": "treatment",
+      "disease": [
+        "glaucoma"
+      ],
+      "applicability": {
+        "population": "已确诊开角型青光眼患者",
+        "care_stage": "治疗",
+        "preconditions": "已建立结构与功能基线"
+      },
+      "text": "确诊后应依据损害程度、进展速度、基线眼压与预期寿命设定个体化目标眼压。降眼压治疗包括药物、激光与手术，具体选择取决于目标眼压、依从性、禁忌与患者意愿；治疗目标达成后仍需评估结构与功能是否稳定，不以单一数值作为治疗终点。"
+    },
+    {
+      "id": "cn-glaucoma-education",
+      "source": "cn-glaucoma-2020-care",
+      "section": "患者教育",
+      "scope": "青光眼患者的自我管理与就医指引",
+      "topic": "education",
+      "disease": [
+        "glaucoma"
+      ],
+      "applicability": {
+        "population": "青光眼患者及其照护者",
+        "care_stage": "治疗与随访"
+      },
+      "text": "应向患者说明青光眼需要长期随访、多数类型早期无明显症状、坚持用药与按时复查的重要性。滴眼液使用应核对点药方法、按压泪囊与漏用后的处理方式。出现眼痛、视力骤降、虹视或恶心等急性症状时应立即就医。"
+    },
+    {
+      "id": "cn-glaucoma-special-pregnancy",
+      "source": "cn-glaucoma-2020-care",
+      "section": "特殊人群 / 妊娠与哺乳",
+      "scope": "妊娠或哺乳期青光眼患者的处理考虑",
+      "topic": "treatment",
+      "disease": [
+        "glaucoma"
+      ],
+      "applicability": {
+        "population": "妊娠期或哺乳期青光眼患者",
+        "care_stage": "治疗",
+        "preconditions": "由眼科与产科共同评估",
+        "exclusions": "不能沿用非妊娠期的常规用药方案"
+      },
+      "text": "妊娠或哺乳期青光眼患者的用药与手术时机需产科与眼科共同评估，部分降眼压药物在妊娠与哺乳期的安全性资料有限。存在生育计划时应提前讨论替代方案，避免自行停药或换药。"
+    },
+    {
+      "id": "cn-glaucoma-special-surgery",
+      "source": "cn-glaucoma-2020-care",
+      "section": "特殊情境 / 合并白内障",
+      "scope": "青光眼合并白内障患者的手术考虑",
+      "topic": "followup",
+      "disease": [
+        "glaucoma"
+      ],
+      "applicability": {
+        "population": "合并白内障的青光眼患者",
+        "care_stage": "治疗与随访",
+        "preconditions": "术前已记录眼压、房角与视神经状态"
+      },
+      "text": "青光眼合并白内障时，手术方式与时机应由青光眼控制状态、房角情况与视功能需求共同决定。术后需重新评估眼压、前房反应与房角，不能沿用术前结论；术后早期眼压波动应纳入随访计划。"
+    }
+  ]
+}

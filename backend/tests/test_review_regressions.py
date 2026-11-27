@@ -11,11 +11,20 @@ from modules.agent.verifier import CitationVerifier
 class ReviewRegressionTests(unittest.TestCase):
     evidence = [{'id':'a', 'index':1, 'title':'Guide', 'section':'Test', 'source':'fixture', 'text':'Evidence'}]
 
-    def test_fenced_tool_request_is_executed(self):
-        llm = Mock(side_effect=['```json\n{"action":"read_evidence","id":"a"}\n```', 'Analysis [1]'])
-        result = SpecialistAgent(SpecialistRole('Eye', 'Review the case.'), llm).execute('Case', self.evidence, {'a':1})
+    def test_tool_request_is_no_longer_executed(self):
+        """工具循环已移除：模型吐工具动作说明它没按约定成稿，必须报错而不是再调一次。"""
+        llm = Mock(return_value='```json\n{"action":"read_evidence","id":"a"}\n```')
+        with self.assertRaises(ValueError):
+            SpecialistAgent(SpecialistRole('Eye', 'Review the case.'), llm).execute(
+                'Case', self.evidence, {'a': 1})
+        self.assertEqual(llm.call_count, 1)
+
+    def test_fenced_final_action_is_unwrapped(self):
+        reply = '```json\n{"action":"final","text":"Analysis [1]"}\n```'
+        result = SpecialistAgent(
+            SpecialistRole('Eye', 'Review the case.'), lambda *a, **k: reply,
+        ).execute('Case', self.evidence, {'a': 1})
         self.assertEqual(result, 'Analysis [1]')
-        self.assertEqual(llm.call_count, 2)
 
     def test_malformed_tool_request_is_not_a_report(self):
         for reply in ['```json\n{"action":"read_evidence",\n```', '{"action":', '[{"action":"final"}]']:

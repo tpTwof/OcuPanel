@@ -90,6 +90,28 @@ RAG_LANG_GATE = float(os.getenv("RAG_LANG_GATE", "0.89"))
 # 也顺带给跨语言内容腾位置。0=不限。
 RAG_MAX_PER_SOURCE = int(os.getenv("RAG_MAX_PER_SOURCE", "2"))
 
+# 报告生成流程：
+#   v2     病例事实整理 → 检索规划 → 按问题检索（含一次补检）→ 统一提示词撰稿 → 核查
+#   legacy 影像分析后逐病种固定主题检索，保留用于新旧对比与回退
+REPORT_PIPELINE = (os.getenv("REPORT_PIPELINE") or "v2").strip().lower()
+if REPORT_PIPELINE not in ("v2", "legacy"):
+    raise ValueError("REPORT_PIPELINE must be 'v2' or 'legacy'")
+
+# 检索规划与执行的预算。数值是可评估后调整的上限，不是推荐配置。
+RETRIEVAL_PLAN_MAX_QUESTIONS = int(os.getenv("RETRIEVAL_PLAN_MAX_QUESTIONS", "6"))
+RETRIEVAL_MAX_QUERIES = int(os.getenv("RETRIEVAL_MAX_QUERIES", "10"))
+RETRIEVAL_MAX_SECONDS = float(os.getenv("RETRIEVAL_MAX_SECONDS", "20"))
+RETRIEVAL_MAX_EVIDENCE = int(os.getenv("RETRIEVAL_MAX_EVIDENCE", "12"))
+RETRIEVAL_SUPPLEMENTAL_ROUNDS = int(os.getenv("RETRIEVAL_SUPPLEMENTAL_ROUNDS", "1"))
+for _setting in (
+    "RETRIEVAL_PLAN_MAX_QUESTIONS", "RETRIEVAL_MAX_QUERIES", "RETRIEVAL_MAX_SECONDS",
+    "RETRIEVAL_MAX_EVIDENCE",
+):
+    if globals()[_setting] <= 0:
+        raise ValueError(f"{_setting} must be positive")
+if RETRIEVAL_SUPPLEMENTAL_ROUNDS < 0:
+    raise ValueError("RETRIEVAL_SUPPLEMENTAL_ROUNDS must not be negative")
+
 # 引用校验智能体（第 7 个 Agent）。VERIFY_ENABLED=0 可整体关掉，
 # 用于对比「有校验 / 无校验」的报告差异，或在校验模型不稳定时快速退回。
 VERIFY_ENABLED = (os.getenv("VERIFY_ENABLED", "1") != "0")

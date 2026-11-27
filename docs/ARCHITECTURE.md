@@ -26,7 +26,8 @@ backend/
 `models` 放领域类型，`schemas` 放请求/响应结构。跨模块调用走对方的 `service`，
 不直接引 `repository`，避免绕过业务规则。
 
-检索栈：LangChain 负责语料切分（Markdown 标题 + 段落/句子）与模型调用（ChatOpenAI）；
+检索栈：LangChain 负责语料切分（Markdown 标题 + 段落/句子）与模型调用（ChatOpenAI），
+引用核查的控制流是 LangGraph 状态机（`backend/modules/agent/graphs/verify.py`）；
 向量由 `intfloat/multilingual-e5-small` 编码，存入 Chroma（`chroma_store.py`），
 库中每条记录同时保存向量、原文与出处元数据，语料变化时按 id 增量同步。
 chromadb 的 `PersistentClient` 在 Windows 上无法打开持久化路径，因此采用
@@ -46,9 +47,11 @@ flowchart TD
   Service --> LLM[core/llm：LangChain ChatOpenAI]
   Service --> Report[modules/report/generation.py]
   Report --> Vision[modules/vision]
-  Report --> Knowledge[modules/knowledge：检索与 Chroma]
-  Report --> Agent[modules/agent：专科 / Director / Verifier]
-  Agent --> Result[ReportResult：报告或拒答]
+  Report --> Facts[modules/report/case_facts.py：病例事实、缺失与冲突]
+  Facts --> Plan[modules/agent/planner.py：结构化检索计划]
+  Plan --> Knowledge[modules/knowledge：按问题检索、覆盖与补检]
+  Report --> Agent[modules/agent：专科 / Director / 核查状态机]
+  Agent --> Result[ReportResult：报告、受限摘要或拒答]
 ```
 
 跨模块调用只经过对方的 `service`，不直接引用其 `repository`，避免绕过业务规则。
@@ -77,11 +80,17 @@ flowchart TD
 
 ## 当前能力与限制
 
-眼科分析入口可选择青光眼、糖尿病视网膜病变（DR）及年龄相关性黄斑变性（AMD）。青光眼采用专用分类与视盘视杯分割，DR 和 AMD 共用一次 FLAIR 眼底图像编码，逐病种比较提示词。所选病种决定参与报告的专科。按病种检索并统一编号。单病种由专科成稿，多病种由 Director 综合。Verifier 核查正文引用，页面和 PDF 单独展示结构化影像结果。CDR 和分割叠加图用于青光眼。[视觉模块与启用方式](../backend/modules/vision/README.md)
+眼科分析入口可选择青光眼、糖尿病视网膜病变（DR）及年龄相关性黄斑变性（AMD）。青光眼采用专用分类与视盘视杯分割，DR 和 AMD 共用一次 FLAIR 眼底图像编码，逐病种比较提示词。所选病种决定参与报告的专科。单病种由专科成稿，多病种由 Director 综合。Verifier 核查正文引用，页面和 PDF 单独展示结构化影像结果。CDR 和分割叠加图用于青光眼。[视觉模块与启用方式](../backend/modules/vision/README.md)
+
+报告流程由 `REPORT_PIPELINE` 选择。默认 `v2` 先按来源整理病例事实（`report/case_facts.py`，稳定 ID、眼别、原始位置、缺失与冲突），再由 `agent/planner.py` 产出结构化检索计划（是否需要检索、问题主题、触发事实、病种/人群/阶段/来源类型筛选、缺失信息），代码校验后交给 `knowledge/question_retrieval.py` 按问题检索、检查覆盖并最多补检一次，最后用统一提示词撰稿并核查。`legacy` 保留旧的逐病种固定四主题检索，用于对比与回退。两条路径共用影像分析、专科、Director、Verifier 与交付状态。检索预算由 `RETRIEVAL_*` 控制，所有查询、缺口与故障写入 `verification.retrieval`。
+
+语料条款可携带材料类型、审核状态、主题与适用条件（`knowledge/metadata.py`）。诊疗主题只接受指南/共识/综述类条款，患者教育材料只支撑解释，缺失的审核状态或适用条件保持 unknown，不自动当作已审核或已满足。三病种覆盖与缺口由 `backend/tools/corpus_coverage.py` 生成[语料覆盖矩阵](语料覆盖矩阵.md)，评估病例集见 [`backend/tests/fixtures/report_eval_cases.json`](../backend/tests/fixtures/report_eval_cases.json)，基线与评估口径见[报告流程基线](报告流程基线.md)。
 
 ## 工具响应与校验失败处理
 
 专科 Agent 支持普通报告文本、完整 JSON 对象及包裹在 JSON Markdown 代码块中的操作。损坏的结构化操作不能作为报告返回。最终草稿生成后，Verifier 将代码检测到的未知引用编号和模型识别的语义问题合并，执行修订、复核或拒答。未知编号不会因为模型漏检而通过；关闭 LLM 校验时也不允许未知编号进入输出。
+
+v2 流程另在模型核查之外执行确定性检查：正文中的计量数值必须能回溯到病例输入或检索资料、左右眼数值不得错位、引用条款的病种必须与本次分析一致；命中按核心问题处理。检索计划、覆盖缺口、失败记录、材料类型与审核状态写入 `verification.retrieval`、`knowledge_gaps` 与 `applicability`，与引用核查结果分开保存。
 
 旧 ANALYSIS_PIPELINE/VLM_MODEL/VLM_BACKEND 已不再作为可用配置。迁移时删除这些旧设置；若仍指定非默认 ANALYSIS_PIPELINE 值，启动会明确拒绝，以避免静默使用不同模型。历史 ADR、规格与研究文档已标记为历史记录，不是当前能力清单。
 

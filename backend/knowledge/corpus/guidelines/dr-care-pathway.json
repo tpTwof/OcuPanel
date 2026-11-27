@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "cn-dr-2022-care": {
+      "title": "我国糖尿病视网膜病变临床诊疗指南（2022年）检查、鉴别与处置条款摘要",
+      "jurisdiction": "CN",
+      "version": "2022 年版，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://www.gzzoc.org.cn/node/13780",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "diabetic_retinopathy"
+      ]
+    },
+    "aao-dr-2020-care": {
+      "title": "AAO 糖尿病视网膜病变指南（PPP）鉴别与分级条款摘要",
+      "jurisdiction": "US",
+      "version": "2020 年版摘要，临床专家复核状态为待复核",
+      "url": "https://www.aao.org/preferred-practice-pattern/diabetic-retinopathy-ppp",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "diabetic_retinopathy"
+      ]
+    },
+    "nice-ng242-care": {
+      "title": "NICE NG242 糖尿病视网膜病变管理和监测，随访与转诊条款摘要",
+      "jurisdiction": "UK",
+      "version": "2024-08-13，本文件为章节摘要，临床专家复核状态为待复核",
+      "url": "https://www.nice.org.uk/guidance/ng242/chapter/Recommendations",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "diabetic_retinopathy"
+      ]
+    }
+  },
+  "evidence": [
+    {
+      "id": "cn-dr-interpretation",
+      "source": "cn-dr-2022-care",
+      "section": "影像判读",
+      "scope": "糖尿病视网膜病变分级与黄斑水肿判读",
+      "topic": "interpretation",
+      "disease": [
+        "diabetic_retinopathy"
+      ],
+      "applicability": {
+        "population": "糖尿病视网膜病变患者",
+        "care_stage": "诊断与随访",
+        "preconditions": "已获得可判读的散瞳眼底图像与 OCT"
+      },
+      "text": "分级依据微血管瘤、出血、硬性渗出、棉絮斑、静脉串珠与新生血管等表现的组合，不能只看单一病灶。黄斑水肿按是否累及中心凹分层，OCT 的中心凹受累比水肿范围更能决定治疗；分级结果应注明判读依据与图像质量。"
+    },
+    {
+      "id": "cn-dr-exam-dilated",
+      "source": "cn-dr-2022-care",
+      "section": "筛查与眼底检查方式",
+      "scope": "糖尿病视网膜病变的眼底检查与图像采集",
+      "topic": "examination",
+      "disease": [
+        "diabetic_retinopathy"
+      ],
+      "applicability": {
+        "population": "糖尿病患者",
+        "care_stage": "筛查与诊断",
+        "preconditions": "散瞳后按标准化范围拍摄或检查眼底",
+        "exclusions": "未散瞳或图像质量不合格时不作为筛查依据"
+      },
+      "text": "糖尿病视网膜病变筛查应在散瞳后按标准化范围拍摄眼底照片或进行眼底检查。未散瞳图像的可见范围与判读质量受限，不能替代散瞳评估；图像质量不合格时应重新采集，不能用质量不佳的图像判断病变程度。"
+    },
+    {
+      "id": "cn-dr-exam-oct",
+      "source": "cn-dr-2022-care",
+      "section": "黄斑水肿的影像评估",
+      "scope": "糖尿病黄斑水肿的诊断与活动性判断",
+      "topic": "examination",
+      "disease": [
+        "diabetic_retinopathy"
+      ],
+      "applicability": {
+        "population": "疑似或确诊糖尿病黄斑水肿患者",
+        "care_stage": "诊断与治疗",
+        "preconditions": "OCT 图像可判读并记录中心凹受累情况"
+      },
+      "text": "OCT 用于判断糖尿病黄斑水肿及其是否累及中心凹，是决定是否启动抗 VEGF 治疗的关键信息。OCT 正常不能排除周边缺血或增殖性病变，需结合散瞳眼底检查；水肿程度与视力并不总是一致，治疗决策需综合视力、病程与结构改变。"
+    },
+    {
+      "id": "cn-dr-exam-ffa",
+      "source": "cn-dr-2022-care",
+      "section": "荧光素眼底血管造影",
+      "scope": "糖尿病视网膜病变中需行血管造影的情形",
+      "topic": "examination",
+      "disease": [
+        "diabetic_retinopathy"
+      ],
+      "applicability": {
+        "population": "疑有新生血管或其他检查不能解释的视力下降者",
+        "care_stage": "诊断",
+        "preconditions": "已评估过敏史与肾功能等禁忌",
+        "exclusions": "不作为常规筛查项目"
+      },
+      "text": "荧光素眼底血管造影用于可疑新生血管、黄斑缺血或其他检查不能解释的视力下降。该检查有创，需先评估过敏史与肾功能等禁忌，不作为糖尿病视网膜病变的常规筛查项目；造影结果需与眼底检查及 OCT 对照解读。"
+    },
+    {
+      "id": "aao-dr-differential",
+      "source": "aao-dr-2020-care",
+      "section": "Differential diagnosis / Retinal haemorrhages",
+      "scope": "糖尿病视网膜病变与其他视网膜血管疾病的鉴别",
+      "topic": "differential",
+      "disease": [
+        "diabetic_retinopathy"
+      ],
+      "applicability": {
+        "population": "眼底出现出血、渗出或微血管异常的患者",
+        "care_stage": "诊断",
+        "preconditions": "结合全身病史与双眼受累模式"
+      },
+      "text": "视网膜出血与渗出并非糖尿病视网膜病变特有，高血压视网膜病变、视网膜静脉阻塞、血液病与感染等也可出现类似表现。应结合全身病史、受累范围与血管走行区分，必要时追加 OCT 或血管造影，不能仅凭单张眼底照片确定病因。"
+    },
+    {
+      "id": "aao-dr-dme-differential",
+      "source": "aao-dr-2020-care",
+      "section": "Differential diagnosis / Macular oedema",
+      "scope": "黄斑水肿病因的鉴别",
+      "topic": "differential",
+      "disease": [
+        "diabetic_retinopathy"
+      ],
+      "applicability": {
+        "population": "合并黄斑水肿的糖尿病患者",
+        "care_stage": "诊断与治疗",
+        "preconditions": "已排除其他可解释水肿的眼部疾病"
+      },
+      "text": "黄斑水肿可由糖尿病以外的多种原因引起，如视网膜静脉阻塞、葡萄膜炎、白内障术后与部分药物相关改变。启动抗 VEGF 治疗前需确认水肿与糖尿病的关系，并记录其他可能病因的排查情况。"
+    },
+    {
+      "id": "cn-dr-postdiagnosis",
+      "source": "cn-dr-2022-care",
+      "section": "确诊后的分层处置",
+      "scope": "中国糖尿病视网膜病变确诊后的处置路径",
+      "topic": "treatment",
+      "disease": [
+        "diabetic_retinopathy"
+      ],
+      "applicability": {
+        "population": "已确诊糖尿病视网膜病变的患者",
+        "care_stage": "治疗",
+        "preconditions": "已完成分期与黄斑评估"
+      },
+      "text": "确诊后按分期确定随访与转诊：无或轻度非增殖期可定期筛查，重度非增殖期与增殖期需眼科评估是否行全视网膜光凝或抗 VEGF；中心受累的黄斑水肿需及时治疗。具体治疗方案与时机由眼科医师结合分期、黄斑状态和全身情况决定。"
+    },
+    {
+      "id": "cn-dr-followup-treatment",
+      "source": "cn-dr-2022-care",
+      "section": "治疗后的随访",
+      "scope": "糖尿病视网膜病变治疗后的复查安排",
+      "topic": "followup",
+      "disease": [
+        "diabetic_retinopathy"
+      ],
+      "applicability": {
+        "population": "接受激光、抗 VEGF 或手术治疗的糖尿病视网膜病变患者",
+        "care_stage": "随访",
+        "preconditions": "随访记录包含分期、治疗史与 OCT 结果"
+      },
+      "text": "治疗后随访间隔依据病变活动度、治疗反应与黄斑状态确定。出现视力下降、新发玻璃体出血或黄斑水肿加重时应提前复诊。随访记录应包含分期、治疗史、黄斑 OCT 与眼压，便于比较疗效与发现并发症。"
+    },
+    {
+      "id": "cn-dr-education",
+      "source": "cn-dr-2022-care",
+      "section": "患者教育",
+      "scope": "糖尿病视网膜病变患者的自我管理",
+      "topic": "education",
+      "disease": [
+        "diabetic_retinopathy"
+      ],
+      "applicability": {
+        "population": "糖尿病患者及其照护者",
+        "care_stage": "治疗与随访"
+      },
+      "text": "应向患者说明控制血糖、血压与血脂对延缓视网膜病变进展的作用，强调即使视力正常也需定期筛查。出现视力下降、眼前黑影突然增多或视物变形时应及时就诊，不要等待下一次常规复查。"
+    },
+    {
+      "id": "nice-ng242-referral-route",
+      "source": "nice-ng242-care",
+      "section": "转诊与分级路径",
+      "scope": "英国糖尿病眼病筛查发现异常后的转诊",
+      "topic": "treatment",
+      "disease": [
+        "diabetic_retinopathy"
+      ],
+      "applicability": {
+        "population": "筛查发现糖尿病视网膜病变或黄斑水肿者",
+        "care_stage": "治疗",
+        "preconditions": "已完成分级并记录黄斑状态"
+      },
+      "text": "筛查发现需要处理的病变时，应按分级路径转诊至医院眼科服务，而不是继续在筛查项目中常规复查。转诊信息需包含分级结果、黄斑状态与既往治疗，避免因信息缺失重复检查或延误治疗。"
+    }
+  ]
+}

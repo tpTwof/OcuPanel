@@ -1,35 +1,99 @@
 {
   "schema_version": 1,
   "concepts": {
-    "dr_treatment": {"label": "糖尿病视网膜病变治疗", "aliases": ["糖网治疗", "DR 治疗", "diabetic retinopathy treatment"]},
-    "prp": {"label": "全视网膜光凝", "aliases": ["全视网膜光凝", "激光光凝", "PRP", "panretinal photocoagulation"]},
-    "anti_vegf": {"label": "抗 VEGF 治疗", "aliases": ["抗VEGF", "抗 VEGF", "anti-VEGF", "阿柏西普", "雷珠单抗", "aflibercept", "ranibizumab"]},
-    "dr_followup": {"label": "糖网随访", "aliases": ["糖网随访", "糖网复查", "dr follow-up"]}
+    "dr_treatment": {
+      "label": "糖尿病视网膜病变治疗",
+      "aliases": [
+        "糖网治疗",
+        "DR 治疗",
+        "diabetic retinopathy treatment"
+      ]
+    },
+    "prp": {
+      "label": "全视网膜光凝",
+      "aliases": [
+        "全视网膜光凝",
+        "激光光凝",
+        "PRP",
+        "panretinal photocoagulation"
+      ]
+    },
+    "anti_vegf": {
+      "label": "抗 VEGF 治疗",
+      "aliases": [
+        "抗VEGF",
+        "抗 VEGF",
+        "anti-VEGF",
+        "阿柏西普",
+        "雷珠单抗",
+        "aflibercept",
+        "ranibizumab"
+      ]
+    },
+    "dr_followup": {
+      "label": "糖网随访",
+      "aliases": [
+        "糖网随访",
+        "糖网复查",
+        "dr follow-up"
+      ]
+    }
   },
   "relations": [
-    ["pdr", "治疗选择", "prp"],
-    ["dme", "治疗选择", "anti_vegf"],
-    ["dr_treatment", "关联", "dr"],
-    ["dr_followup", "随访对象", "dr"]
+    [
+      "pdr",
+      "治疗选择",
+      "prp"
+    ],
+    [
+      "dme",
+      "治疗选择",
+      "anti_vegf"
+    ],
+    [
+      "dr_treatment",
+      "关联",
+      "dr"
+    ],
+    [
+      "dr_followup",
+      "随访对象",
+      "dr"
+    ]
   ],
   "sources": {
     "cn-dr-treat-2022": {
       "title": "我国糖尿病视网膜病变临床诊疗指南（2022年）治疗与随访章节条款摘要",
       "jurisdiction": "CN",
       "version": "2022 年版（2023 年刊载），本文件为章节摘要，临床专家复核状态为待复核",
-      "url": "https://www.gzzoc.org.cn/node/13780"
+      "url": "https://www.gzzoc.org.cn/node/13780",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "diabetic_retinopathy"
+      ]
     },
     "nice-ng242-treat": {
       "title": "NICE NG242 糖尿病视网膜病变管理和监测，治疗与监测章节条款摘要",
       "jurisdiction": "UK",
       "version": "2024-08-13，本文件为章节摘要，临床专家复核状态为待复核",
-      "url": "https://www.nice.org.uk/guidance/ng242/chapter/Recommendations"
+      "url": "https://www.nice.org.uk/guidance/ng242/chapter/Recommendations",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "diabetic_retinopathy"
+      ]
     },
     "ada-2026-eyecare": {
       "title": "ADA 2026 糖尿病诊疗标准第 12 章视网膜病变治疗与随访条款摘要",
       "jurisdiction": "US",
       "version": "2026，本文件为章节摘要，临床专家复核状态为待复核",
-      "url": "https://diabetesjournals.org/care/article-lookup/doi/10.2337/dc26-S012"
+      "url": "https://diabetesjournals.org/care/article-lookup/doi/10.2337/dc26-S012",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "diabetic_retinopathy"
+      ]
     }
   },
   "evidence": [
@@ -38,7 +102,10 @@
       "source": "cn-dr-treat-2022",
       "section": "增殖期糖尿病视网膜病变的治疗",
       "scope": "中国增殖期糖尿病视网膜病变（PDR）的治疗决策",
-      "anchors": ["pdr", "prp"],
+      "anchors": [
+        "pdr",
+        "prp"
+      ],
       "text": "增殖期糖尿病视网膜病变可考虑全视网膜光凝，以降低进一步视力丧失风险。高危增殖期或伴新生血管性青光眼者需尽快转诊至眼底专科评估。存在玻璃体积血或牵拉性视网膜脱离时，应评估玻璃体切除术指征。"
     },
     {
@@ -46,7 +113,10 @@
       "source": "cn-dr-treat-2022",
       "section": "糖尿病黄斑水肿的治疗",
       "scope": "中国糖尿病黄斑水肿（DME）的治疗决策",
-      "anchors": ["dme", "anti_vegf"],
+      "anchors": [
+        "dme",
+        "anti_vegf"
+      ],
       "text": "累及中心的糖尿病黄斑水肿可考虑抗 VEGF 药物治疗或局部糖皮质激素治疗，具体选择与随访方案由眼底专科医生结合 OCT 所示中心视网膜厚度与视力决定。非中心受累者可先观察并定期复查。"
     },
     {
@@ -54,7 +124,10 @@
       "source": "cn-dr-treat-2022",
       "section": "全身危险因素管理",
       "scope": "糖尿病视网膜病变患者的全身管理",
-      "anchors": ["dr", "dr_followup"],
+      "anchors": [
+        "dr",
+        "dr_followup"
+      ],
       "text": "良好的血糖、血压与血脂控制有助于延缓糖尿病视网膜病变进展。血糖快速下降初期可能出现视网膜病变的暂时性加重，故需在眼科随访中关注。"
     },
     {
@@ -62,7 +135,10 @@
       "source": "nice-ng242-treat",
       "section": "1.4.2 随访监测",
       "scope": "英国医院眼科服务中未接受治疗的非增殖期糖尿病视网膜病变患者",
-      "anchors": ["dr_followup", "npdr"],
+      "anchors": [
+        "dr_followup",
+        "npdr"
+      ],
       "text": "中度非增殖性糖尿病视网膜病变可考虑每 6 至 12 个月监测，重度或极重度非增殖性糖尿病视网膜病变可考虑每 3 至 6 个月监测。启用该频率前需先确认分期与既往治疗情况。"
     },
     {
@@ -70,7 +146,10 @@
       "source": "nice-ng242-treat",
       "section": "1.6.11 评估黄斑水肿",
       "scope": "英国医院眼科服务，评估是否存在糖尿病黄斑水肿",
-      "anchors": ["dme", "oct"],
+      "anchors": [
+        "dme",
+        "oct"
+      ],
       "text": "评估眼部是否存在糖尿病黄斑水肿时使用 OCT。眼底照片所见硬性渗出可提示需要进一步评估，中心是否受累需结合 OCT 判断。"
     },
     {
@@ -78,7 +157,10 @@
       "source": "ada-2026-eyecare",
       "section": "12.16 视网膜病变治疗",
       "scope": "美国糖尿病患者中心受累糖尿病黄斑水肿的治疗",
-      "anchors": ["dme", "anti_vegf"],
+      "anchors": [
+        "dme",
+        "anti_vegf"
+      ],
       "text": "中心受累的糖尿病黄斑水肿可使用抗 VEGF 治疗，注射次数与间隔依据治疗反应和解剖学改善个体化调整，需要连续随访评估。"
     },
     {
@@ -86,7 +168,10 @@
       "source": "ada-2026-eyecare",
       "section": "12.9 转诊",
       "scope": "美国糖尿病患者眼科转诊",
-      "anchors": ["dr_treatment", "dr_followup"],
+      "anchors": [
+        "dr_treatment",
+        "dr_followup"
+      ],
       "text": "任何程度的糖尿病黄斑水肿、中度及以上非增殖期糖尿病视网膜病变或任何增殖期糖尿病视网膜病变，都应及时转诊给有该病管理经验的眼科医师。"
     }
   ]

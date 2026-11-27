@@ -2,89 +2,28 @@ from __future__ import annotations
 import os
 import sys
 import threading
+
 from core import config
+from core.llm.gateway import (
+    LLMUnavailable,
+    build_chat_model,
+    describe_llm_error,
+    normalize_text,
+    resolve_base_url,
+    resolve_model,
+    thinking_control,
+    to_messages,
+)
+
+# 迁移前这些名字就在 client 里定义，外部有按 client 导入的用法；
+# 统一从 gateway 再导出，避免调用方跟着搬家。
 DEFAULT_MODEL = config.DEFAULT_MODEL
-def resolve_model(model: str | None = None) -> str:
-    """模型名：显式入参 > 环境变量 OPENAI_MODEL > 默认值。统一由 config 读取。"""
-    return model or config.OPENAI_MODEL or DEFAULT_MODEL
 
-def resolve_base_url() -> str | None:
-    """OpenAI 兼容端点。None 表示官方 OpenAI API。"""
-    return config.OPENAI_BASE_URL or None
-
-def thinking_control(base_url: str | None = None) -> dict[str, dict[str, str]] | None:
-    """关闭推理（thinking）模式，单次调用可快 2-3 倍。
-
-    实测同一道核查题：开启思考 1.6s / 128 输出 token（其中 96 个是 reasoning），
-    关闭后 0.7s / 34 token，判断结论完全一致。报告生成要做 8-10 次调用，
-    累计下来就是几分钟的差距。
-
-    以前只对 URL 里带 deepseek 的端点下发该参数，而项目实际走的是
-    maas.qianwenaiapi.com 这类 OpenAI 兼容网关，判断永远不成立，
-    LLM_DISABLE_THINKING 形同虚设。现在默认对所有兼容端点下发；
-    若某厂商不认这个字段并报错，把 LLM_DISABLE_THINKING 设为 0 即可。
-    """
-    if not config.LLM_DISABLE_THINKING:
-        return None
-    base = base_url if base_url is not None else resolve_base_url()
-    if not base:
-        return None
-    return {"thinking": {"type": "disabled"}}
-
-def describe_llm_error(
-    exc: BaseException,
-    base_url: str | None = None,
-    from_user_config: bool = False,
-) -> str:
-    """把 SDK 抛出的嵌套异常压成一行可读信息，并附上排查提示。
-
-    from_user_config=True 表示这次调用用的是某个用户在「个人设置」里填的 key，
-    提示语必须指向那里的配置，而不是 backend/.env —— 否则用户会去改错地方。
-    """
-    chain = []
-    cur = exc
-    while cur is not None and len(chain) < 4:
-        text = str(cur).strip()
-        name = type(cur).__name__
-        if text:
-            chain.append(f"{name}: {text}")
-        else:
-            chain.append(name)
-        cur = cur.__cause__ or cur.__context__
-        if cur is chain:
-            break
-
-    detail = " | ".join(chain) if chain else type(exc).__name__
-    joined = detail.lower()
-
-    # 提示语里的「去哪儿改配置」随调用来源变化
-    where = "「个人设置 → LLM API 配置」中填写的" if from_user_config else "backend/.env 中的"
-    endpoint = base_url or resolve_base_url()
-
-    hints = []
-    if "certificate_verify_failed" in joined or "self-signed certificate" in joined:
-        hints.append(
-            "TLS 证书校验失败：本机代理/杀软可能在做 HTTPS 中间人。"
-            "可先关闭代理直连，或设置 SSL_CERT_FILE 指向代理根证书。"
-        )
-    if "connection error" in joined or "connect" in joined:
-        hints.append(
-            f"无法建立连接：确认接口地址 {endpoint} 可访问；"
-            "若 shell 里残留 HTTPS_PROXY/HTTP_PROXY，请先清空（Remove-Item Env:HTTPS_PROXY）。"
-        )
-    if "401" in joined or "authentication" in joined or "invalid_api_key" in joined:
-        hints.append(f"鉴权失败：检查{where} API Key 是否正确、是否已过期。")
-    if "404" in joined or ("model" in joined and "not exist" in joined):
-        hints.append(
-            f"模型名或接口地址可能不对：当前模型在 {endpoint} 上不存在，"
-            "核对「接口地址 + 模型」是否为同一家服务商。"
-        )
-    if "402" in joined or "insufficient balance" in joined:
-        hints.append("账户余额不足，请到服务商控制台充值。")
-
-    if hints:
-        detail += "  → " + " ".join(hints)
-    return detail
+__all__ = [
+    "DEFAULT_MODEL", "LLMClient", "LLMUnavailable", "build_chat_model",
+    "describe_llm_error", "normalize_text", "resolve_base_url", "resolve_model",
+    "thinking_control", "to_messages",
+]
 
 
 class LLMClient:
@@ -99,6 +38,8 @@ class LLMClient:
         base_url: 用户自己配置的接口地址。为 None 时回落到环境变量里的全局配置，
         这样老的单用户模式（直接用 .env 里的 key）仍然跑得通。
         """
+        # 用 os.getenv 而不是 config 常量：main.py 先 import 再 load_dotenv()，
+        # 常量会停在 dotenv 之前的值，构造时现读才不会漏掉 .env 里的 key。
         self.api_key = api_key or os.getenv("OPENAI_API_KEY") or None
         self.model = resolve_model(model)
         self.base_url = base_url if base_url is not None else resolve_base_url()
@@ -122,56 +63,63 @@ class LLMClient:
             if role in ("user", "assistant") and item.get("content"):
                 messages.append({"role": role, "content": item["content"]})
         messages.append({"role": "user", "content": user_message})
+        # 失败时 _invoke 已把 SDK 异常翻成带排查提示的 LLMUnavailable，
+        # 这里不再二次包装，保住原始异常链给调用方记录。
+        return self._invoke(
+            messages, temperature=0.7, max_tokens=config.CHAT_MAX_OUTPUT_TOKENS,
+        )
 
-        try:
-            reply = self._invoke(
-                messages, temperature=0.7, max_tokens=config.CHAT_MAX_OUTPUT_TOKENS,
-            )
-            return reply
-        except Exception as exc:  # noqa: BLE001 - 让上层统一转成可读错误
-            raise RuntimeError(
-                describe_llm_error(exc, self.base_url, from_user_config=True)
-            ) from exc
+    def complete(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> str:
+        """单轮补全：失败抛 `LLMUnavailable`，绝不返回"看起来正常"的空串。
+
+        与 `chat_with_gpt` 的区别只在错误语义：这个给报告链路用，调用方需要把
+        模型故障渲染成"可操作的提示"，而不是把整条任务打成"联系管理员"。
+        """
+        messages = [{"role": "system", "content": system}] if system else []
+        messages.append({"role": "user", "content": prompt})
+        return self._invoke(
+            messages, temperature=0.7 if temperature is None else temperature,
+            max_tokens=max_tokens,
+        )
 
     def _build_client(self):
         """每次调用新建 LangChain ChatOpenAI，避免共享连接状态。
 
-        用户的 key 与端点可能在会话中途被改，按调用重建最省心。
+        用户的 key 与端点可能在会话中途被改，按调用重建最省心。测试通过替换
+        这个方法观察 bind/invoke 的参数。
         """
-        from langchain_openai import ChatOpenAI
-
-        return ChatOpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-            model=self.model,
-            timeout=config.LLM_TIMEOUT,
-            max_retries=config.LLM_MAX_RETRIES,
+        return build_chat_model(
+            api_key=self.api_key, model=self.model, base_url=self.base_url,
         )
 
     def _invoke(self, messages: list[dict], *, temperature: float,
                 max_tokens: int | None = None) -> str:
-        """统一的模型调用：转成 LangChain 消息并取回纯文本。"""
-        from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+        """统一的模型调用：dict 消息 → LangChain 消息 → 纯文本。
 
-        mapping = {"system": SystemMessage, "user": HumanMessage, "assistant": AIMessage}
-        payload = [
-            mapping[item["role"]](content=item["content"])
-            for item in messages if item.get("role") in mapping and item.get("content")
-        ]
+        这是全链路唯一的模型出口。温度、输出上限与思考开关都在这里 bind，
+        调用方不必各自记住这些参数。
+        """
         options: dict = {"temperature": temperature}
         if max_tokens is not None:
             options["max_tokens"] = max_tokens
         extra = thinking_control(self.base_url)
         if extra:
             options["extra_body"] = extra
-        result = self._build_client().bind(**options).invoke(payload)
-        content = getattr(result, "content", "")
-        if isinstance(content, list):  # 部分实现返回分片列表
-            content = "".join(
-                part.get("text", "") if isinstance(part, dict) else str(part)
-                for part in content
-            )
-        return (content or "").strip()
+        payload = to_messages(messages)
+        try:
+            result = self._build_client().bind(**options).invoke(payload)
+        except Exception as exc:  # noqa: BLE001 - 统一转成可读的 LLMUnavailable
+            raise LLMUnavailable(
+                describe_llm_error(exc, self.base_url, from_user_config=True)
+            ) from exc
+        return normalize_text(result)
 
     def chat_with_gpt(
         self,
@@ -186,6 +134,10 @@ class LLMClient:
         system / temperature: 供校验智能体使用。校验与重写需要独立的系统提示词
         （"你是校对员"而不是"你是医学助手"）和接近 0 的温度，否则同一个角色
         既写又判，等于自证清白。
+
+        历史语义保留：reset=False 时把本轮问答追加进 self.messages。模型故障时
+        返回以 `Error:` 开头的字符串（问答链路据此降级），报告链路请改用
+        `complete()` 让异常传出去。
         """
         try:
             sys_prompt = self.system_prompt if not system else {"role": "system", "content": system}

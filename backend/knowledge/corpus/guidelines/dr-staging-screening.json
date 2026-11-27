@@ -1,35 +1,99 @@
 {
   "schema_version": 1,
   "concepts": {
-    "dr_staging": {"label": "糖尿病视网膜病变分期", "aliases": ["糖网分期", "NPDR", "PDR", "DR staging"]},
-    "dme_center": {"label": "中心受累黄斑水肿", "aliases": ["中心受累", "中心型黄斑水肿", "center-involved DME", "CI-DME"]},
-    "vitrectomy": {"label": "玻璃体切除术", "aliases": ["玻璃体切除", "玻璃体切割", "vitrectomy"]},
-    "tractional_rd": {"label": "牵拉性视网膜脱离", "aliases": ["牵拉性视网膜脱离", "TRD", "tractional retinal detachment"]},
-    "dr_screening_interval": {"label": "糖网筛查间隔", "aliases": ["筛查间隔", "糖网筛查", "DR screening interval"]}
+    "dr_staging": {
+      "label": "糖尿病视网膜病变分期",
+      "aliases": [
+        "糖网分期",
+        "NPDR",
+        "PDR",
+        "DR staging"
+      ]
+    },
+    "dme_center": {
+      "label": "中心受累黄斑水肿",
+      "aliases": [
+        "中心受累",
+        "中心型黄斑水肿",
+        "center-involved DME",
+        "CI-DME"
+      ]
+    },
+    "vitrectomy": {
+      "label": "玻璃体切除术",
+      "aliases": [
+        "玻璃体切除",
+        "玻璃体切割",
+        "vitrectomy"
+      ]
+    },
+    "tractional_rd": {
+      "label": "牵拉性视网膜脱离",
+      "aliases": [
+        "牵拉性视网膜脱离",
+        "TRD",
+        "tractional retinal detachment"
+      ]
+    },
+    "dr_screening_interval": {
+      "label": "糖网筛查间隔",
+      "aliases": [
+        "筛查间隔",
+        "糖网筛查",
+        "DR screening interval"
+      ]
+    }
   },
   "relations": [
-    ["dr_staging", "分级属于", "dr"],
-    ["dme_center", "治疗选择", "anti_vegf"],
-    ["pdr", "并发症", "tractional_rd"]
+    [
+      "dr_staging",
+      "分级属于",
+      "dr"
+    ],
+    [
+      "dme_center",
+      "治疗选择",
+      "anti_vegf"
+    ],
+    [
+      "pdr",
+      "并发症",
+      "tractional_rd"
+    ]
   ],
   "sources": {
     "cn-dr-stage-2022": {
       "title": "我国糖尿病视网膜病变临床诊疗指南（2022年）分期与筛查章节条款摘要",
       "jurisdiction": "CN",
       "version": "2022 年版，本文件为章节摘要，临床专家复核状态为待复核",
-      "url": "https://www.gzzoc.org.cn/node/13780"
+      "url": "https://www.gzzoc.org.cn/node/13780",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "diabetic_retinopathy"
+      ]
     },
     "aao-dr-2020": {
       "title": "AAO 糖尿病视网膜病变指南（PPP）分级与处理条款摘要",
       "jurisdiction": "US",
       "version": "2020 年版摘要，临床专家复核状态为待复核",
-      "url": "https://www.aao.org/preferred-practice-pattern/diabetic-retinopathy-ppp"
+      "url": "https://www.aao.org/preferred-practice-pattern/diabetic-retinopathy-ppp",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "diabetic_retinopathy"
+      ]
     },
     "nice-ng242-schedule": {
       "title": "NICE NG242 糖尿病视网膜病变管理和监测，随访安排条款摘要",
       "jurisdiction": "UK",
       "version": "2024-08-13，本文件为章节摘要，临床专家复核状态为待复核",
-      "url": "https://www.nice.org.uk/guidance/ng242/chapter/Recommendations"
+      "url": "https://www.nice.org.uk/guidance/ng242/chapter/Recommendations",
+      "material_type": "guideline",
+      "review_status": "pending",
+      "disease": [
+        "diabetic_retinopathy"
+      ]
     }
   },
   "evidence": [
@@ -38,7 +102,11 @@
       "source": "cn-dr-stage-2022",
       "section": "糖尿病视网膜病变分期",
       "scope": "中国糖尿病视网膜病变的临床分期",
-      "anchors": ["dr_staging", "npdr", "pdr"],
+      "anchors": [
+        "dr_staging",
+        "npdr",
+        "pdr"
+      ],
       "text": "糖尿病视网膜病变按是否存在视网膜新生血管分为非增殖期与增殖期。非增殖期依据微血管瘤、点状出血、硬性渗出、棉絮斑与静脉改变的范围进一步分级；增殖期以新生血管、玻璃体积血或牵拉性视网膜脱离为标志。分期需在有充分可判读范围的眼底检查基础上进行。"
     },
     {
@@ -46,7 +114,10 @@
       "source": "cn-dr-stage-2022",
       "section": "筛查与起病评估",
       "scope": "中国糖尿病患者的眼底筛查起始时间",
-      "anchors": ["dr_screening", "dr_screening_interval"],
+      "anchors": [
+        "dr_screening",
+        "dr_screening_interval"
+      ],
       "text": "1 型糖尿病患者在起病约 5 年后开始首次眼底筛查，2 型糖尿病患者在确诊时即应接受首次筛查。妊娠可加速糖尿病视网膜病变进展，孕前或孕早期应完成眼底评估。"
     },
     {
@@ -54,7 +125,10 @@
       "source": "cn-dr-stage-2022",
       "section": "筛查间隔",
       "scope": "中国无或轻度糖尿病视网膜病变患者的复查间隔",
-      "anchors": ["dr_screening_interval", "dr_followup"],
+      "anchors": [
+        "dr_screening_interval",
+        "dr_followup"
+      ],
       "text": "无视网膜病变且血糖控制良好者，可每 1 至 2 年筛查一次。已出现轻度非增殖期病变者建议每年复查。合并中重度非增殖期或增殖期病变者需缩短至 3 至 6 个月并由眼底专科评估。"
     },
     {
@@ -62,7 +136,10 @@
       "source": "cn-dr-stage-2022",
       "section": "妊娠期管理",
       "scope": "中国合并糖尿病的妊娠患者",
-      "anchors": ["dr_followup", "dr_screening"],
+      "anchors": [
+        "dr_followup",
+        "dr_screening"
+      ],
       "text": "妊娠可加速糖尿病视网膜病变进展，孕期应增加随访频率。既往无病变者可在孕早期评估后按孕期进程复查；已有病变者需缩短间隔。妊娠并非抗 VEGF 治疗的常规时机，具体方案需由眼科与产科共同评估。"
     },
     {
@@ -70,7 +147,10 @@
       "source": "cn-dr-stage-2022",
       "section": "牵拉性视网膜脱离与手术",
       "scope": "中国增殖期糖尿病视网膜病变的手术判断",
-      "anchors": ["tractional_rd", "vitrectomy"],
+      "anchors": [
+        "tractional_rd",
+        "vitrectomy"
+      ],
       "text": "累及黄斑的牵拉性视网膜脱离、持续不吸收的玻璃体积血或伴纤维血管膜牵拉的进行性病变，应考虑玻璃体切除术。术前需评估病变活动性与全身状况，术后仍需长期随访新生血管与再出血风险。"
     },
     {
@@ -78,7 +158,10 @@
       "source": "aao-dr-2020",
       "section": "Severity scale",
       "scope": "美国糖尿病视网膜病变严重程度分级",
-      "anchors": ["dr_staging", "microaneurysm"],
+      "anchors": [
+        "dr_staging",
+        "microaneurysm"
+      ],
       "text": "国际临床分级将糖尿病视网膜病变分为无明确病变、轻度、中度、重度非增殖期与增殖期。轻度对应仅见微血管瘤；中度对应重于轻度但不足重度；重度对应四个象限中任一符合 4-2-1 规则的表现；增殖期对应新生血管或玻璃体积血。"
     },
     {
@@ -86,7 +169,11 @@
       "source": "aao-dr-2020",
       "section": "Severe NPDR / 4-2-1 rule",
       "scope": "美国重度非增殖期糖尿病视网膜病变的判定",
-      "anchors": ["dr_staging", "npdr", "prp"],
+      "anchors": [
+        "dr_staging",
+        "npdr",
+        "prp"
+      ],
       "text": "4-2-1 规则指任一象限超过 20 处视网膜内出血、至少两个象限出现静脉串珠样改变、至少一个象限出现视网膜内微血管异常。符合即属于重度非增殖期，应评估全视网膜光凝指征并转诊眼底专科。"
     },
     {
@@ -94,7 +181,10 @@
       "source": "aao-dr-2020",
       "section": "Diabetic macular edema",
       "scope": "美国糖尿病黄斑水肿的判定",
-      "anchors": ["dme_center", "oct"],
+      "anchors": [
+        "dme_center",
+        "oct"
+      ],
       "text": "糖尿病黄斑水肿指视网膜增厚或硬性渗出累及黄斑中心区。是否累及中心需依靠 OCT 判定，单纯眼底照相的硬性渗出不能确定中心受累。中心受累与否直接决定治疗选择。"
     },
     {
@@ -102,7 +192,10 @@
       "source": "aao-dr-2020",
       "section": "Risk factor control",
       "scope": "美国糖尿病视网膜病变的全身危险因素管理",
-      "anchors": ["dr", "dr_followup"],
+      "anchors": [
+        "dr",
+        "dr_followup"
+      ],
       "text": "血糖、血压与血脂控制是延缓糖尿病视网膜病变进展的基础。糖化血红蛋白下降可减少病变进展与需干预风险，但血糖快速下降初期可能短暂加重视网膜病变表现，随访中需注意。"
     },
     {
@@ -110,7 +203,10 @@
       "source": "nice-ng242-schedule",
       "section": "监测终止与转回",
       "scope": "英国糖尿病眼病筛查项目内的监测调整",
-      "anchors": ["dr_screening_interval", "dr_followup"],
+      "anchors": [
+        "dr_screening_interval",
+        "dr_followup"
+      ],
       "text": "连续多次筛查无视网膜病变且血糖控制达标者，可延长筛查间隔或退出常规密集随访。已接受治疗或存在持续病变者不应延长间隔，需按专科意见安排。"
     }
   ]

@@ -44,10 +44,57 @@ REPORT_TOPICS: dict[str, tuple[tuple[str, str], ...]] = {
 }
 
 
+# 按问题主题组织的检索词。旧流程用 REPORT_TOPICS 固定覆盖四个方面；
+# 新流程由检索规划 Agent 决定本病例需要哪些主题，这里只是每个主题的主题词，
+# 不预设任何病例必须检索全部主题。
+TOPIC_QUERIES: dict[str, dict[str, str]] = {
+    "glaucoma": {
+        "diagnosis": "开角型青光眼 诊断 房角 眼压 杯盘比 视神经 危险因素",
+        "interpretation": "视野缺损 弓形暗点 鼻侧阶梯 神经纤维层变薄 RNFL 判读 进展",
+        "examination": "眼压测量 房角镜检查 视野检查 视神经成像 OCT 检查目的 复查条件",
+        "differential": "鉴别诊断 高眼压症 生理性大视杯 其他视神经病变 视野缺损鉴别",
+        "treatment": "目标眼压 降眼压 前列腺素 激光 手术 治疗选择 转诊",
+        "followup": "随访间隔 复查眼压 视野复查 进展 依从性 目标眼压",
+        "education": "患者教育 依从性 自我管理 用药 症状变化 求助",
+    },
+    "diabetic_retinopathy": {
+        "diagnosis": "糖尿病视网膜病变 诊断 分级 分期 非增殖 增殖 转诊指征",
+        "interpretation": "黄斑水肿 OCT 硬性渗出 中心受累 判读",
+        "examination": "眼底照相 散瞳 筛查 OCT 检查目的 复查条件",
+        "differential": "鉴别诊断 高血压视网膜病变 视网膜静脉阻塞 黄斑水肿鉴别",
+        "treatment": "抗VEGF 全视网膜光凝 激光 转诊 治疗条件",
+        "followup": "随访间隔 复查 筛查 妊娠 进展",
+        "education": "患者教育 血糖 控制 自我管理 定期检查 症状变化",
+    },
+    "age_related_macular_degeneration": {
+        "diagnosis": "年龄相关性黄斑变性 诊断 干性 湿性 玻璃膜疣 分型",
+        "interpretation": "玻璃膜疣 地图样萎缩 视物变形 脉络膜新生血管 OCT 判读",
+        "examination": "OCT 眼底照相 视力 阿姆斯勒 Amsler 检查目的",
+        "differential": "鉴别诊断 近视性黄斑病变 黄斑水肿 视网膜前膜",
+        "treatment": "抗VEGF 叶黄素 营养补充 AREDS 治疗条件 转诊",
+        "followup": "随访 复查 自我监测 阿姆斯勒 OCT 复查间隔",
+        "education": "患者教育 自我监测 阿姆斯勒 戒烟 营养 求助",
+    },
+}
+
+
 def report_topics(disease: str) -> tuple[str, ...]:
-    """该病种报告必须检索的方面；未登记的病种退化为单一整句检索。"""
+    """旧流程固定覆盖的四个方面；未登记的病种退化为单一整句检索。"""
     topics = REPORT_TOPICS.get(disease)
     return tuple(query for _, query in topics) if topics else ()
+
+
+def topic_query(disease: str, topic: str) -> str:
+    """该病种某主题的检索词。
+
+    新主题未登记时回退到旧流程的四个方面，再回退到病种整体检索词——
+    宁可退化为旧行为，也不要让未登记主题变成空查询。
+    """
+    query = TOPIC_QUERIES.get(disease, {}).get(topic, "")
+    if query:
+        return query
+    legacy = dict(REPORT_TOPICS.get(disease, ()))
+    return legacy.get(topic) or DISEASE_FOCUS.get(disease, disease)
 
 # 来源级病种归属。条款只属于其来源登记的检索病种，防止把妊娠期糖网、白内障
 # 或筛查类条款塞进青光眼报告。未登记的来源视为通用条款，不受限制；

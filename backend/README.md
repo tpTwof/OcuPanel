@@ -43,20 +43,23 @@ flowchart TD
   Chat[modules/chat/router.py] --> CS[chat/service.py：形态与上下文]
   CS --> L[LLMClient] --> Reply[聊天回复]
   R[modules/report/router.py：multipart 绑定] --> RS[report/service.py：校验、任务目录与留痕]
-  RS --> G[report/generation.py]
+  RS --> G[report/generation.py：REPORT_PIPELINE 选择流程]
   G --> V[vision.analyze_fundus：EyeAnalysis]
-  V --> C[report/context.py：病例事实]
-  C --> K[knowledge：按病种检索，去重并编号]
+  V --> C[report/case_facts.py：按来源整理病例事实、缺失与冲突]
+  C --> P[agent/planner.py：结构化检索计划]
+  P --> K[knowledge/question_retrieval.py：按问题检索、覆盖判断、一次补检]
   K --> Gd{按证据和病种数选择撰稿路径}
-  Gd -->|开启校验且完全缺证| Result
+  Gd -->|未请求检索 / 无可用证据| Result
   Gd -->|进入撰稿| S[按病种分析，使用各自证据]
   S -->|多病种| D[Director 综合]
   S -->|单病种| Q
   D --> Q[Verifier：核查、修订、复核]
-  Q --> Result[ReportResult：正文或拒答、校验、CDR、叠加图、证据]
+  Q --> Result[ReportResult：正文或受限摘要/拒答、校验、CDR、叠加图、证据]
   Result --> RS
   RS --> Output[JSON / PDF 响应]
 ```
+
+`REPORT_PIPELINE=v2`（默认）先整理病例事实并规划检索问题，再由代码校验计划字段、按问题检索并最多补检一次；`legacy` 保留逐病种固定四主题检索，用于新旧对比与回退。两条路径共用影像分析、专科撰稿、Director 综合、Verifier 核查与交付状态语义。
 
 普通聊天和眼科追问通过聊天服务处理。眼科问答使用 `chat/prompts.py` 的系统指令，并按配置检索和校验引用。报告角色由所选病种决定，定义在 `modules/agent/roles.py`。
 
@@ -115,19 +118,23 @@ Verifier 对外部知识核查引用语义，代码另行检测未知编号，�
 | `LLM_TIMEOUT` / `LLM_MAX_RETRIES` | `120` / `1` | 单次调用超时秒数与 SDK 重试 |
 | `LLM_DISABLE_THINKING` | `1` | 只对匹配 DeepSeek 的端点发送关闭 thinking 参数 |
 | `REPORT_LANGUAGE` / `REPORT_FONT_PATH` | `zh` / 自动探测 | 报告语言与 PDF 中文字体 |
+| `REPORT_PIPELINE` | `v2` | `v2` 按需检索；`legacy` 保留旧流程用于对比和回退 |
+| `RETRIEVAL_PLAN_MAX_QUESTIONS` / `RETRIEVAL_MAX_QUERIES` | `6` / `10` | 单份报告的检索问题数与查询总数上限 |
+| `RETRIEVAL_MAX_SECONDS` / `RETRIEVAL_MAX_EVIDENCE` | `20` / `12` | 检索耗时与证据条数上限 |
+| `RETRIEVAL_SUPPLEMENTAL_ROUNDS` | `1` | 缺口补检轮数，0 表示不补检 |
 | `CHAT_HISTORY_MAX_MESSAGES` | `20` | 历史消息条数，固定报告计入 |
 | `CHAT_CONTEXT_MAX_CHARS` | `20000` | 系统指令、当前输入和选中历史的正文字符预算 |
 | `CHAT_REPORT_MAX_CHARS` | `6000` | 眼科形态最近报告上限，同时受剩余预算一半限制 |
 | `CHAT_MAX_OUTPUT_TOKENS` | `2048` | 聊天回复上限，不影响报告 Agents |
 | `RAG_ENABLED` / `RAG_MODE` | `1` / `hybrid` | 证据检索开关与模式 |
-| `RAG_TOP_K` / `RAG_MIN_SCORE` | `12` / `0.35` | 每病种证据条数与相对得分阈值；报告按诊断、判读、治疗、随访四方面分别检索再合并 |
+| `RAG_TOP_K` / `RAG_MIN_SCORE` | `12` / `0.35` | 每病种证据条数与相对得分阈值；`legacy` 流程按诊断、判读、治疗、随访四方面分别检索再合并 |
 | `RAG_VECTOR_MODEL` / `RAG_VECTOR_MIN_SCORE` | `intfloat/multilingual-e5-small` / `0.78` | 向量模型与绝对阈值 |
 | `RAG_VECTOR_REVISION` | `main` | 模型版本，可固定为提交哈希 |
 | `RAG_VECTOR_CACHE_PATH` | `knowledge/.cache/vectors.db`（相对 backend 的默认绝对路径） | 本地 SQLite 向量缓存，空字符串禁用 |
 | `RAG_RRF_K` | `60` | 排名融合常数 |
 | `RAG_LANG_QUOTA` / `RAG_LANG_GATE` | `1` / `0.89` | 语言配额与查询门控 |
 | `RAG_MAX_PER_SOURCE` | `2` | 每源条数，0 不限 |
-| `VERIFY_ENABLED` | `1` | LLM 引用语义核查 |
+| `VERIFY_ENABLED` | `1` | LLM 引用语义核查；确定性检查（未知编号、编造数值、左右眼错位、病种不适用）始终执行 |
 | `VERIFY_MAX_ROUNDS` / `VERIFY_MIN_CHARS` | `2` / `300` | 修订轮数与有问题短稿的重生成判据 |
 | `HF_ENDPOINT` / `HF_HOME` / `HF_HUB_CACHE` | 默认 Hugging Face 源 / 用户缓存 | 下载源、Hugging Face 缓存根目录及 Hub 模型缓存目录 |
 | `CORS_ORIGINS` | localhost 和 127.0.0.1 的 5500 | 跨域白名单，同源访问不依赖它 |
@@ -140,7 +147,7 @@ Verifier 对外部知识核查引用语义，代码另行检测未知编号，�
 
 `RAG_ENABLED` 控制报告和眼科问答是否查知识库。`GRAPH_RAG_ENABLED` 决定报告和眼科问答的默认图谱设置，用户可在当前会话的「+」菜单中切换问答图谱检索。关闭图检索时，眼科问答仍可使用 `RAG_MODE` 指定的词面或向量检索。眼科聊天保存本轮 `retrieval`、`verification` 和命中的 `evidence`，可在页面看到图谱命中、文本命中、无证据或图谱加载失败。点击正文中的引用编号可打开对应证据。开启 `VERIFY_ENABLED` 时，眼科聊天也会核查具体建议的引用，校验失败时显示补充信息提示。自动核查使用当前用户配置的 LLM，结果只反映系统已执行的引用校验。
 
-基础条款由 [ophthalmology-graph.json](knowledge/corpus/ophthalmology-graph.json) 和独立指南 `knowledge/corpus/guidelines/*.json` 提供，两种图谱设置共用同一语料集合。新增指南填写稳定 ID、标题、章节、版本、适用范围、地区和原文链接，即可进入 BM25 和启用的 E5 索引。概念、别名、定向关系和锚点可选，填写后可额外参与图谱召回。现有 `POST /api/generate-report-content/` 和眼科模式的 `POST /api/chat/conversations/{id}/messages` 通过 `evidence` 返回出处字段；图检索命中还包含 `graph_path`。图谱加载失败时保留基础条款。格式和缓存生命周期见 [知识检索](knowledge/README.md)。
+基础条款由 [ophthalmology-graph.json](knowledge/corpus/ophthalmology-graph.json) 和独立指南 `knowledge/corpus/guidelines/*.json` 提供，两种图谱设置共用同一语料集合。新增指南填写稳定 ID、标题、章节、版本、适用范围、地区和原文链接，并建议登记条款级 `topic`、`material_type`、`review_status` 与 `applicability`，即可进入 BM25 和启用的 E5 索引。概念、别名、定向关系和锚点可选，填写后可额外参与图谱召回。现有 `POST /api/generate-report-content/` 和眼科模式的 `POST /api/chat/conversations/{id}/messages` 通过 `evidence` 返回出处字段；图检索命中还包含 `graph_path`。图谱加载失败时保留基础条款。格式和缓存生命周期见 [知识检索](knowledge/README.md)，覆盖缺口见[语料覆盖矩阵](../docs/语料覆盖矩阵.md)。
 
 加载带出处的条款后，旧青光眼演示材料退出检索；存在 NEI AMD 条款时，旧 Markdown 摘要由该条款替代。该规则同时适用于图谱开启和关闭。图谱包含 AMD 症状评估与在英国疑似活动性湿性晚期 AMD 时适用的转诊、OCT 和血管造影条款。 [NICE NG82](https://www.nice.org.uk/guidance/ng82/chapter/recommendations#diagnosis-and-referral) · [NEI AMD 资料](https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/age-related-macular-degeneration)
 

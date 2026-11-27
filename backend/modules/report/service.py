@@ -15,10 +15,11 @@ from modules.vision.models import FundusImageDecodeError, FundusImageUnusable
 from modules.vision.diseases.retinal import RetinalModelUnavailable
 
 from core.exceptions import ApplicationError
+from core.llm.gateway import LLMUnavailable
 from PIL import Image
 from starlette.concurrency import run_in_threadpool
 
-from core import storage
+from core import config, storage
 from core.paths import IMG_STORE_DIR
 from modules.report.generation import MedicalReportGenerator, build_generator_for_user
 from modules.report.context import format_visual_findings
@@ -51,16 +52,31 @@ async def _run_report_pipeline(
     job_dir: Path,
     diseases: tuple[str, ...] = DEFAULT_DISEASES,
     on_stage: Callable[[str], None] | None = None,
+    *,
+    laterality: str | None = None,
+    captured_at: str | None = None,
+    device: str = "",
+    synthetic: bool = False,
+    filename: str = "",
 ) -> ReportResult:
-    """运行所选病种的影像分析、专科报告、综合和引用校验。
+    """运行所选病种的影像分析、报告生成和引用校验。
 
+    流程由 `REPORT_PIPELINE` 选择：v2 先整理病例事实、规划检索问题；legacy 是
+    逐病种固定主题检索。两条路径共用同一套核查与交付状态语义。
     未通过的诊疗草稿不能当成功返回；limited 只保留病例输入，不能导出诊断 PDF。
     on_stage 只上报进度阶段，不影响判断逻辑。
     """
+    pipeline = config.REPORT_PIPELINE
+    runner = generator.generate_v2 if pipeline == "v2" else generator.generate
+    options: dict[str, Any] = {"diseases": diseases, "on_stage": on_stage}
+    if pipeline == "v2":
+        options.update(
+            laterality=laterality, captured_at=captured_at, device=device,
+            synthetic=synthetic, filename=filename,
+        )
     try:
         return await run_in_threadpool(
-            generator.generate, io.BytesIO(contents), note, job_dir,
-            diseases=diseases, on_stage=on_stage,
+            runner, io.BytesIO(contents), note, job_dir, **options,
         )
     except FundusImageDecodeError as exc:
         raise ApplicationError(status_code=400, detail="图片无法解析，请换一张") from exc
@@ -71,6 +87,14 @@ async def _run_report_pipeline(
             status_code=503,
             detail="糖网与黄斑变性影像模型暂不可用。请检查 FLAIR 依赖和模型权重，或选择青光眼分析。",
         ) from exc
+    except LLMUnavailable as exc:
+        # 模型端点不可用（Key/余额/模型名/超时）是用户能自己修的问题，
+        # 必须原样告诉他，不能落进队列的兜底文案「请联系管理员」。
+        raise ApplicationError(status_code=503, detail=f"模型服务不可用：{exc}") from exc
+    except (RuntimeError, ValueError) as exc:
+        # 撰稿/综合阶段：模型返回 Error 串、返回不合约定的结构化响应等。
+        # 这些异常原本会漏成队列兜底，现在带上原因显示。
+        raise ApplicationError(status_code=502, detail=f"报告生成中断：{exc}") from exc
 
 
 def _validate_upload(request: ReportSubmission) -> None:
@@ -169,6 +193,11 @@ async def _generate_and_store(
         result = await _run_report_pipeline(
             generator, request.image_bytes, request.note, job_dir, request.diseases,
             on_stage=on_stage,
+            laterality=request.laterality,
+            captured_at=request.captured_at.isoformat() if request.captured_at else None,
+            device=request.device,
+            synthetic=request.synthetic,
+            filename=request.filename,
         )
         return await run_in_threadpool(_archive_result, user["id"], request, result, append_to_chat, report_id)
     finally:

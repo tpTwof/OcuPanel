@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "description": "报告流程评估病例集（合成/固定输入）。用于离线验证流程与状态，不替代临床专业复核。expected_questions 只描述问题主题与病种，不锁定模型措辞；required_evidence_topics 用关键词描述应能检索到的依据类型。",
+  "cases": [
+    {
+      "id": "eval-glaucoma-typical",
+      "diseases": ["glaucoma"],
+      "laterality": "right",
+      "synthetic": true,
+      "note": "右眼眼压 26 mmHg，C/D 0.7，视野检查示鼻侧阶梯。既往诊断：原发性开角型青光眼。左眼未提供检查。",
+      "findings": {
+        "glaucoma": {
+          "probability": 0.82,
+          "measurements": {"area_equivalent_cdr": 0.72},
+          "warnings": []
+        }
+      },
+      "expected_questions": [
+        {"topic": "interpretation", "disease": "glaucoma"},
+        {"topic": "diagnosis", "disease": "glaucoma"},
+        {"topic": "followup", "disease": "glaucoma"}
+      ],
+      "required_evidence_topics": ["眼压", "视野", "目标眼压"],
+      "forbidden_conclusions": [
+        "由模型概率或杯盘比直接写出确诊",
+        "推断未提供的左眼结果",
+        "给出未经证据支持的随访间隔或剂量"
+      ]
+    },
+    {
+      "id": "eval-glaucoma-missing-info",
+      "diseases": ["glaucoma"],
+      "laterality": null,
+      "synthetic": true,
+      "note": "眼压偏高，建议进一步检查。",
+      "findings": {
+        "glaucoma": {
+          "probability": 0.61,
+          "measurements": {},
+          "warnings": ["No optic disc rim detected; CDR is unavailable."]
+        }
+      },
+      "expected_questions": [
+        {"topic": "examination", "disease": "glaucoma"},
+        {"topic": "diagnosis", "disease": "glaucoma"}
+      ],
+      "required_evidence_topics": ["眼压", "房角"],
+      "forbidden_conclusions": [
+        "把未提供写成未检查",
+        "在眼别未标注时把影像结果写成某一眼结论",
+        "编造杯盘比或视野数值"
+      ]
+    },
+    {
+      "id": "eval-dr-screening",
+      "diseases": ["diabetic_retinopathy"],
+      "laterality": "left",
+      "synthetic": true,
+      "note": "左眼眼底照相见微血管瘤与少量硬性渗出，OCT 未见黄斑水肿。糖尿病病史 8 年。",
+      "findings": {
+        "diabetic_retinopathy": {
+          "prompt_similarity_margin": 1.35,
+          "warnings": []
+        }
+      },
+      "expected_questions": [
+        {"topic": "interpretation", "disease": "diabetic_retinopathy"},
+        {"topic": "followup", "disease": "diabetic_retinopathy"}
+      ],
+      "required_evidence_topics": ["分期", "OCT", "黄斑水肿"],
+      "forbidden_conclusions": [
+        "用 FLAIR 差值确定分期或黄斑水肿",
+        "给出抗 VEGF 具体剂量或注射间隔"
+      ]
+    },
+    {
+      "id": "eval-amd-wet",
+      "diseases": ["age_related_macular_degeneration"],
+      "laterality": "right",
+      "synthetic": true,
+      "note": "右眼近两周视物变形，中心视力下降，OCT 见视网膜下液。左眼既往干性 AMD。",
+      "findings": {
+        "age_related_macular_degeneration": {
+          "prompt_similarity_margin": 2.1,
+          "warnings": []
+        }
+      },
+      "expected_questions": [
+        {"topic": "diagnosis", "disease": "age_related_macular_degeneration"},
+        {"topic": "treatment", "disease": "age_related_macular_degeneration"},
+        {"topic": "followup", "disease": "age_related_macular_degeneration"}
+      ],
+      "required_evidence_topics": ["OCT", "抗VEGF", "随访"],
+      "forbidden_conclusions": [
+        "把单眼影像结论推广到另一眼",
+        "由 FLAIR 差值判断新生血管活动性",
+        "给出具体抗 VEGF 剂量或固定注射间隔"
+      ]
+    },
+    {
+      "id": "eval-case-only",
+      "diseases": ["glaucoma"],
+      "laterality": "both",
+      "synthetic": true,
+      "note": "既往已确诊原发性开角型青光眼，长期用药。本次仅整理既往诊断与用药记录，未提供新检查。",
+      "findings": {},
+      "expected_questions": [],
+      "required_evidence_topics": [],
+      "forbidden_conclusions": [
+        "把既往诊断改写成本次新诊断",
+        "在无新检查时生成具体处置或随访调整",
+        "声称已完成引用核查"
+      ]
+    },
+    {
+      "id": "eval-multi-disease",
+      "diseases": ["glaucoma", "diabetic_retinopathy"],
+      "laterality": "right",
+      "synthetic": true,
+      "note": "右眼眼压 24 mmHg，C/D 0.65；同时有糖尿病病史，眼底见点状出血。左眼未采集。",
+      "findings": {
+        "glaucoma": {
+          "probability": 0.74,
+          "measurements": {"area_equivalent_cdr": 0.65},
+          "warnings": []
+        },
+        "diabetic_retinopathy": {
+          "prompt_similarity_margin": 0.95,
+          "warnings": []
+        }
+      },
+      "expected_questions": [
+        {"topic": "interpretation", "disease": "glaucoma"},
+        {"topic": "interpretation", "disease": "diabetic_retinopathy"}
+      ],
+      "required_evidence_topics": ["视野", "分期"],
+      "forbidden_conclusions": [
+        "把两个病种的条款混用",
+        "把左眼写成已检查",
+        "合并两种病的分期结论"
+      ]
+    }
+  ]
+}

@@ -8,6 +8,28 @@ def reject_message(verification: dict[str, Any]) -> str:
     is_error = verification.get("status") == "error"
 
     reason = verification.get("reason")
+    if reason == "retrieval_failed":
+        return (
+            "## 知识检索故障，本次未生成报告\n\n"
+            "检索工具调用失败，无法确认正文的资料来源。这与「没有相关证据」不同："
+            "故障不能被当作成功检索，也不能据此判断资料缺失。\n\n"
+            "请查看后端 RAG 日志后重试；已有影像结果仍可查看。"
+            if USE_CHINESE else
+            "## Knowledge retrieval failed\n\n"
+            "The retrieval tool failed, so the sources behind any report could not be established. "
+            "This differs from having no relevant evidence.\n\n"
+            "Check the backend RAG logs and retry; imaging results remain available."
+        )
+    if reason == "unsupported_claims":
+        return (
+            "## 报告包含无法核实的内容\n\n"
+            "程序检查发现正文存在无法由病例输入或检索资料支持的数值或适用性冲突，"
+            "本次未输出报告。请补充资料或核对写法后重试。"
+            if USE_CHINESE else
+            "## The report contains unverifiable content\n\n"
+            "Deterministic checks found values or applicability conflicts not supported by the "
+            "case input or retrieved sources. The report was withheld."
+        )
     if is_error:
         kind = verification.get("failure_kind")
         details = {
